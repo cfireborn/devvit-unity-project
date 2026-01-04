@@ -22,3 +22,17 @@ Here are the steps to export this project for the configured Devvit Unity Starte
       - `exportName.framework.js`
 
 5. Run `npm run dev` in your Devvit project to update the Unity app running within Reddit.
+
+## Automated Devvit export (macOS)
+You can run the entire double-build pipeline from the terminal with the included helper script:
+
+```bash
+./tools/export_devvit.sh \
+  --output ../devvit-unity-starter/src/client/Public/Build \
+  --name DevvitWebGL
+```
+
+- The script calls Unity in batch mode, sets **Decompression Fallback**, performs the GZip and Disabled builds, and copies the resulting `.data.unityweb`, `.wasm.unityweb`, and `.framework.js` files into the destination folder you specify.
+- If Unity is installed in a non-default location, pass `--unity /path/to/Unity.app/Contents/MacOS/Unity` (or set the `UNITY_PATH` environment variable) when running the script.
+- The `--name` argument controls the base filename for the copied artifacts; omit it to reuse the Unity `Product Name`.
+- The script creates a local `DevvitExports` folder by default, so you can point it at any Devvit Starter Template folder or keep local artifacts for manual copying.
