@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using static UnityEditor.PlayerSettings.WebGL;
 
 namespace Devvit.Editor
 {
