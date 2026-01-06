@@ -1,4 +1,3 @@
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -17,7 +16,7 @@ public class PlayerController : MonoBehaviour
     private Vector2 swipeStartPos;
     private bool isTracking = false;
     private int jumpCount = 0;
-    [SerializeField] public PlayerSettings settings;
+    [SerializeField] public PlayerSettingsM settings;
     [SerializeField] public GameState gameState;
 
     void Start()
