@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2371992020512352407
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 559509340474929923}
+  - component: {fileID: -4670278498999781767}
+  - component: {fileID: 4449832523319277437}
+  m_Layer: 0
+  m_Name: CloudManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &559509340474929923
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2371992020512352407}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &-4670278498999781767
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2371992020512352407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63bd85b5392842f4485c7474bcdc5308, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CloudManager
+  player: {fileID: 0}
+  cloudLadderController: {fileID: 4449832523319277437}
+  cloudPrefabs:
+  - {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
+  - {fileID: 4791846076617009745, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
+  spawnRadius: 20
+  despawnRadius: 25
+  maxClouds: 15
+  distanceThresholdForUpdate: 2
+  speedRange: {x: -2, y: 2}
+  scaleRange: {x: 0.8, y: 1.2}
+--- !u!114 &4449832523319277437
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2371992020512352407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4626611950cc360469bc1e4f3706beac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CloudLadderController
+  cloudManager: {fileID: -4670278498999781767}
+  ladderPrefab: {fileID: 3019872071370679936, guid: b9180fb7ba619684daa7abec4c39372c, type: 3}
+  maxDistance: 4
+  minVerticalGap: 0.5
+  maxVerticalGap: 8
+  maxLadders: 10

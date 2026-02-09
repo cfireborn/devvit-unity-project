@@ -1,0 +1,188 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// Spawns and despawns cloud platforms around the player. Uses distance threshold for updates
+/// so faster player movement triggers more frequent spawn/despawn checks.
+/// </summary>
+public class CloudManager : MonoBehaviour
+{
+    [Header("References")]
+    public Transform player;
+    public CloudLadderController cloudLadderController;
+    [Tooltip("Cloud prefabs to spawn from. Each should have CloudPlatform component.")]
+    public GameObject[] cloudPrefabs;
+
+    [Header("Spawn/Despawn")]
+    [Tooltip("Spawn clouds within this distance of the player.")]
+    public float spawnRadius = 20f;
+    [Tooltip("Despawn clouds beyond this distance from the player.")]
+    public float despawnRadius = 25f;
+    [Tooltip("Maximum number of active clouds.")]
+    public int maxClouds = 15;
+    [Tooltip("Only run spawn/despawn checks when player has moved at least this far.")]
+    public float distanceThresholdForUpdate = 2f;
+
+    [Header("Variation")]
+    public Vector2 speedRange = new Vector2(-2f, 2f);
+    public Vector2 scaleRange = new Vector2(0.8f, 1.2f);
+    [Tooltip("Max retries when spawn position is in blockSpawn zone.")]
+    public int maxSpawnRetries = 10;
+
+    readonly Queue<GameObject> _pool = new Queue<GameObject>();
+    readonly List<CloudNoSpawnZone> _blockSpawnZones = new List<CloudNoSpawnZone>();
+    readonly List<GameObject> _active = new List<GameObject>();
+    List<GameObject> _nonPooled = new List<GameObject>();
+    Vector3 _lastUpdatePosition;
+    Transform _poolParent;
+
+    void Start()
+    {
+        var gameServices = FindFirstObjectByType<GameServices>();
+        if (gameServices != null)
+        {
+            var p = gameServices.GetPlayer();
+            if (p != null) player = p.transform;
+            gameServices.onPlayerRegistered += OnPlayerRegistered;
+        }
+
+        if (player != null)
+            _lastUpdatePosition = player.position;
+
+        _poolParent = new GameObject("CloudPool").transform;
+        _poolParent.SetParent(transform);
+
+        CloudPlatform[] clouds = Object.FindObjectsByType<CloudPlatform>(FindObjectsSortMode.None);
+        foreach (CloudPlatform cloud in clouds)
+        {
+            if (!_nonPooled.Contains(cloud.gameObject))
+            {
+                _nonPooled.Add(cloud.gameObject);
+            }
+        }
+    }
+
+    void Update()
+    {
+        if (player == null || cloudPrefabs == null || cloudPrefabs.Length == 0) return;
+
+        float dist = Vector3.Distance(player.position, _lastUpdatePosition);
+        if (dist < distanceThresholdForUpdate) return;
+
+        _lastUpdatePosition = player.position;
+
+        for (int i = _active.Count - 1; i >= 0; i--)
+        {
+            var cloud = _active[i];
+            if (cloud == null) { _active.RemoveAt(i); continue; }
+            float d = Vector3.Distance(player.position, cloud.transform.position);
+            if (d > despawnRadius)
+            {
+                ReturnCloudToPool(cloud);
+            }
+        }
+
+        while (_active.Count < maxClouds)
+        {
+            SpawnCloud();
+        }
+    }
+
+    void OnDestroy()
+    {
+        var gameServices = FindFirstObjectByType<GameServices>();
+        if (gameServices != null)
+            gameServices.onPlayerRegistered -= OnPlayerRegistered;
+    }
+
+    void OnPlayerRegistered()
+    {
+        var gameServices = FindFirstObjectByType<GameServices>();
+        if (gameServices != null)
+        {
+            var p = gameServices.GetPlayer();
+            if (p != null) player = p.transform;
+        }
+    }
+
+    public void RegisterBlockSpawnZone(CloudNoSpawnZone zone)
+    {
+        if (zone != null && zone.blockSpawn && !_blockSpawnZones.Contains(zone))
+            _blockSpawnZones.Add(zone);
+    }
+
+    bool IsPositionInBlockSpawnZone(Vector2 pos)
+    {
+        foreach (var zone in _blockSpawnZones)
+        {
+            if (zone == null) continue;
+            var col = zone.GetComponent<Collider2D>();
+            if (col != null && col.OverlapPoint(pos))
+                return true;
+        }
+        return false;
+    }
+
+    public void ReturnCloudToPool(GameObject cloud)
+    {
+        _active.Remove(cloud);
+        cloud.SetActive(false);
+        cloud.transform.SetParent(_poolParent);
+        _pool.Enqueue(cloud);
+    }
+
+    void SpawnCloud()
+    {
+        var prefab = cloudPrefabs[Random.Range(0, cloudPrefabs.Length)];
+        if (prefab == null) return;
+
+        Vector2 spawnPos;
+        int retries = 0;
+        do
+        {
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float r = Random.Range(spawnRadius * 0.3f, spawnRadius);
+            Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * r;
+            spawnPos = (Vector2)player.position + offset;
+            if (!IsPositionInBlockSpawnZone(spawnPos))
+                break;
+            retries++;
+        }
+        while (retries < maxSpawnRetries);
+
+        if (retries >= maxSpawnRetries)
+            return;
+
+        GameObject cloud;
+        if (_pool.Count > 0)
+        {
+            cloud = _pool.Dequeue();
+            cloud.SetActive(true);
+        }
+        else
+        {
+            cloud = Instantiate(prefab, _poolParent);
+        }
+
+        cloud.transform.position = spawnPos;
+
+        float scale = Random.Range(scaleRange.x, scaleRange.y);
+        cloud.transform.localScale = new Vector3(scale, scale, scale);
+
+        var platform = cloud.GetComponent<CloudPlatform>();
+        if (platform == null)
+            platform = cloud.AddComponent<CloudPlatform>();
+
+        platform.SetCloudManager(this);
+        float speed = Random.Range(speedRange.x, speedRange.y);
+        platform.SetMovementSpeed(speed);
+
+        _active.Add(cloud);
+    }
+
+    /// <summary>Get all currently active clouds. Used by CloudLadderController.</summary>
+    public IReadOnlyList<GameObject> GetActiveClouds()
+    {
+        return _active;
+    }
+}

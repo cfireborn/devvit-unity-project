@@ -26,5 +26,5 @@ public class PlayerSettingsM : ScriptableObject
 	[Header("Ground Check")]
 	public Vector2 groundCheckOffset = new Vector2(0f, -0.6f);
 	public float groundCheckRadius = 0.15f;
-	public LayerMask groundLayer;
+	public string groundTag = "Platform";
 }

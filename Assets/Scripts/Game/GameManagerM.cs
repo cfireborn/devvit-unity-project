@@ -7,7 +7,9 @@ public class GameManagerM : MonoBehaviour
     public GameState gameState;
     [Tooltip("Either assign a PlayerController prefab or place a PlayerController in the scene (will use existing if prefab not set)")]
     public PlayerControllerM playerPrefab;
+    public CloudManager cloudManager;
     public Transform startPoint;
+    
     [Header("Goal Trigger (replace goalPoint)")]
     [Tooltip("Assign an InteractionTrigger used as the level goal. The GameManager will subscribe to its onInteract event.")]
     public InteractionTrigger goalTrigger;
@@ -16,10 +18,18 @@ public class GameManagerM : MonoBehaviour
     [Tooltip("InteractionTriggers that will reset the level when activated by the player.")]
     public InteractionTrigger[] resetTriggers;
 
+    [Header("Services")]
+    public GameServices gameServices;
+
     private PlayerControllerM playerInstance;
 
     void Start()
     {
+        if (gameServices == null) gameServices = FindFirstObjectByType<GameServices>();
+        if (gameServices == null) gameServices = gameObject.AddComponent<GameServices>();
+
+        if (cloudManager != null) gameServices.RegisterCloudManager(cloudManager);
+
         if (gameState != null)
         {
             if (startPoint != null) gameState.startPosition = startPoint.position;
@@ -46,7 +56,7 @@ public class GameManagerM : MonoBehaviour
         }
         else
         {
-            playerInstance = FindObjectOfType<PlayerControllerM>();
+            playerInstance = FindFirstObjectByType<PlayerControllerM>();
             if (playerInstance != null && startPoint != null)
             {
                 playerInstance.transform.position = startPoint.position;
@@ -57,12 +67,11 @@ public class GameManagerM : MonoBehaviour
         {
             if (playerSettings != null) playerInstance.settings = playerSettings;
             if (gameState != null) playerInstance.gameState = gameState;
-
+            gameServices?.RegisterPlayer(playerInstance);
             // If a goal trigger is present, subscribe to it so we can mark level complete and notify the player
             if (goalTrigger != null)
             {
                 goalTrigger.onInteract.AddListener(HandleGoalTriggered);
-                // Optionally notify the player for local feedback
                 playerInstance.OnGoalRegistered(goalTrigger.gameObject);
             }
         }
@@ -70,6 +79,12 @@ public class GameManagerM : MonoBehaviour
         {
             Debug.LogWarning("GameManager: No PlayerController found or prefab assigned. Player not spawned.");
         }
+    }
+
+    /// <summary>Call from ItemDeliveryTrigger.onDeliverySuccess to reset the level when delivery completes.</summary>
+    public void OnDeliveryComplete()
+    {
+        Debug.Log("GameManager: Delivery complete.");
     }
 
     void HandleGoalTriggered(GameObject source, Vector2 contactPoint)
@@ -119,7 +134,7 @@ public class GameManagerM : MonoBehaviour
         // respawn the player at the start point
         if (playerInstance == null)
         {
-            playerInstance = FindObjectOfType<PlayerControllerM>();
+            playerInstance = FindFirstObjectByType<PlayerControllerM>();
         }
 
         if (playerInstance != null)
@@ -153,4 +168,5 @@ public class GameManagerM : MonoBehaviour
             goalTrigger.onInteract.RemoveListener(HandleGoalTriggered);
         }
     }
+
 }

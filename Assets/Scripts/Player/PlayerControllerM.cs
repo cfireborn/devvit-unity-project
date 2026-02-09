@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,9 +8,20 @@ public class PlayerControllerM : MonoBehaviour
     [Header("Config")]
     public PlayerSettingsM settings;
     public GameState gameState;
+    public GroundChecker groundChecker;
+
+    [Header("Goals")]
+    [Tooltip("All active goals for this player.")]
+    private List<Goal> goals = new List<Goal>();
+    [Tooltip("The goal the direction indicator points to (e.g. current delivery target).")]
+    private Goal primaryGoal;
+
+    /// <summary>All active goals for this player.</summary>
+    public IReadOnlyList<Goal> Goals => goals;
+    /// <summary>The goal the direction indicator points to.</summary>
+    public Goal PrimaryGoal => primaryGoal;
 
     private Rigidbody2D rb;
-    private bool isGrounded;
     private bool isOnLadder;
     private bool isGliding;
     private bool goalReached;
@@ -104,10 +116,19 @@ public class PlayerControllerM : MonoBehaviour
 
     void Start()
     {
+        var gameServices = FindFirstObjectByType<GameServices>();
+        if (gameServices != null)
+            gameServices.RegisterPlayer(this);
+
         if (settings != null)
         {
             rb.gravityScale = settings.normalGravityScale;
             jumpsRemaining = settings.maxJumps;
+
+            if (groundChecker != null)
+            {
+                groundChecker.platformTag = settings.groundTag;
+            }
         }
         else
         {
@@ -119,7 +140,6 @@ public class PlayerControllerM : MonoBehaviour
     void Update()
     {
         ReadInput();
-        CheckGround();
         UpdateSprite();
     }
 
@@ -174,19 +194,19 @@ public class PlayerControllerM : MonoBehaviour
 
         // Horizontal movement (interpolate if in air)
         float targetVx = moveInput * settings.moveSpeed;
-        float lerpFactor = isGrounded ? 1f : settings.airControlMultiplier;
+        float lerpFactor = CheckGround() ? 1f : settings.airControlMultiplier;
         float newVx = Mathf.Lerp(rb.linearVelocity.x, targetVx, lerpFactor);
         rb.linearVelocity = new Vector2(newVx, rb.linearVelocity.y);
 
         // Jumping
-        if (jumpPressed && isGrounded)
+        if (jumpPressed && CheckGround())
         {
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, settings.jumpForce);
             isGliding = false;
         }
 
         // Gliding: when falling and the jump button is held
-        if (!isGrounded && rb.linearVelocity.y < 0f && jumpHeld)
+        if (!CheckGround() && rb.linearVelocity.y < 0f && jumpHeld)
         {
             isGliding = true;
         }
@@ -231,11 +251,11 @@ public class PlayerControllerM : MonoBehaviour
         // Sprite swapping: choose sprite based on state (glide, walk, idle)
         if (spriteRenderer != null)
         {
-            if (!isGrounded && isGliding)
+            if (!CheckGround() && isGliding)
             {
                 if (glideSprite != null) spriteRenderer.sprite = glideSprite;
             }
-            else if (isGrounded && Mathf.Abs(moveInput) > 0.1f)
+            else if (CheckGround() && Mathf.Abs(moveInput) > 0.1f)
             {
                 // walking: simple frame cycle
                 if (walkSprites != null && walkSprites.Length > 0)
@@ -261,21 +281,6 @@ public class PlayerControllerM : MonoBehaviour
         }
     }
 
-    void CheckGround()
-    {
-        if (settings == null) return;
-
-        Vector2 checkPos = (Vector2)transform.position + settings.groundCheckOffset;
-        bool groundedNow = Physics2D.OverlapCircle(checkPos, settings.groundCheckRadius, settings.groundLayer);
-
-        if (groundedNow && !isGrounded)
-        {
-            isGliding = false;
-        }
-
-        isGrounded = groundedNow;
-    }
-
     void OnDrawGizmosSelected()
     {
         if (settings != null)
@@ -294,6 +299,40 @@ public class PlayerControllerM : MonoBehaviour
     {
         // legacy support: set GameState goal position if available
         if (gameState != null && goal != null) gameState.goalPosition = goal.position;
+    }
+
+    /// <summary>Add a goal to the player's list.</summary>
+    public void AddGoal(Goal goal)
+    {
+        if (goal != null && !goals.Contains(goal))
+        {
+            goals.Add(goal);
+        }
+    }
+
+    /// <summary>Remove a goal from the player's list.</summary>
+    public void RemoveGoal(Goal goal)
+    {
+        if (goal != null)
+        {
+            goals.Remove(goal);
+            if (primaryGoal == goal)
+            {
+                primaryGoal = goals.Count > 0 ? goals[0] : null;
+            }
+        }
+    }
+
+    /// <summary>Set the primary goal (e.g. for the direction indicator).</summary>
+    public void SetPrimaryGoal(Goal goal)
+    {
+        primaryGoal = goal;
+    }
+
+    /// <summary>Check if the player has a specific goal.</summary>
+    public bool HasGoal(Goal goal)
+    {
+        return goal != null && goals.Contains(goal);
     }
 
     /// <summary>
@@ -323,6 +362,8 @@ public class PlayerControllerM : MonoBehaviour
     {
         // clear goal state
         goalReached = false;
+        goals.Clear();
+        primaryGoal = null;
 
         // reposition and clear velocities
         transform.position = spawnPosition;
@@ -342,6 +383,17 @@ public class PlayerControllerM : MonoBehaviour
 
         isOnLadder = false;
         isGliding = false;
+    }
+
+
+    private bool CheckGround()
+    {
+        if (groundChecker != null)
+        {
+            return groundChecker.isGrounded;
+        }
+
+        return false;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
