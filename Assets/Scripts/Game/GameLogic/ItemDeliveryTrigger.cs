@@ -19,7 +19,7 @@ public class ItemDeliveryTrigger : InteractionTrigger
     void Start()
     {
         if (deliveryGoal != null)
-            deliveryGoal.location = transform.position;
+            deliveryGoal.locationSource = transform;
     }
 
     void Awake()
@@ -44,6 +44,12 @@ public class ItemDeliveryTrigger : InteractionTrigger
         var player = source != null ? source.GetComponentInParent<PlayerControllerM>() : null;
         if (player != null && player.HasGoal(deliveryGoal))
         {
+            var carriedItem = player.GetCarriedItem();
+            if (carriedItem != null)
+            {
+                carriedItem.OnUsed();
+                player.ClearCarriedItem();
+            }
             player.RemoveGoal(deliveryGoal);
             onDeliverySuccess?.Invoke();
         }

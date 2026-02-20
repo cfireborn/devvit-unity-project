@@ -50,12 +50,14 @@ MonoBehaviour:
   cloudPrefabs:
   - {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
   - {fileID: 4791846076617009745, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-  spawnRadius: 20
-  despawnRadius: 25
+  spawnRadius: 7
+  despawnRadius: 20
   maxClouds: 15
-  distanceThresholdForUpdate: 2
-  speedRange: {x: -2, y: 2}
-  scaleRange: {x: 0.8, y: 1.2}
+  distanceThresholdForUpdate: 0.2
+  minDistanceFromOtherClouds: 0.25
+  speedRange: {x: -1, y: 1}
+  scaleRange: {x: 0.9, y: 1.1}
+  maxSpawnRetries: 10
 --- !u!114 &4449832523319277437
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -70,7 +72,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CloudLadderController
   cloudManager: {fileID: -4670278498999781767}
   ladderPrefab: {fileID: 3019872071370679936, guid: b9180fb7ba619684daa7abec4c39372c, type: 3}
-  maxDistance: 4
-  minVerticalGap: 0.5
-  maxVerticalGap: 8
-  maxLadders: 10
+  ladderBottomSprite: {fileID: 21300000, guid: b27bcc04c5b1c054d839e1ad7796fa20, type: 3}
+  ladderMiddleSprite: {fileID: 21300000, guid: b5d0eef1eee0aae4293bfc8863962b64, type: 3}
+  ladderTopSprite: {fileID: 21300000, guid: 25f5f500606dc5b4c90fc027ed7affe2, type: 3}
+  ladderWidth: 0.15
+  middleOverlap: 0.17
+  maxDistance: 1
+  minVerticalGap: 0.2
+  maxVerticalGap: 3
+  maxLadders: 15

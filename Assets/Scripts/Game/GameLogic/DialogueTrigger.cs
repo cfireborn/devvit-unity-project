@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Events;
 
 /// <summary>
 /// Interaction trigger that opens a dialogue popup when the player interacts.
@@ -9,24 +10,24 @@ public class DialogueTrigger : InteractionTrigger
     [Header("Dialogue")]
     [Tooltip("The dialogue to show when triggered.")]
     public DialogueInstance dialogueInstance;
-    [Tooltip("The dialogue UI. If null, will try FindFirstObjectByType.")]
-    public DialogueUI dialogueUI;
 
-    void Awake()
-    {
-        onInteract.AddListener(HandleInteract);
-    }
+    [Header("Events")]
+    [Tooltip("Fired when the dialogue opened by this trigger is completed.")]
+    public UnityEvent onDialogueComplete;
 
-    void OnDestroy()
+    public void ShowDialogue()
     {
-        onInteract.RemoveListener(HandleInteract);
-    }
-
-    void HandleInteract(GameObject source, Vector2 contactPoint)
-    {
-        var ui = dialogueUI != null ? dialogueUI : FindFirstObjectByType<DialogueUI>();
+        var gs = FindFirstObjectByType<GameServices>();
+        var ui = gs != null ? gs.GetDialogueUI() : null;
         if (ui != null && dialogueInstance != null)
         {
+            UnityAction handler = null;
+            handler = () =>
+            {
+                ui.onDialogueComplete.RemoveListener(handler);
+                onDialogueComplete?.Invoke();
+            };
+            ui.onDialogueComplete.AddListener(handler);
             ui.ShowDialogue(dialogueInstance);
         }
     }

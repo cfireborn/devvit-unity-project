@@ -21,6 +21,8 @@ public class PlayerControllerM : MonoBehaviour
     /// <summary>The goal the direction indicator points to.</summary>
     public Goal PrimaryGoal => primaryGoal;
 
+    private Item _carriedItem;
+
     private Rigidbody2D rb;
     private bool isOnLadder;
     private bool isGliding;
@@ -41,7 +43,7 @@ public class PlayerControllerM : MonoBehaviour
     private InputActionMap activeMap;
 
     [Header("Input")]
-    [Tooltip("Optional: assign the generated Input Actions asset (contains a 'Player' action map with Move and Jump actions). If left empty the controller will build a small map in code.")]
+    [Tooltip("Assign the generated Input Actions asset (contains a 'Player' action map with Move and Jump actions)")]
     public UnityEngine.InputSystem.InputActionAsset inputActionAsset;
 
     [Header("Visuals")]
@@ -66,7 +68,15 @@ public class PlayerControllerM : MonoBehaviour
     // runtime walk animation state
     private int walkIndex = 0;
     private float walkTimer = 0f;
-    
+
+    // ground check (FixedUpdate), coyote time, jump buffer
+    private bool _isGroundedFixed;
+    private float _coyoteTimeRemaining;
+    private float _jumpBufferRemaining;
+
+    // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
+    private bool _gameplayInputSuspended;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -89,12 +99,29 @@ public class PlayerControllerM : MonoBehaviour
                 moveAction = activeMap.FindAction("Move", true);
                 jumpAction = activeMap.FindAction("Jump", true);
                 if (jumpAction != null) jumpAction.performed += OnJumpPerformed;
-                activeMap.Enable();
+                if (!_gameplayInputSuspended) activeMap.Enable();
                 return;
             }
         }
 
         Debug.Log("PlayerController: No Action Map assigned");
+    }
+
+    /// <summary>Disable or re-enable gameplay input (Move, Jump). Used e.g. when dialogue UI is open.</summary>
+    public void SetGameplayInputEnabled(bool enabled)
+    {
+        _gameplayInputSuspended = !enabled;
+        if (activeMap != null)
+        {
+            if (enabled) activeMap.Enable(); else activeMap.Disable();
+        }
+        if (!enabled)
+        {
+            moveInput = 0f;
+            verticalInput = 0f;
+            jumpPressedFlag = false;
+            _jumpBufferRemaining = 0f;
+        }
     }
 
     void OnDisable()
@@ -155,6 +182,15 @@ public class PlayerControllerM : MonoBehaviour
 
     void ReadInput()
     {
+        if (_gameplayInputSuspended)
+        {
+            moveInput = 0f;
+            verticalInput = 0f;
+            jumpPressed = false;
+            jumpHeld = false;
+            return;
+        }
+
         if (moveAction != null)
         {
             Vector2 mv = moveAction.ReadValue<Vector2>();
@@ -177,6 +213,8 @@ public class PlayerControllerM : MonoBehaviour
         }
 
         jumpPressed = jumpPressedFlag;
+        if (jumpPressedFlag && settings != null)
+            _jumpBufferRemaining = settings.jumpBufferTime;
         jumpPressedFlag = false;
     }
 
@@ -186,27 +224,45 @@ public class PlayerControllerM : MonoBehaviour
 
         if (isOnLadder)
         {
-            // climb ladder by controlling velocity directly and disabling gravity
+            // On ladder: up/down (verticalInput) climbs, left/right (moveInput) moves horizontally. No gravity.
             rb.linearVelocity = new Vector2(moveInput * settings.moveSpeed, verticalInput * settings.ladderClimbSpeed);
             rb.gravityScale = 0f;
             return;
         }
 
-        // Horizontal movement (interpolate if in air)
+        // Authoritative ground check in FixedUpdate (overlap at feet)
+        _isGroundedFixed = DoGroundCheck();
+        if (groundChecker != null)
+            groundChecker.isGrounded = _isGroundedFixed;
+
+        // Coyote time: extend "can jump" briefly after leaving ground
+        if (_isGroundedFixed)
+            _coyoteTimeRemaining = settings.coyoteTime;
+        else
+            _coyoteTimeRemaining = Mathf.Max(0f, _coyoteTimeRemaining - Time.fixedDeltaTime);
+
+        // Jump buffer: decay so we only trigger if we land within the window
+        _jumpBufferRemaining = Mathf.Max(0f, _jumpBufferRemaining - Time.fixedDeltaTime);
+
+        bool canJump = (_isGroundedFixed || _coyoteTimeRemaining > 0f) && (jumpPressed || _jumpBufferRemaining > 0f);
+
+        // Horizontal movement (interpolate if in air); jump is independent of L/R input
         float targetVx = moveInput * settings.moveSpeed;
-        float lerpFactor = CheckGround() ? 1f : settings.airControlMultiplier;
+        float lerpFactor = _isGroundedFixed ? 1f : settings.airControlMultiplier;
         float newVx = Mathf.Lerp(rb.linearVelocity.x, targetVx, lerpFactor);
         rb.linearVelocity = new Vector2(newVx, rb.linearVelocity.y);
 
-        // Jumping
-        if (jumpPressed && CheckGround())
+        // Jumping (works when moving left/right; consume buffer and coyote on jump)
+        if (canJump)
         {
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, settings.jumpForce);
             isGliding = false;
+            _jumpBufferRemaining = 0f;
+            _coyoteTimeRemaining = 0f;
         }
 
         // Gliding: when falling and the jump button is held
-        if (!CheckGround() && rb.linearVelocity.y < 0f && jumpHeld)
+        if (!_isGroundedFixed && rb.linearVelocity.y < 0f && jumpHeld)
         {
             isGliding = true;
         }
@@ -308,6 +364,8 @@ public class PlayerControllerM : MonoBehaviour
         {
             goals.Add(goal);
         }
+
+        print($"PlayerController: Added goal {goal.name}");
     }
 
     /// <summary>Remove a goal from the player's list.</summary>
@@ -335,6 +393,24 @@ public class PlayerControllerM : MonoBehaviour
         return goal != null && goals.Contains(goal);
     }
 
+    /// <summary>Set the currently carried item (from ItemPickupTrigger).</summary>
+    public void SetCarriedItem(Item item)
+    {
+        _carriedItem = item;
+    }
+
+    /// <summary>Get the currently carried item.</summary>
+    public Item GetCarriedItem()
+    {
+        return _carriedItem;
+    }
+
+    /// <summary>Clear the carried item (e.g. after delivery).</summary>
+    public void ClearCarriedItem()
+    {
+        _carriedItem = null;
+    }
+
     /// <summary>
     /// Called by the GameManager (or InteractionTrigger) when the goal trigger fires.
     /// </summary>
@@ -356,16 +432,11 @@ public class PlayerControllerM : MonoBehaviour
     }
 
     /// <summary>
-    /// Reset player internal state and move to spawn point on respawn.
+    /// Move player to spawn and reset movement state only. Goals, carried item, and trigger states are preserved.
     /// </summary>
     public void ResetForRespawn(Vector3 spawnPosition)
     {
-        // clear goal state
-        goalReached = false;
-        goals.Clear();
-        primaryGoal = null;
-
-        // reposition and clear velocities
+        // reposition and clear velocities only; keep goals, carried item, and trigger states
         transform.position = spawnPosition;
         rb.linearVelocity = Vector2.zero;
 
@@ -383,16 +454,39 @@ public class PlayerControllerM : MonoBehaviour
 
         isOnLadder = false;
         isGliding = false;
+        _coyoteTimeRemaining = 0f;
+        _jumpBufferRemaining = 0f;
     }
 
 
     private bool CheckGround()
     {
-        if (groundChecker != null)
-        {
-            return groundChecker.isGrounded;
-        }
+        return _isGroundedFixed;
+    }
 
+    /// <summary>Ground check used in FixedUpdate: overlap circle at feet. Uses settings.groundCheckOffset, groundCheckRadius, groundTag.</summary>
+    private bool DoGroundCheck()
+    {
+        if (settings == null || rb == null) return false;
+        Vector2 origin = (Vector2)transform.position + settings.groundCheckOffset;
+        float radius = settings.groundCheckRadius;
+        string tagToMatch = settings.groundTag;
+        var ourColliders = GetComponentsInChildren<Collider2D>();
+
+        var hits = Physics2D.OverlapCircleAll(origin, radius);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            var c = hits[i];
+            if (c == null) continue;
+            bool isOurs = false;
+            for (int j = 0; j < ourColliders.Length; j++)
+            {
+                if (ourColliders[j] == c) { isOurs = true; break; }
+            }
+            if (isOurs) continue;
+            if (c.CompareTag(tagToMatch))
+                return true;
+        }
         return false;
     }
 

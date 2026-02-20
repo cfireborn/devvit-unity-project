@@ -9,10 +9,18 @@ public class CloudPlatform : MonoBehaviour
 {
     [HideInInspector]
     public float moveSpeed;
+    [HideInInspector]
+    public bool isPooled = true;
 
     public bool isMoving = true;
 
     public bool ignoreNoSpawnZones = false;
+
+    public bool canBuildLadder = true;
+
+    [Header("Ladder")]
+    [Tooltip("Collider treated as the core of the cloud for ladder overlap and placement. If unset, combined bounds of all colliders are used.")]
+    public Collider2D mainCollider;
 
     [Header("Despawn")]
     [Tooltip("Duration of despawn animation before returning to pool.")]
@@ -146,7 +154,7 @@ public class CloudPlatform : MonoBehaviour
         _cloudManager = mgr;
     }
 
-    /// <summary>Combined bounds of all Collider2D on this cloud. Used by CloudLadderController.</summary>
+    /// <summary>Combined bounds of all Collider2D on this cloud.</summary>
     public Bounds GetBounds()
     {
         var colliders = GetComponentsInChildren<Collider2D>();
@@ -159,5 +167,31 @@ public class CloudPlatform : MonoBehaviour
             bounds.Encapsulate(colliders[i].bounds);
         }
         return bounds;
+    }
+
+    /// <summary>Bounds of the main collider (core of cloud). Used by CloudLadderController for overlap and ladder placement. Falls back to GetBounds() if mainCollider is unset.</summary>
+    public Bounds GetMainBounds()
+    {
+        if (mainCollider != null)
+            return mainCollider.bounds;
+        return GetBounds();
+    }
+
+    public void SetCanBuildLadder(bool canBuildLadder)
+    {
+        this.canBuildLadder = canBuildLadder;
+    }
+
+    /// <summary>
+    /// Forcibly try to build a ladder between this cloud and another. Uses CloudLadderController from GameServices.
+    /// Returns true if a ladder exists or was created; false if controller missing, invalid, or at max ladders.
+    /// </summary>
+    public bool TryBuildLadderTo(CloudPlatform other)
+    {
+        var gs = FindFirstObjectByType<GameServices>();
+        if (gs == null) return false;
+        var ladderController = gs.GetCloudLadderController();
+        if (ladderController == null) return false;
+        return ladderController.TryBuildLadder(this, other);
     }
 }

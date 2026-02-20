@@ -47,7 +47,6 @@ public class InteractionTrigger : MonoBehaviour
 
     void Reset()
     {
-        // Ensure collider is a trigger for clean behaviour in most cases
         var c = GetComponent<Collider2D>();
         if (c != null) c.isTrigger = true;
     }
@@ -61,7 +60,6 @@ public class InteractionTrigger : MonoBehaviour
 
         if (!requireButtonPress)
         {
-            // compute an approximate contact point from the overlapping collider
             Vector2 contactPoint = other != null ? other.ClosestPoint(transform.position) : (Vector2)transform.position;
             TryActivate(contactPoint);
         }
@@ -91,7 +89,6 @@ public class InteractionTrigger : MonoBehaviour
             }
             else
             {
-                // fallback to common keys
                 if (Input.GetButtonDown("Submit") || Input.GetButtonDown("Jump"))
                 {
                     Vector2 contactPoint = _current != null ? _current.ClosestPoint(transform.position) : (Vector2)transform.position;

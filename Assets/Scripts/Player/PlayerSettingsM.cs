@@ -27,4 +27,8 @@ public class PlayerSettingsM : ScriptableObject
 	public Vector2 groundCheckOffset = new Vector2(0f, -0.6f);
 	public float groundCheckRadius = 0.15f;
 	public string groundTag = "Platform";
+	[Tooltip("Time after leaving ground during which jump is still allowed (coyote time).")]
+	public float coyoteTime = 0.12f;
+	[Tooltip("Time after pressing jump that a jump will still trigger when landing (jump buffer).")]
+	public float jumpBufferTime = 0.12f;
 }

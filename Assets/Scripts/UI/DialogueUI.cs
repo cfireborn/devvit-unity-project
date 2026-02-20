@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Dialogue popup with character portrait and text. Space/Submit advances; closes when no more steps.
+/// Dialogue popup with character portrait and text. Advance via Input Action (e.g. UI/Submit) or Space/Enter fallback.
 /// </summary>
 public class DialogueUI : MonoBehaviour
 {
@@ -12,33 +13,42 @@ public class DialogueUI : MonoBehaviour
     public GameObject dialoguePanel;
     public Image characterPortrait;
     public TMP_Text dialogueText;
-    [Tooltip("Optional: disable player input while dialogue is open.")]
-    public PlayerControllerM playerController;
 
     [Header("Input")]
-    [Tooltip("Button name for advancing (Unity Input Manager).")]
-    public string advanceButton = "Submit";
+    [Tooltip("Optional: advance action from your Input Action Asset (e.g. UI/Submit). If unset, Space/Enter keys are used.")]
+    public InputActionReference advanceAction;
 
     public UnityEvent onDialogueComplete;
 
     DialogueInstance _currentInstance;
     int _stepIndex;
     bool _isShowing;
+    InputAction _subscribedAdvanceAction;
 
     void Start()
     {
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
+
+        var gs = FindFirstObjectByType<GameServices>();
+        if (gs != null)
+            gs.RegisterDialogueUI(this);
+    }
+
+    PlayerControllerM GetPlayer()
+    {
+        var gs = FindFirstObjectByType<GameServices>();
+        return gs != null ? gs.GetPlayer() : null;
     }
 
     void Update()
     {
         if (!_isShowing || _currentInstance == null) return;
+        if (advanceAction != null) return;
 
-        if (Input.GetButtonDown(advanceButton) || Input.GetKeyDown(KeyCode.Space))
-        {
+        var keyboard = Keyboard.current;
+        if (keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame))
             AdvanceDialogue();
-        }
     }
 
     /// <summary>Show dialogue. First step is displayed immediately.</summary>
@@ -57,10 +67,27 @@ public class DialogueUI : MonoBehaviour
         if (dialoguePanel != null)
             dialoguePanel.SetActive(true);
 
-        if (playerController != null)
-            playerController.enabled = false;
+        var player = GetPlayer();
+        if (player != null)
+            player.SetGameplayInputEnabled(false);
+
+        if (advanceAction != null)
+        {
+            var action = advanceAction.action;
+            if (action != null)
+            {
+                _subscribedAdvanceAction = action;
+                action.Enable();
+                action.performed += OnAdvancePerformed;
+            }
+        }
 
         ShowStep(0);
+    }
+
+    void OnAdvancePerformed(InputAction.CallbackContext ctx)
+    {
+        AdvanceDialogue();
     }
 
     void AdvanceDialogue()
@@ -97,10 +124,18 @@ public class DialogueUI : MonoBehaviour
         _isShowing = false;
         _currentInstance = null;
 
+        if (_subscribedAdvanceAction != null)
+        {
+            _subscribedAdvanceAction.performed -= OnAdvancePerformed;
+            _subscribedAdvanceAction.Disable();
+            _subscribedAdvanceAction = null;
+        }
+
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
 
-        if (playerController != null)
-            playerController.enabled = true;
+        var player = GetPlayer();
+        if (player != null)
+            player.SetGameplayInputEnabled(true);
     }
 }

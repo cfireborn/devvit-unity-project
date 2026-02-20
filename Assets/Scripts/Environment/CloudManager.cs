@@ -22,6 +22,8 @@ public class CloudManager : MonoBehaviour
     public int maxClouds = 15;
     [Tooltip("Only run spawn/despawn checks when player has moved at least this far.")]
     public float distanceThresholdForUpdate = 2f;
+    [Tooltip("Do not spawn a cloud if its position would be within this distance of any existing cloud's bounds.")]
+    public float minDistanceFromOtherClouds = 1f;
 
     [Header("Variation")]
     public Vector2 speedRange = new Vector2(-2f, 2f);
@@ -35,19 +37,23 @@ public class CloudManager : MonoBehaviour
     List<GameObject> _nonPooled = new List<GameObject>();
     Vector3 _lastUpdatePosition;
     Transform _poolParent;
+    bool _forceUpdate = false;
 
     void Start()
     {
-        var gameServices = FindFirstObjectByType<GameServices>();
-        if (gameServices != null)
+        TryRegisterPlayer();
+        if (player == null)
         {
-            var p = gameServices.GetPlayer();
-            if (p != null) player = p.transform;
-            gameServices.onPlayerRegistered += OnPlayerRegistered;
+            var gameServices = FindFirstObjectByType<GameServices>();
+            if (gameServices != null)
+            {
+                gameServices.onPlayerRegistered += TryRegisterPlayer;
+            }
         }
 
-        if (player != null)
-            _lastUpdatePosition = player.position;
+        var gameServicesForLadder = FindFirstObjectByType<GameServices>();
+        if (gameServicesForLadder != null && cloudLadderController != null)
+            gameServicesForLadder.RegisterCloudLadderController(cloudLadderController);
 
         _poolParent = new GameObject("CloudPool").transform;
         _poolParent.SetParent(transform);
@@ -59,6 +65,11 @@ public class CloudManager : MonoBehaviour
             {
                 _nonPooled.Add(cloud.gameObject);
             }
+
+            if (!_active.Contains(cloud.gameObject))
+            {
+                _active.Add(cloud.gameObject);
+            }
         }
     }
 
@@ -67,24 +78,27 @@ public class CloudManager : MonoBehaviour
         if (player == null || cloudPrefabs == null || cloudPrefabs.Length == 0) return;
 
         float dist = Vector3.Distance(player.position, _lastUpdatePosition);
-        if (dist < distanceThresholdForUpdate) return;
+        if (dist < distanceThresholdForUpdate && !_forceUpdate) return;
 
         _lastUpdatePosition = player.position;
+        _forceUpdate = false;
 
         for (int i = _active.Count - 1; i >= 0; i--)
         {
             var cloud = _active[i];
             if (cloud == null) { _active.RemoveAt(i); continue; }
             float d = Vector3.Distance(player.position, cloud.transform.position);
-            if (d > despawnRadius)
+            if (d > despawnRadius && !_nonPooled.Contains(cloud))
             {
                 ReturnCloudToPool(cloud);
             }
         }
 
-        while (_active.Count < maxClouds)
+        int maxSpawnAttempts = maxClouds - _nonPooled.Count * 3;
+        while ((_active.Count - _nonPooled.Count < maxClouds) && maxSpawnAttempts > 0)
         {
             SpawnCloud();
+            maxSpawnAttempts--;
         }
     }
 
@@ -92,17 +106,7 @@ public class CloudManager : MonoBehaviour
     {
         var gameServices = FindFirstObjectByType<GameServices>();
         if (gameServices != null)
-            gameServices.onPlayerRegistered -= OnPlayerRegistered;
-    }
-
-    void OnPlayerRegistered()
-    {
-        var gameServices = FindFirstObjectByType<GameServices>();
-        if (gameServices != null)
-        {
-            var p = gameServices.GetPlayer();
-            if (p != null) player = p.transform;
-        }
+            gameServices.onPlayerRegistered -= TryRegisterPlayer;
     }
 
     public void RegisterBlockSpawnZone(CloudNoSpawnZone zone)
@@ -121,6 +125,38 @@ public class CloudManager : MonoBehaviour
                 return true;
         }
         return false;
+    }
+
+    bool IsPositionTooCloseToExistingClouds(Vector2 pos)
+    {
+        if (minDistanceFromOtherClouds <= 0f) return false;
+        Vector3 pos3 = new Vector3(pos.x, pos.y, 0f);
+        foreach (var go in _active)
+        {
+            if (go == null) continue;
+            var platform = go.GetComponent<CloudPlatform>();
+            if (platform == null) continue;
+            Bounds b = platform.GetBounds();
+            Vector3 closest = b.ClosestPoint(pos3);
+            if (Vector2.Distance(pos, new Vector2(closest.x, closest.y)) < minDistanceFromOtherClouds)
+                return true;
+        }
+        return false;
+    }
+
+    void TryRegisterPlayer()
+    {
+        var gameServices = FindFirstObjectByType<GameServices>();
+        if (gameServices != null)
+        {
+            var p = gameServices.GetPlayer();
+            if (p != null) 
+            {
+                player = p.transform;
+                _lastUpdatePosition = player.position;    
+                _forceUpdate = true;
+            }
+        }
     }
 
     public void ReturnCloudToPool(GameObject cloud)
@@ -144,7 +180,7 @@ public class CloudManager : MonoBehaviour
             float r = Random.Range(spawnRadius * 0.3f, spawnRadius);
             Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * r;
             spawnPos = (Vector2)player.position + offset;
-            if (!IsPositionInBlockSpawnZone(spawnPos))
+            if (!IsPositionInBlockSpawnZone(spawnPos) && !IsPositionTooCloseToExistingClouds(spawnPos))
                 break;
             retries++;
         }
@@ -176,7 +212,7 @@ public class CloudManager : MonoBehaviour
         platform.SetCloudManager(this);
         float speed = Random.Range(speedRange.x, speedRange.y);
         platform.SetMovementSpeed(speed);
-
+        platform.isPooled = true;
         _active.Add(cloud);
     }
 

@@ -29,8 +29,8 @@ public class InteractionTriggerListener : MonoBehaviour
         if (trigger == null) trigger = GetComponent<InteractionTrigger>();
         if (trigger != null)
         {
-            trigger.onEnter.AddListener(HandleEnterSimple);
-            trigger.onExit.AddListener(HandleExitSimple);
+            trigger.onEnter.AddListener(HandleEnter);
+            trigger.onExit.AddListener(HandleExit);
             trigger.onInteract.AddListener(HandleInteract);
         }
     }
@@ -39,18 +39,18 @@ public class InteractionTriggerListener : MonoBehaviour
     {
         if (trigger != null)
         {
-            trigger.onEnter.RemoveListener(HandleEnterSimple);
-            trigger.onExit.RemoveListener(HandleExitSimple);
+            trigger.onEnter.RemoveListener(HandleEnter);
+            trigger.onExit.RemoveListener(HandleExit);
             trigger.onInteract.RemoveListener(HandleInteract);
         }
     }
 
-    void HandleEnterSimple()
+    void HandleEnter()
     {
         onEnter?.Invoke();
     }
 
-    void HandleExitSimple()
+    void HandleExit()
     {
         onExit?.Invoke();
     }

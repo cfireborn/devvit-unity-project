@@ -32,6 +32,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Puffer_CharacterPrefab
       objectReference: {fileID: 0}
+    - target: {fileID: 3430271000055517914, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -0.016
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822311028039040180, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -0.153
+      objectReference: {fileID: 0}
     - target: {fileID: 5144680542918999350, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
       propertyPath: m_LocalScale.x
       value: 1
@@ -46,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5144680542918999350, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -0.052
       objectReference: {fileID: 0}
     - target: {fileID: 5144680542918999350, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
       propertyPath: m_LocalPosition.y
@@ -86,6 +94,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5144680542918999350, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
       propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5393902640504977764, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
+      propertyPath: m_FlipX
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6319595810415159693, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}

@@ -35,10 +35,25 @@ public class GoalDirectionIndicator : MonoBehaviour
 
     void Start()
     {
+        TrySetPlayerInformation();
+
         if (player == null || playerController == null)
         {
+            SetVisible(false);
             var gameServices = FindFirstObjectByType<GameServices>();
             if (gameServices != null)
+            {
+                gameServices.onPlayerRegistered += TrySetPlayerInformation;
+            }
+        }
+    }
+
+    void TrySetPlayerInformation()
+    {
+        var gameServices = FindFirstObjectByType<GameServices>();
+        if (gameServices != null)
+        {
+            if (player == null || playerController == null)
             {
                 var p = gameServices.GetPlayer();
                 if (p != null)
@@ -47,6 +62,8 @@ public class GoalDirectionIndicator : MonoBehaviour
                     if (playerController == null) playerController = p;
                 }
             }
+            if (cam == null)
+                cam = gameServices.GetCamera();
         }
     }
 
@@ -65,6 +82,11 @@ public class GoalDirectionIndicator : MonoBehaviour
             return;
         }
 
+        if (cam == null)
+        {
+            var gs = FindFirstObjectByType<GameServices>();
+            cam = gs != null ? gs.GetCamera() : null;
+        }
         if (cam == null) cam = Camera.main;
         if (cam == null)
         {
@@ -75,7 +97,7 @@ public class GoalDirectionIndicator : MonoBehaviour
         SetVisible(true);
 
         Vector3 playerViewport = cam.WorldToViewportPoint(player.position);
-        Vector3 goalViewport = cam.WorldToViewportPoint(goal.location);
+        Vector3 goalViewport = cam.WorldToViewportPoint(goal.Location);
 
         float minX = screenEdgeInset;
         float maxX = 1f - screenEdgeInset;

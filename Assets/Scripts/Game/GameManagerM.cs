@@ -110,25 +110,11 @@ public class GameManagerM : MonoBehaviour
 
     void ResetGame()
     {
-        // reset simple game state
+        // Respawn only: move player to start. Goals, carried item, and trigger states are preserved
+        // (e.g. player fell off map — they lose position but keep quest/delivery state).
         if (gameState != null)
         {
             gameState.levelComplete = false;
-            gameState.lettersCollected = 0;
-        }
-
-        // reset/reset triggers so they can be used again
-        if (resetTriggers != null)
-        {
-            foreach (var t in resetTriggers)
-            {
-                if (t != null) t.ResetTrigger();
-            }
-        }
-
-        if (goalTrigger != null)
-        {
-            goalTrigger.ResetTrigger();
         }
 
         // respawn the player at the start point
