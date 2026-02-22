@@ -46,9 +46,33 @@ public class DialogueUI : MonoBehaviour
         if (!_isShowing || _currentInstance == null) return;
         if (advanceAction != null) return;
 
+        // Keyboard input (Space/Enter)
         var keyboard = Keyboard.current;
         if (keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame))
+        {
             AdvanceDialogue();
+            return;
+        }
+
+        // Mobile input: tap anywhere on screen to advance
+        if (MobileInputManager.Instance != null && MobileInputManager.Instance.IsMobileControlsActive())
+        {
+            // Touch input
+            var touchscreen = Touchscreen.current;
+            if (touchscreen != null && touchscreen.primaryTouch.press.wasPressedThisFrame)
+            {
+                AdvanceDialogue();
+                return;
+            }
+
+            // Mouse input (for testing "Show On Desktop For Testing")
+            var mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+            {
+                AdvanceDialogue();
+                return;
+            }
+        }
     }
 
     /// <summary>Show dialogue. First step is displayed immediately.</summary>

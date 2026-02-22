@@ -191,6 +191,7 @@ public class PlayerControllerM : MonoBehaviour
             return;
         }
 
+        // Read keyboard/gamepad input from Input System
         if (moveAction != null)
         {
             Vector2 mv = moveAction.ReadValue<Vector2>();
@@ -210,6 +211,32 @@ public class PlayerControllerM : MonoBehaviour
         else
         {
             jumpHeld = false;
+        }
+
+        // Add mobile joystick input (if available)
+        if (MobileInputManager.Instance != null && MobileInputManager.Instance.IsMobileControlsActive())
+        {
+            Vector2 mobileInput = MobileInputManager.Instance.GetMobileInputVector();
+
+            // Combine mobile and keyboard/gamepad input (take the stronger input)
+            if (Mathf.Abs(mobileInput.x) > Mathf.Abs(moveInput))
+                moveInput = mobileInput.x;
+            if (Mathf.Abs(mobileInput.y) > Mathf.Abs(verticalInput))
+                verticalInput = mobileInput.y;
+
+            // Mobile jump detection (joystick pushed up significantly)
+            bool mobileJumpPressed = MobileInputManager.Instance.GetMobileJumpPressed();
+            if (mobileJumpPressed && !jumpPressedFlag)
+            {
+                jumpPressedFlag = true;
+            }
+
+            // Mobile glide detection (joystick held up)
+            bool mobileGlideHeld = MobileInputManager.Instance.GetMobileGlideHeld();
+            if (mobileGlideHeld)
+            {
+                jumpHeld = true;
+            }
         }
 
         jumpPressed = jumpPressedFlag;
