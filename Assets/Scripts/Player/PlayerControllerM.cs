@@ -77,6 +77,10 @@ public class PlayerControllerM : MonoBehaviour
     // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
     private bool _gameplayInputSuspended;
 
+    // Read-only access for network visual sync
+    public float MoveInputX => moveInput;
+    public bool IsGliding => isGliding;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();

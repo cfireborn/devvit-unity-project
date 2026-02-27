@@ -42,6 +42,13 @@ public class NetworkCloudManager : NetworkBehaviour
     void Awake()
     {
         _cloudManager = GetComponent<CloudManager>();
+
+        // Disable CloudManager immediately if we're in a network context.
+        // CloudManager.Start() would run before OnStartServer/OnStartClient fire,
+        // causing both host and client to spawn their own independent clouds.
+        // OnStartServer() will re-enable it for the server only.
+        if (_cloudManager != null && InstanceFinder.NetworkManager != null)
+            _cloudManager.enabled = false;
     }
 
     // ── Server lifecycle ──────────────────────────────────────────────────────
