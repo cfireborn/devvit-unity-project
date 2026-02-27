@@ -19,6 +19,12 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
     [SerializeField] private float maxDistance = 100f; // Max radius for small circle movement
     [SerializeField] private bool showDebugText = false;
 
+    [Header("Joystick Behavior")]
+    [Tooltip("Fixed: Joystick stays in one position (like donkeytetris). Dynamic: Joystick appears wherever you first touch.")]
+    [SerializeField] private bool useDynamicPosition = true;
+    [Tooltip("If dynamic, should the joystick snap back to original position when released?")]
+    [SerializeField] private bool returnToOriginOnRelease = true;
+
     [Header("Visual Feedback")]
     [SerializeField] private float maxAlpha = 0.8f; // Max alpha for big circle when fully pressed
     [SerializeField] private float minAlpha = 0.3f; // Min alpha when not touched
@@ -26,10 +32,13 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
     private Vector2 inputVector = Vector2.zero;
     private bool touched = false;
     private Color bigCircleMaxModulate;
-    private Vector2 bigCircleStartPos;
+    private Vector2 bigCircleOriginalPos; // Original position to return to
 
     // Edge detection for jump (only trigger once when first pushed up)
     private bool wasAboveJumpThreshold = false;
+
+    // Canvas for screen-to-world conversions
+    private Canvas parentCanvas;
 
     void Start()
     {
@@ -48,11 +57,14 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
         if (bigCircleImage != null)
         {
             bigCircleMaxModulate = bigCircleImage.color;
-            SetBigCircleAlpha(minAlpha);
+            SetBigCircleAlpha(useDynamicPosition ? 0f : minAlpha); // Hide if dynamic, show if fixed
         }
 
         if (bigCircle != null)
-            bigCircleStartPos = bigCircle.anchoredPosition;
+            bigCircleOriginalPos = bigCircle.anchoredPosition;
+
+        // Find parent canvas for screen space conversions
+        parentCanvas = GetComponentInParent<Canvas>();
     }
 
     void Update()
@@ -67,20 +79,43 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        // Check if touch is within big circle radius
-        Vector2 localPoint;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            bigCircle,
-            eventData.position,
-            eventData.pressEventCamera,
-            out localPoint
-        );
-
-        float distance = localPoint.magnitude;
-        if (distance < maxDistance)
+        if (useDynamicPosition)
         {
+            // Dynamic mode: Move joystick to touch position
+            Vector2 localPoint;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                bigCircle.parent as RectTransform,
+                eventData.position,
+                eventData.pressEventCamera,
+                out localPoint
+            );
+
+            bigCircle.anchoredPosition = localPoint;
             touched = true;
+
+            // Show joystick
+            if (bigCircleImage != null)
+                SetBigCircleAlpha(minAlpha);
+
             OnDrag(eventData);
+        }
+        else
+        {
+            // Fixed mode (donkeytetris style): Check if touch is within big circle radius
+            Vector2 localPoint;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                bigCircle,
+                eventData.position,
+                eventData.pressEventCamera,
+                out localPoint
+            );
+
+            float distance = localPoint.magnitude;
+            if (distance < maxDistance)
+            {
+                touched = true;
+                OnDrag(eventData);
+            }
         }
     }
 
@@ -91,8 +126,24 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
         inputVector = Vector2.zero;
         wasAboveJumpThreshold = false; // Reset jump edge detection
 
-        if (bigCircleImage != null)
-            SetBigCircleAlpha(minAlpha);
+        if (useDynamicPosition)
+        {
+            // Hide joystick in dynamic mode
+            if (bigCircleImage != null)
+                SetBigCircleAlpha(0f);
+
+            // Return to original position if enabled
+            if (returnToOriginOnRelease)
+            {
+                bigCircle.anchoredPosition = bigCircleOriginalPos;
+            }
+        }
+        else
+        {
+            // Fixed mode: just reduce alpha
+            if (bigCircleImage != null)
+                SetBigCircleAlpha(minAlpha);
+        }
     }
 
     public void OnDrag(PointerEventData eventData)

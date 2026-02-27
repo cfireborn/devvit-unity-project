@@ -38,6 +38,11 @@ Canvas
 - Set **Big Circle Image** to the BigCircle Image component
 - Set **Small Circle Image** to the SmallCircle Image component
 - Set **Max Distance** to ~100 (radius of joystick movement)
+- **Joystick Behavior:**
+  - **Use Dynamic Position**: Check this (Recommended! Joystick appears where you touch)
+    - Unchecked = Fixed position like donkeytetris
+    - Checked = Floating joystick (appears anywhere you touch)
+  - **Return To Origin On Release**: Check this (joystick returns to original position when released)
 - Set **Max Alpha** to 0.8 (transparency when fully moved)
 - Set **Min Alpha** to 0.3 (transparency when idle)
 
@@ -93,6 +98,38 @@ If you don't have joystick sprites:
    - Touch and drag to move
    - Push up to jump
    - Hold up while airborne to glide
+
+## Joystick Modes
+
+### Dynamic Position (Recommended - Default)
+**Behavior:** Joystick appears wherever you first touch the screen
+- Touch anywhere in the left half of screen → Joystick appears at touch point
+- Drag to move the squirrel
+- Release → Joystick disappears (or returns to origin)
+- **Best for:** Comfortable thumb placement, mobile-first games
+- **UX:** Feels natural on touchscreens, no need to aim for a specific spot
+
+### Fixed Position (donkeytetris style)
+**Behavior:** Joystick stays in one fixed position (bottom-left corner)
+- Joystick is always visible at fixed location
+- Only activates if you touch within its radius
+- More traditional arcade-style controls
+- **Best for:** Consistency across sessions, precise positioning
+- **UX:** Players always know where the joystick is
+
+**To switch modes:** Toggle "Use Dynamic Position" in VirtualJoystick component
+
+### Comparison Table
+
+| Feature | Fixed (donkeytetris) | Dynamic (Modern Mobile) |
+|---------|---------------------|-------------------------|
+| Joystick appears | Always visible | Only when touched |
+| Position | Fixed location | Wherever you touch |
+| Activation | Touch within radius | Touch anywhere |
+| Visibility when idle | Semi-transparent | Hidden (alpha 0) |
+| Return to origin | N/A (never moves) | Optional |
+| Best for | Arcade feel | Mobile comfort |
+| Implementation matches | ✅ donkeytetris.gd | Modern mobile games |
 
 ## How It Works
 
@@ -201,6 +238,22 @@ If you don't have joystick sprites:
 - Tap anywhere on screen (not just joystick)
 - Make sure MobileInputManager.Instance is active
 - Check DialogueUI.cs Update() method is running
+
+**Joystick not appearing (dynamic mode):**
+- Check "Use Dynamic Position" is enabled
+- Verify BigCircle starts with alpha 0 (hidden until touched)
+- Make sure parent Canvas is set correctly
+- Touch should make it appear at touch position
+
+**Joystick appears in wrong position (dynamic mode):**
+- Check that BigCircle parent is the MobileUI container (not Canvas root)
+- Verify RectTransform anchors are set correctly
+- Parent should use anchors that work with screen-to-local conversion
+
+**Joystick doesn't return to origin:**
+- Check "Return To Origin On Release" is enabled
+- Verify bigCircleOriginalPos is set correctly in Start()
+- This only works in dynamic mode
 
 ## Integration with Multiplayer
 
