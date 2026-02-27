@@ -1,3 +1,4 @@
+using FishNet;
 using UnityEngine;
 
 public class GameManagerM : MonoBehaviour
@@ -50,6 +51,13 @@ public class GameManagerM : MonoBehaviour
 
     void SpawnPlayer()
     {
+        // When FishNet is present, NetworkPlayerSpawner handles spawning — skip local spawn.
+        if (InstanceFinder.NetworkManager != null)
+        {
+            Debug.Log("GameManagerM: NetworkManager detected, skipping local player spawn (NetworkPlayerSpawner handles it).");
+            return;
+        }
+
         if (playerPrefab != null && startPoint != null)
         {
             playerInstance = Instantiate(playerPrefab, startPoint.position, Quaternion.identity);
