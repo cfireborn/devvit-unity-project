@@ -1120,6 +1120,7 @@ GameObject:
   m_Component:
   - component: {fileID: 772914263}
   - component: {fileID: 772914264}
+  - component: {fileID: 772914265}
   m_Layer: 5
   m_Name: MobileUI
   m_TagString: Untagged
@@ -1163,6 +1164,19 @@ MonoBehaviour:
   mobileUIContainer: {fileID: 772914262}
   forceEnableOnWebGL: 1
   showOnDesktopForTesting: 1
+  autoCreateTouchReceiver: 1
+--- !u!114 &772914265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 772914262}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02ac11b770a5943d89d4e648313a2878, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TroubleshootMobileControls
 --- !u!1 &800488271 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2457788629266551647, guid: 050f98b585d44454791b0829175a34a9, type: 3}
@@ -1952,6 +1966,8 @@ MonoBehaviour:
   showDebugText: 0
   useDynamicPosition: 1
   returnToOriginOnRelease: 1
+  useScreenZones: 1
+  joystickZoneHeight: 0.33
   maxAlpha: 0.8
   minAlpha: 0.3
 --- !u!1001 &1576647155
