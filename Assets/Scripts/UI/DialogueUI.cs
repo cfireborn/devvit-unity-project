@@ -24,6 +24,7 @@ public class DialogueUI : MonoBehaviour
     int _stepIndex;
     bool _isShowing;
     InputAction _subscribedAdvanceAction;
+    VirtualJoystick _virtualJoystick;
 
     void Start()
     {
@@ -33,6 +34,9 @@ public class DialogueUI : MonoBehaviour
         var gs = FindFirstObjectByType<GameServices>();
         if (gs != null)
             gs.RegisterDialogueUI(this);
+
+        // Find virtual joystick to exclude it from tap-to-advance
+        _virtualJoystick = FindFirstObjectByType<VirtualJoystick>();
     }
 
     PlayerControllerM GetPlayer()
@@ -44,34 +48,63 @@ public class DialogueUI : MonoBehaviour
     void Update()
     {
         if (!_isShowing || _currentInstance == null) return;
+
+        // Check mobile input first (always active on mobile)
+        // Mobile input: tap anywhere EXCEPT joystick to advance
+        if (MobileInputManager.Instance != null && MobileInputManager.Instance.IsMobileControlsActive())
+        {
+            Vector2 touchPosition = Vector2.zero;
+            bool hasTouchInput = false;
+
+            // Touch input
+            var touchscreen = Touchscreen.current;
+            if (touchscreen != null && touchscreen.primaryTouch.press.wasPressedThisFrame)
+            {
+                touchPosition = touchscreen.primaryTouch.position.ReadValue();
+                hasTouchInput = true;
+                Debug.Log($"DialogueUI: Touch detected at {touchPosition}");
+            }
+
+            // Mouse input (for testing "Show On Desktop For Testing")
+            if (!hasTouchInput)
+            {
+                var mouse = Mouse.current;
+                if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                {
+                    touchPosition = mouse.position.ReadValue();
+                    hasTouchInput = true;
+                    Debug.Log($"DialogueUI: Mouse click at {touchPosition}");
+                }
+            }
+
+            // If we have a touch/click, check if it's NOT on the joystick
+            if (hasTouchInput)
+            {
+                bool isOverJoystick = IsTouchOverJoystick(touchPosition);
+                Debug.Log($"DialogueUI: IsTouchOverJoystick = {isOverJoystick}");
+
+                if (!isOverJoystick)
+                {
+                    Debug.Log("DialogueUI: Advancing dialogue from touch!");
+                    AdvanceDialogue();
+                    return;
+                }
+                else
+                {
+                    Debug.Log("DialogueUI: Touch in joystick zone, ignoring.");
+                }
+            }
+        }
+
+        // If advanceAction is set, it handles input via callback, so we're done
         if (advanceAction != null) return;
 
-        // Keyboard input (Space/Enter)
+        // Keyboard input fallback (Space/Enter) - only if no advanceAction
         var keyboard = Keyboard.current;
         if (keyboard != null && (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame))
         {
             AdvanceDialogue();
             return;
-        }
-
-        // Mobile input: tap anywhere on screen to advance
-        if (MobileInputManager.Instance != null && MobileInputManager.Instance.IsMobileControlsActive())
-        {
-            // Touch input
-            var touchscreen = Touchscreen.current;
-            if (touchscreen != null && touchscreen.primaryTouch.press.wasPressedThisFrame)
-            {
-                AdvanceDialogue();
-                return;
-            }
-
-            // Mouse input (for testing "Show On Desktop For Testing")
-            var mouse = Mouse.current;
-            if (mouse != null && mouse.leftButton.wasPressedThisFrame)
-            {
-                AdvanceDialogue();
-                return;
-            }
         }
     }
 
@@ -161,5 +194,20 @@ public class DialogueUI : MonoBehaviour
         var player = GetPlayer();
         if (player != null)
             player.SetGameplayInputEnabled(true);
+    }
+
+    /// <summary>
+    /// Check if a screen position should advance dialogue.
+    /// Returns false if position is in joystick zone (bottom portion of screen).
+    /// Returns true if position is in dialogue zone (top portion of screen) or if joystick not found.
+    /// </summary>
+    bool IsTouchOverJoystick(Vector2 screenPosition)
+    {
+        if (_virtualJoystick == null)
+            return false; // No joystick = entire screen advances dialogue
+
+        // Check if position is in joystick zone (bottom of screen)
+        // This returns true if in joystick zone, meaning we should NOT advance dialogue
+        return _virtualJoystick.IsScreenPositionOverJoystick(screenPosition);
     }
 }

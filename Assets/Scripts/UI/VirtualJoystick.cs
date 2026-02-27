@@ -25,6 +25,12 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
     [Tooltip("If dynamic, should the joystick snap back to original position when released?")]
     [SerializeField] private bool returnToOriginOnRelease = true;
 
+    [Header("Screen Zones")]
+    [Tooltip("If enabled, joystick only activates in bottom portion of screen. Top portion is for dialogue/interaction.")]
+    [SerializeField] private bool useScreenZones = true;
+    [Tooltip("Percentage of screen height that is joystick zone (from bottom). 0.33 = bottom third")]
+    [SerializeField] [Range(0.1f, 0.9f)] private float joystickZoneHeight = 0.33f;
+
     [Header("Visual Feedback")]
     [SerializeField] private float maxAlpha = 0.8f; // Max alpha for big circle when fully pressed
     [SerializeField] private float minAlpha = 0.3f; // Min alpha when not touched
@@ -79,6 +85,12 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
 
     public void OnPointerDown(PointerEventData eventData)
     {
+        // Check if touch is in valid joystick zone (bottom portion of screen)
+        if (useScreenZones && !IsInJoystickZone(eventData.position))
+        {
+            return; // Touch is in top zone, ignore for joystick
+        }
+
         if (useDynamicPosition)
         {
             // Dynamic mode: Move joystick to touch position
@@ -232,6 +244,77 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
         wasAboveJumpThreshold = isAboveThreshold;
 
         return shouldJump;
+    }
+
+    /// <summary>
+    /// Check if a screen position is in the joystick zone (bottom portion of screen).
+    /// Returns true if position is in the bottom zone where joystick can activate.
+    /// </summary>
+    public bool IsInJoystickZone(Vector2 screenPosition)
+    {
+        if (!useScreenZones)
+            return true; // No zones, entire screen is joystick area
+
+        // Calculate the Y threshold (bottom portion of screen)
+        float screenHeight = Screen.height;
+        float joystickZoneMaxY = screenHeight * joystickZoneHeight;
+
+        // Check if Y position is in bottom zone (screen space Y increases upward from bottom)
+        return screenPosition.y <= joystickZoneMaxY;
+    }
+
+    /// <summary>
+    /// Check if a screen position is in the dialogue/interaction zone (top portion of screen).
+    /// Returns true if position is in the top zone where taps should advance dialogue.
+    /// </summary>
+    public bool IsInDialogueZone(Vector2 screenPosition)
+    {
+        if (!useScreenZones)
+            return false; // No zones, use old joystick bounds check instead
+
+        // Dialogue zone is everything NOT in joystick zone
+        return !IsInJoystickZone(screenPosition);
+    }
+
+    /// <summary>
+    /// Check if a screen position is within the joystick's interaction area.
+    /// This is useful for excluding joystick touches from other UI interactions.
+    ///
+    /// If screen zones are enabled, returns true for entire joystick zone.
+    /// If screen zones are disabled, returns true only within active joystick bounds.
+    /// </summary>
+    public bool IsScreenPositionOverJoystick(Vector2 screenPosition)
+    {
+        // If using screen zones, check if position is in joystick zone
+        if (useScreenZones)
+        {
+            return IsInJoystickZone(screenPosition);
+        }
+
+        // Legacy behavior: check actual joystick bounds
+        if (bigCircle == null) return false;
+
+        // In dynamic mode and not touched, joystick is hidden - no overlap
+        if (useDynamicPosition && !touched)
+            return false;
+
+        // Check if screen position is within the big circle's bounds
+        Canvas canvas = GetComponentInParent<Canvas>();
+        Camera cam = canvas != null && canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : Camera.main;
+
+        return RectTransformUtility.RectangleContainsScreenPoint(
+            bigCircle,
+            screenPosition,
+            cam
+        );
+    }
+
+    /// <summary>
+    /// Get the RectTransform of the joystick's interactive area (big circle).
+    /// </summary>
+    public RectTransform GetInteractiveArea()
+    {
+        return bigCircle;
     }
 
     void OnDrawGizmos()

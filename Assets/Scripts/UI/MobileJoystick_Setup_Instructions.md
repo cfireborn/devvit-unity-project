@@ -8,6 +8,33 @@ This guide explains how to set up the virtual joystick for mobile controls in Un
 2. **MobileInputManager.cs** - Manages mobile detection and joystick visibility
 3. **PlayerControllerM.cs** - Modified to accept mobile input alongside keyboard/gamepad
 
+## Quick Start: Screen Zones Setup (Recommended)
+
+**This is the easiest and cleanest approach!**
+
+### What You Get:
+- Bottom 1/3 of screen = Movement (joystick appears anywhere you touch)
+- Top 2/3 of screen = Dialogue/Interaction (tap to advance)
+- No conflicts, no accidental triggers
+
+### Setup in 3 Steps:
+
+1. **Create the UI** (see Step 1 below)
+2. **Configure VirtualJoystick:**
+   - ✅ Check "Use Screen Zones"
+   - ✅ Check "Use Dynamic Position"
+   - Set "Joystick Zone Height" to **0.33** (bottom third)
+3. **Done!** Test by tapping top/bottom of screen
+
+### How to Adjust:
+- Want more joystick area? Increase "Joystick Zone Height" to 0.4 or 0.5
+- Want less? Decrease to 0.25 or 0.2
+- The line dividing zones is at: `Screen.height × joystickZoneHeight`
+
+**No need to position BigCircle!** It will appear wherever you touch in the bottom zone.
+
+---
+
 ## Unity Setup Steps
 
 ### Step 1: Create Joystick UI Hierarchy
@@ -39,10 +66,18 @@ Canvas
 - Set **Small Circle Image** to the SmallCircle Image component
 - Set **Max Distance** to ~100 (radius of joystick movement)
 - **Joystick Behavior:**
-  - **Use Dynamic Position**: Check this (Recommended! Joystick appears where you touch)
+  - **Use Dynamic Position**: ✅ Check this (Recommended! Joystick appears where you touch)
     - Unchecked = Fixed position like donkeytetris
     - Checked = Floating joystick (appears anywhere you touch)
-  - **Return To Origin On Release**: Check this (joystick returns to original position when released)
+  - **Return To Origin On Release**: ✅ Check this (joystick returns to original position when released)
+- **Screen Zones:**
+  - **Use Screen Zones**: ✅ Check this (Recommended! Clean screen division)
+    - Bottom portion = joystick zone (movement)
+    - Top portion = dialogue zone (tap to advance)
+  - **Joystick Zone Height**: 0.33 (bottom 1/3 of screen for joystick)
+    - 0.33 = bottom third (recommended)
+    - 0.5 = bottom half
+    - Adjust based on your game's needs
 - Set **Max Alpha** to 0.8 (transparency when fully moved)
 - Set **Min Alpha** to 0.3 (transparency when idle)
 
@@ -99,37 +134,66 @@ If you don't have joystick sprites:
    - Push up to jump
    - Hold up while airborne to glide
 
-## Joystick Modes
+## Screen Layout System (Recommended)
 
-### Dynamic Position (Recommended - Default)
-**Behavior:** Joystick appears wherever you first touch the screen
-- Touch anywhere in the left half of screen → Joystick appears at touch point
-- Drag to move the squirrel
-- Release → Joystick disappears (or returns to origin)
-- **Best for:** Comfortable thumb placement, mobile-first games
-- **UX:** Feels natural on touchscreens, no need to aim for a specific spot
+### Screen Zones Mode ⭐ **NEW & RECOMMENDED**
+**Behavior:** Screen is divided into movement zone (bottom) and interaction zone (top)
+
+```
+┌─────────────────────────┐
+│                         │ ← Top 2/3 of screen
+│   TAP TO ADVANCE        │   Tap anywhere = Advance dialogue
+│   DIALOGUE ZONE         │   No accidental joystick activation
+│                         │
+├─────────────────────────┤ ← Divider line (adjustable)
+│   🕹️ JOYSTICK ZONE     │ ← Bottom 1/3 of screen
+│   Touch anywhere here   │   Joystick appears at touch point
+│   to activate movement  │   Drag to move
+└─────────────────────────┘
+```
+
+**Advantages:**
+- ✅ **Clean separation**: Movement bottom, interaction top
+- ✅ **No accidental triggers**: Can't accidentally move while tapping dialogue
+- ✅ **Comfortable**: Place thumb anywhere in bottom third
+- ✅ **Screen real estate**: Entire top area is usable for UI/dialogue
+- ✅ **Simple logic**: No complex bounds checking needed
+
+**Settings:**
+- `Use Screen Zones`: ✅ Enable this
+- `Joystick Zone Height`: 0.33 (bottom 1/3) - adjustable from 0.1 to 0.9
+
+---
+
+## Legacy Joystick Modes
+
+### Dynamic Position (No Zones)
+**Behavior:** Joystick appears wherever you first touch
+- Touch anywhere on screen → Joystick appears at touch point
+- Requires bounds checking to avoid dialogue conflicts
+- **Best for:** If you don't want screen zones
 
 ### Fixed Position (donkeytetris style)
 **Behavior:** Joystick stays in one fixed position (bottom-left corner)
 - Joystick is always visible at fixed location
 - Only activates if you touch within its radius
-- More traditional arcade-style controls
-- **Best for:** Consistency across sessions, precise positioning
-- **UX:** Players always know where the joystick is
+- **Best for:** Consistency across sessions
+- **Implementation matches:** ✅ donkeytetris.gd
 
-**To switch modes:** Toggle "Use Dynamic Position" in VirtualJoystick component
+**To switch modes:**
+- Screen zones: Toggle "Use Screen Zones" in VirtualJoystick
+- Fixed vs Dynamic: Toggle "Use Dynamic Position" in VirtualJoystick
 
 ### Comparison Table
 
-| Feature | Fixed (donkeytetris) | Dynamic (Modern Mobile) |
-|---------|---------------------|-------------------------|
-| Joystick appears | Always visible | Only when touched |
-| Position | Fixed location | Wherever you touch |
-| Activation | Touch within radius | Touch anywhere |
-| Visibility when idle | Semi-transparent | Hidden (alpha 0) |
-| Return to origin | N/A (never moves) | Optional |
-| Best for | Arcade feel | Mobile comfort |
-| Implementation matches | ✅ donkeytetris.gd | Modern mobile games |
+| Feature | Fixed | Dynamic (No Zones) | **Screen Zones** ⭐ |
+|---------|-------|-------------------|-------------------|
+| Joystick appears | Always visible | Anywhere touched | Bottom third only |
+| Dialogue advance | Everywhere except joystick | Everywhere except joystick | **Top 2/3 only** |
+| Accidental conflicts | Low | Medium | **None** ✅ |
+| Screen division | None | None | **Clear zones** ✅ |
+| Best for | Arcade feel | Flexible placement | **Mobile games** ✅ |
+| Setup complexity | Low | Medium | **Low** ✅ |
 
 ## How It Works
 
@@ -162,10 +226,11 @@ If you don't have joystick sprites:
 - This matches the Godot reference behavior
 
 **Dialogue Advance:**
-- Tap anywhere on screen = Press Enter ✅
+- Tap anywhere on screen EXCEPT joystick = Press Enter ✅
 - Advances dialogue text automatically
-- Works for any touch input, not just joystick
+- Joystick touches are excluded (won't accidentally advance dialogue while moving)
 - Built into DialogueUI.cs (no separate button needed)
+- **Smart detection**: In dynamic mode, only active joystick area is excluded
 
 ### Platform Detection:
 - **Android/iOS:** Always shows joystick
@@ -193,16 +258,37 @@ If you don't have joystick sprites:
 
 ## Recent Improvements
 
+### Screen Zones System ⭐ **NEW - RECOMMENDED**
+- Screen divided into bottom (joystick) and top (dialogue/interaction) zones
+- **Bottom 1/3**: Touch anywhere to activate joystick, drag to move
+- **Top 2/3**: Tap anywhere to advance dialogue
+- **Zero conflicts**: Movement and interaction zones are completely separate
+- **Adjustable**: Change zone height from 10% to 90% of screen
+- **Better UX**: Cleaner than bounds checking, more intuitive for players
+- **Implementation**: Uses simple Y-coordinate check (Screen.height × zoneHeight)
+
+### How Screen Zones Work:
+```
+Touch detected at position (x, y)
+  ↓
+Is y <= (Screen.height × 0.33)?
+  ↓
+  YES → Joystick Zone: Activate joystick at touch position
+  NO  → Dialogue Zone: Advance dialogue
+```
+
 ### Edge Detection for Jump (Fixed)
 - Jump now only triggers ONCE when joystick first pushed up (like pressing Space key)
 - Previously would trigger continuously while held up
 - Now properly mimics keyboard behavior with edge detection
 
-### Dialogue Advance (Added)
+### Legacy: Smart Joystick Exclusion (Still Supported)
+- If Screen Zones disabled, falls back to bounds checking
 - Tap anywhere on screen to advance dialogue (like pressing Enter)
-- No separate button needed - any touch advances dialogue
-- Integrated directly into DialogueUI.cs
-- Works during dialogue sequences
+- **Smart exclusion**: Joystick touches DON'T advance dialogue
+  - Fixed mode: Excludes the fixed joystick area
+  - Dynamic mode: Only excludes when joystick is visible/active
+- No accidental dialogue advancement while moving!
 
 ### Ladder Support (Confirmed Working)
 - Joystick vertical input works perfectly with ladders
@@ -235,9 +321,22 @@ If you don't have joystick sprites:
 - Check that jumpHeld is being set in PlayerControllerM
 
 **Dialogue not advancing on mobile:**
-- Tap anywhere on screen (not just joystick)
+- Tap anywhere EXCEPT the joystick
 - Make sure MobileInputManager.Instance is active
 - Check DialogueUI.cs Update() method is running
+- Verify VirtualJoystick is found in DialogueUI.Start() (_virtualJoystick is not null)
+
+**Dialogue advances when touching joystick:**
+- Check that DialogueUI found VirtualJoystick correctly
+- Verify `IsScreenPositionOverJoystick()` is being called
+- In dynamic mode: Joystick should only exclude area when visible
+- Make sure RectTransform bounds are correct for joystick
+
+**Dialogue won't advance even when tapping away from joystick:**
+- Check that `IsTouchOverJoystick()` returns false for your tap position
+- Verify Canvas render mode (should be ScreenSpaceOverlay or has Camera assigned)
+- Try tapping in the top-right corner (far from joystick) to test
+- Enable debug logging in DialogueUI to see touch detection
 
 **Joystick not appearing (dynamic mode):**
 - Check "Use Dynamic Position" is enabled
