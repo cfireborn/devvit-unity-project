@@ -26,6 +26,10 @@ public class CloudPlatform : MonoBehaviour
     [Tooltip("Duration of despawn animation before returning to pool.")]
     public float despawnAnimationDuration = 1f;
 
+    /// <summary>Set by CloudManager on spawn. Identifies which prefab this cloud was created from (for network sync).</summary>
+    [HideInInspector]
+    public int networkPrefabIndex = 0;
+
     CloudManager _cloudManager;
     bool _playerOnCloud;
     bool _isInBlockEntryZone;

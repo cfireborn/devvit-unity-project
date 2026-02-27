@@ -31,6 +31,12 @@ public class CloudManager : MonoBehaviour
     [Tooltip("Max retries when spawn position is in blockSpawn zone.")]
     public int maxSpawnRetries = 10;
 
+    // ----- Network Events -----
+    /// <summary>Fired on server when a cloud is spawned. Args: (networkId, prefabIndex, position, scale, speed)</summary>
+    public event System.Action<int, int, Vector2, float, float> OnCloudSpawned;
+    /// <summary>Fired on server when a cloud is returned to pool. Args: (networkId)</summary>
+    public event System.Action<int> OnCloudDespawned;
+
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
     readonly List<CloudNoSpawnZone> _blockSpawnZones = new List<CloudNoSpawnZone>();
     readonly List<GameObject> _active = new List<GameObject>();
@@ -38,6 +44,11 @@ public class CloudManager : MonoBehaviour
     Vector3 _lastUpdatePosition;
     Transform _poolParent;
     bool _forceUpdate = false;
+
+    // Network ID tracking (server-side only)
+    readonly Dictionary<GameObject, int> _cloudNetIds = new Dictionary<GameObject, int>();
+    readonly Dictionary<int, GameObject> _idToCloud = new Dictionary<int, GameObject>();
+    int _nextNetId = 0;
 
     void Start()
     {
@@ -161,10 +172,54 @@ public class CloudManager : MonoBehaviour
 
     public void ReturnCloudToPool(GameObject cloud)
     {
+        // Fire network despawn event before removing from tracking
+        if (_cloudNetIds.TryGetValue(cloud, out int netId))
+        {
+            OnCloudDespawned?.Invoke(netId);
+            _cloudNetIds.Remove(cloud);
+            _idToCloud.Remove(netId);
+        }
+
         _active.Remove(cloud);
         cloud.SetActive(false);
         cloud.transform.SetParent(_poolParent);
         _pool.Enqueue(cloud);
+    }
+
+    /// <summary>Returns current cloud state for initial sync to newly connected clients.</summary>
+    public List<NetworkCloudState> GetNetworkCloudStates()
+    {
+        var states = new List<NetworkCloudState>();
+        foreach (var kvp in _cloudNetIds)
+        {
+            var go = kvp.Key;
+            if (go == null || !go.activeSelf) continue;
+            var platform = go.GetComponent<CloudPlatform>();
+            if (platform == null) continue;
+            states.Add(new NetworkCloudState
+            {
+                id = kvp.Value,
+                prefabIndex = platform.networkPrefabIndex,
+                position = go.transform.position,
+                scale = go.transform.localScale.x,
+                speed = platform.moveSpeed
+            });
+        }
+        return states;
+    }
+
+    /// <summary>Returns all active cloud IDs and their current positions (for periodic sync).</summary>
+    public void GetCloudPositions(out int[] ids, out Vector2[] positions)
+    {
+        ids = new int[_cloudNetIds.Count];
+        positions = new Vector2[_cloudNetIds.Count];
+        int i = 0;
+        foreach (var kvp in _cloudNetIds)
+        {
+            ids[i] = kvp.Value;
+            positions[i] = kvp.Key != null ? (Vector2)kvp.Key.transform.position : Vector2.zero;
+            i++;
+        }
     }
 
     void SpawnCloud()
@@ -189,6 +244,8 @@ public class CloudManager : MonoBehaviour
         if (retries >= maxSpawnRetries)
             return;
 
+        int prefabIdx = System.Array.IndexOf(cloudPrefabs, prefab);
+
         GameObject cloud;
         if (_pool.Count > 0)
         {
@@ -209,11 +266,23 @@ public class CloudManager : MonoBehaviour
         if (platform == null)
             platform = cloud.AddComponent<CloudPlatform>();
 
+        // Track prefab index on first creation (pool reuse preserves this)
+        if (platform.networkPrefabIndex == 0 && prefabIdx > 0)
+            platform.networkPrefabIndex = prefabIdx;
+        else if (_pool.Count == 0) // freshly instantiated
+            platform.networkPrefabIndex = prefabIdx;
+
         platform.SetCloudManager(this);
         float speed = Random.Range(speedRange.x, speedRange.y);
         platform.SetMovementSpeed(speed);
         platform.isPooled = true;
         _active.Add(cloud);
+
+        // Assign network ID and fire event (NetworkCloudManager listens on server)
+        int netId = _nextNetId++;
+        _cloudNetIds[cloud] = netId;
+        _idToCloud[netId] = cloud;
+        OnCloudSpawned?.Invoke(netId, platform.networkPrefabIndex, spawnPos, scale, speed);
     }
 
     /// <summary>Get all currently active clouds. Used by CloudLadderController.</summary>

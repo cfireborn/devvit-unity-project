@@ -1172,7 +1172,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 772914262}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 02ac11b770a5943d89d4e648313a2878, type: 3}
   m_Name: 
@@ -1416,6 +1416,11 @@ MonoBehaviour:
   onLadderBuilt:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &1190467174 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+  m_PrefabInstance: {fileID: 1864930203}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1319779680
 GameObject:
   m_ObjectHideFlags: 0
@@ -1432,10 +1437,9 @@ GameObject:
   - component: {fileID: 1319779683}
   - component: {fileID: 1319779682}
   - component: {fileID: 1319779681}
-  - component: {fileID: 1319779692}
   - component: {fileID: 1319779691}
-  - component: {fileID: 1319779690}
   - component: {fileID: 1319779689}
+  - component: {fileID: 1319779693}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -1505,7 +1509,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34e4a322dca349547989b14021da4e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Managing.Transporting.TransportManager
-  Transport: {fileID: 1319779692}
+  Transport: {fileID: 1319779693}
   _intermediateLayer: {fileID: 0}
   _latencySimulator:
     _enabled: 0
@@ -1601,62 +1605,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 51232bc5902d948d3993a9777c603d04, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerSpawner
-  playerPrefab: {fileID: 0}
-  spawnPoint: {fileID: 0}
---- !u!114 &1319779690
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1319779680}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 26b716c41e9b56b4baafaf13a523ba2e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Object.NetworkObject
-  <IsNested>k__BackingField: 0
-  WasActiveDuringEdit: 1
-  WasActiveDuringEdit_Set1: 1
-  <ComponentIndex>k__BackingField: 0
-  <PredictedSpawn>k__BackingField: {fileID: 0}
-  <PredictedOwner>k__BackingField: {fileID: 0}
-  NetworkBehaviours: []
-  InitializedParentNetworkBehaviour: {fileID: 0}
-  InitializedNestedNetworkObjects: []
-  RuntimeParentNetworkBehaviour: {fileID: 0}
-  RuntimeChildNetworkBehaviours: []
-  _isNetworked: 1
-  _isSpawnable: 1
-  _isGlobal: 0
-  _initializeOrder: 0
-  _preventDespawnOnDisconnect: 0
-  _defaultDespawnType: 0
-  _initializedTimestamp: 0
-  NetworkObserver: {fileID: 0}
-  _enablePrediction: 0
-  _predictionType: 0
-  _localReconcileCorrectionType: 2
-  _graphicalObject: {fileID: 0}
-  _detachGraphicalObject: 0
-  _enableStateForwarding: 1
-  _networkTransform: {fileID: 0}
-  _ownerInterpolation: 1
-  _ownerSmoothedProperties: 255
-  _adaptiveInterpolation: 3
-  _spectatorSmoothedProperties: 255
-  _spectatorInterpolation: 2
-  _enableTeleport: 0
-  _teleportThreshold: 1
-  <PrefabId>k__BackingField: 65535
-  <SpawnableCollectionId>k__BackingField: 0
-  <AssetPathHash>k__BackingField: 0
-  SceneId: 3741235702
-  SerializedTransformProperties:
-    Position: {x: 0, y: 0, z: 0}
-    Rotation: {x: 0, y: 0, z: 0, w: 0}
-    Scale: {x: 0, y: 0, z: 0}
-    IsValid: 0
+  playerPrefab: {fileID: 7722550236713272713, guid: c9bb9cf0170784860b68d3f6ecd3443b, type: 3}
+  spawnPoint: {fileID: 1025854226}
 --- !u!114 &1319779691
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1671,7 +1621,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NetworkBootstrapper
   serverAddress: localhost
   editorStartAsHost: 1
---- !u!114 &1319779692
+--- !u!114 &1319779693
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1680,18 +1630,18 @@ MonoBehaviour:
   m_GameObject: {fileID: 1319779680}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 362dfd7e6009fb44c90beec3df0ad853, type: 3}
+  m_Script: {fileID: 11500000, guid: 6f48f002b825cbd45a19bd96d90f9edb, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Bayou::FishNet.Transporting.Bayou.Bayou
-  _useWss: 0
-  _sslConfiguration:
-    Enabled: 0
-    CertificatePath: 
-    CertificatePassword: 
-    SslProtocol: 0
-  _mtu: 1023
+  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Transporting.Tugboat.Tugboat
+  _stopSocketsOnThread: 0
+  _dontRoute: 0
+  _reuseAddress: 0
+  _unreliableMtu: 1023
+  _ipv4BindAddress: 
+  _enableIpv6: 1
+  _ipv6BindAddress: 
   _port: 7770
-  _maximumClients: 2000
+  _maximumClients: 4095
   _clientAddress: localhost
 --- !u!1 &1333666526 stripped
 GameObject:
@@ -2180,12 +2130,81 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
   m_PrefabInstance: {fileID: 1864930203}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 63bd85b5392842f4485c7474bcdc5308, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CloudManager
+--- !u!114 &1504431314
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6420175086734ec99a3d9e4dc1103f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkCloudManager
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 1504431315}
+  _networkObjectCache: {fileID: 0}
+--- !u!114 &1504431315
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26b716c41e9b56b4baafaf13a523ba2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Object.NetworkObject
+  <IsNested>k__BackingField: 0
+  WasActiveDuringEdit: 1
+  WasActiveDuringEdit_Set1: 1
+  <ComponentIndex>k__BackingField: 0
+  <PredictedSpawn>k__BackingField: {fileID: 0}
+  <PredictedOwner>k__BackingField: {fileID: 0}
+  NetworkBehaviours: []
+  InitializedParentNetworkBehaviour: {fileID: 0}
+  InitializedNestedNetworkObjects: []
+  RuntimeParentNetworkBehaviour: {fileID: 0}
+  RuntimeChildNetworkBehaviours: []
+  _isNetworked: 1
+  _isSpawnable: 1
+  _isGlobal: 0
+  _initializeOrder: 0
+  _preventDespawnOnDisconnect: 0
+  _defaultDespawnType: 0
+  _initializedTimestamp: 0
+  NetworkObserver: {fileID: 0}
+  _enablePrediction: 0
+  _predictionType: 0
+  _localReconcileCorrectionType: 2
+  _graphicalObject: {fileID: 0}
+  _detachGraphicalObject: 0
+  _enableStateForwarding: 1
+  _networkTransform: {fileID: 0}
+  _ownerInterpolation: 1
+  _ownerSmoothedProperties: 255
+  _adaptiveInterpolation: 3
+  _spectatorSmoothedProperties: 255
+  _spectatorInterpolation: 2
+  _enableTeleport: 0
+  _teleportThreshold: 1
+  <PrefabId>k__BackingField: 65535
+  <SpawnableCollectionId>k__BackingField: 0
+  <AssetPathHash>k__BackingField: 0
+  SceneId: 3554605566
+  SerializedTransformProperties:
+    Position: {x: 0, y: 0, z: 0}
+    Rotation: {x: 0, y: 0, z: 0, w: 0}
+    Scale: {x: 0, y: 0, z: 0}
+    IsValid: 0
 --- !u!1 &1564902178
 GameObject:
   m_ObjectHideFlags: 0
@@ -2510,7 +2529,13 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1504431315}
+    - targetCorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1504431314}
   m_SourcePrefab: {fileID: 100100000, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
 --- !u!1 &1954574925
 GameObject:

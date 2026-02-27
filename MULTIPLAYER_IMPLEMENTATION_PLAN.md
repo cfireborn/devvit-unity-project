@@ -7,10 +7,35 @@ Transform the Compersion Unity 2D platformer into a multiplayer game using Fishn
 ## Architecture Decisions
 
 ### Networking Stack
-- **Client**: Bayou transport (WebSocket for WebGL compatibility)
-- **Server**: Bayou transport (WebSocket server on Linux headless)
-- **Framework**: Fishnet v4.6.20+ (Asset Store)
+- **Editor/Standalone Client**: Tugboat transport (UDP, for local testing)
+- **WebGL Client**: Bayou transport (WebSocket — browsers cannot use UDP)
+- **Server (Production)**: Multipass transport — listens on BOTH Tugboat (UDP port 7770) AND Bayou (WS port 7771) simultaneously
+- **Framework**: Fishnet v4.6.22 (Asset Store, installed at Assets/FishNet)
+- **Bayou**: Installed at Assets/FishNet/Plugins/Bayou (imported from GitHub releases)
 - **Hosting**: Edgegap cloud deployment with Docker containers
+
+### ⚠️ Transport Setup Notes (READ BEFORE RESUMING WORK)
+**Current state (Phases 1–4 testing):**
+- NetworkManager uses **Tugboat only** as transport
+- Bayou component is NOT on the NetworkManager (remove it to avoid auto-init conflicts)
+- This lets editor/MPPM testing work with UDP
+
+**Phase 5 — switching to Multipass for production:**
+1. Add `Multipass` component to NetworkManager GameObject
+2. Add `Tugboat` component (port 7770, UDP) — for standalone/editor clients
+3. Add `Bayou` component (port 7771, WebSocket) — for WebGL clients
+4. Set TransportManager → Transport = Multipass
+5. In Multipass inspector: add both Tugboat and Bayou as its transports
+6. WebGL build: NetworkBootstrapper connects to port 7771 (Bayou)
+7. Editor/standalone build: NetworkBootstrapper connects to port 7770 (Tugboat)
+8. Server Dockerfile: expose both ports 7770/udp and 7771/tcp
+
+**Testing Bayou (WebGL) without full Edgegap deployment:**
+1. Run a Unity Editor host (server listening on Bayou port 7771)
+2. Build a WebGL client: File → Build Settings → WebGL → Build
+3. Serve it locally: `cd Builds/WebGL && python3 -m http.server 8080`
+4. Open browser → `http://localhost:8080` → WebGL client connects via WebSocket to ws://localhost:7771
+5. Both editor host and browser client should be visible in the scene
 
 ### Key Architectural Patterns
 1. **Client-Server Model**: Server-authoritative architecture
