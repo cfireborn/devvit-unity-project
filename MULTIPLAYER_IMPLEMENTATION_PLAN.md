@@ -1,5 +1,21 @@
 # Fishnet Multiplayer Implementation Plan
 
+## ⚠️ IMPORTANT: Always Support Offline / Single-Player Mode
+
+**Every feature added to this project must work in all three runtime modes:**
+
+1. **Networked host** — `InstanceFinder.NetworkManager != null`, `IsServerStarted == true`
+2. **Networked client** — `InstanceFinder.NetworkManager != null`, `IsServerStarted == false`
+3. **Offline fallback** — `NetworkManager` present in scene but connection timed out; `NetworkBootstrapper` calls `GameManagerM.ActivateOfflineMode()` after 5 s
+
+**Common pitfalls to watch for:**
+- Components disabled in `Awake()` for network safety (e.g. `CloudManager`, `PlayerControllerM`) will stay disabled in offline mode unless explicitly re-enabled in `ActivateOfflineMode()`.
+- `InstanceFinder.NetworkManager != null` is `true` even offline — use `IsServerStarted` / `IsClientStarted` to distinguish networked from offline, not just the presence of a NetworkManager.
+- Any new server-only logic (RPCs, `OnStartServer` hooks, etc.) needs an offline equivalent path that fires from `ActivateOfflineMode()` or responds to `GameServices.onPlayerRegistered`.
+- Test offline by either building WebGL with no server running, or by using the editor with a connection timeout set to a low value (`connectionTimeoutSeconds` on `NetworkBootstrapper`).
+
+---
+
 ## Overview
 
 Transform the Compersion Unity 2D platformer into a multiplayer game using Fishnet networking with Edgegap server hosting, targeting WebGL deployment on Reddit's Devvit platform with support for 1000+ concurrent players.
