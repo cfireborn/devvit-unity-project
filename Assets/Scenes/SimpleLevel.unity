@@ -1496,7 +1496,7 @@ MonoBehaviour:
   _maximumFrameTicks: 3
   _tickRate: 30
   _pingInterval: 1
-  _physicsMode: 0
+  _physicsMode: 1
 --- !u!114 &1319779684
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1621,6 +1621,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NetworkBootstrapper
   serverAddress: localhost
   editorStartAsHost: 1
+  connectionTimeoutSeconds: 5
 --- !u!114 &1319779693
 MonoBehaviour:
   m_ObjectHideFlags: 0

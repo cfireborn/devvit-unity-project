@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FishNet;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -90,6 +91,12 @@ public class PlayerControllerM : MonoBehaviour
 
     void OnEnable()
     {
+        // When FishNet PhysicsMode is set to TimeManager, physics is stepped during the
+        // network tick rather than Unity's FixedUpdate. Subscribe here so physics-based
+        // movement stays in sync with NetworkTransform updates.
+        if (InstanceFinder.NetworkManager != null)
+            InstanceFinder.TimeManager.OnTick += OnTick;
+
         if (inputActionAsset != null)
         {
             // use the assigned asset's Player map
@@ -130,6 +137,9 @@ public class PlayerControllerM : MonoBehaviour
 
     void OnDisable()
     {
+        if (InstanceFinder.NetworkManager != null)
+            InstanceFinder.TimeManager.OnTick -= OnTick;
+
         if (jumpAction != null) jumpAction.performed -= OnJumpPerformed;
         if (activeMap != null)
         {
@@ -174,9 +184,17 @@ public class PlayerControllerM : MonoBehaviour
         UpdateSprite();
     }
 
+    void OnTick()
+    {
+        // Used when FishNet PhysicsMode = TimeManager (networked play).
+        ApplyMovement();
+    }
+
     void FixedUpdate()
     {
-        ApplyMovement();
+        // Used when there is no NetworkManager (offline / single-player builds).
+        if (InstanceFinder.NetworkManager == null)
+            ApplyMovement();
     }
 
     void OnJumpPerformed(InputAction.CallbackContext ctx)

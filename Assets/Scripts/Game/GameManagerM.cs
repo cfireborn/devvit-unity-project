@@ -10,7 +10,7 @@ public class GameManagerM : MonoBehaviour
     public PlayerControllerM playerPrefab;
     public CloudManager cloudManager;
     public Transform startPoint;
-    
+
     [Header("Goal Trigger (replace goalPoint)")]
     [Tooltip("Assign an InteractionTrigger used as the level goal. The GameManager will subscribe to its onInteract event.")]
     public InteractionTrigger goalTrigger;
@@ -22,6 +22,9 @@ public class GameManagerM : MonoBehaviour
     [Header("Services")]
     public GameServices gameServices;
 
+    // Always the LOCAL owned player — set via GameServices.onPlayerRegistered.
+    // Works for both networked (NetworkPlayerController registers on ownership confirmed)
+    // and offline (SpawnPlayerLocal registers immediately).
     private PlayerControllerM playerInstance;
 
     void Start()
@@ -37,7 +40,7 @@ public class GameManagerM : MonoBehaviour
             if (goalTrigger != null) gameState.goalPosition = goalTrigger.transform.position;
         }
 
-        // subscribe to reset triggers
+        // Subscribe to reset triggers
         if (resetTriggers != null)
         {
             foreach (var t in resetTriggers)
@@ -46,50 +49,91 @@ public class GameManagerM : MonoBehaviour
             }
         }
 
+        // onPlayerRegistered fires when the LOCAL player is ready (both networked and offline).
+        // This is the single source of truth for playerInstance in all modes.
+        gameServices.onPlayerRegistered += OnPlayerRegistered;
+
         SpawnPlayer();
     }
 
-    void SpawnPlayer()
+    // ── Player registration (called by GameServices when local player is ready) ──
+
+    void OnPlayerRegistered()
     {
-        // When FishNet is present, NetworkPlayerSpawner handles spawning — skip local spawn.
-        if (InstanceFinder.NetworkManager != null)
-        {
-            Debug.Log("GameManagerM: NetworkManager detected, skipping local player spawn (NetworkPlayerSpawner handles it).");
-            return;
-        }
+        var player = gameServices.GetPlayer();
+        if (player == null) return;
 
-        if (playerPrefab != null && startPoint != null)
-        {
-            playerInstance = Instantiate(playerPrefab, startPoint.position, Quaternion.identity);
-        }
-        else
-        {
-            playerInstance = FindFirstObjectByType<PlayerControllerM>();
-            if (playerInstance != null && startPoint != null)
-            {
-                playerInstance.transform.position = startPoint.position;
-            }
-        }
+        playerInstance = player;
 
-        if (playerInstance != null)
+        if (playerSettings != null) playerInstance.settings = playerSettings;
+        if (gameState != null) playerInstance.gameState = gameState;
+
+        // Subscribe goal trigger now that we have a real player reference.
+        if (goalTrigger != null)
         {
-            if (playerSettings != null) playerInstance.settings = playerSettings;
-            if (gameState != null) playerInstance.gameState = gameState;
-            gameServices?.RegisterPlayer(playerInstance);
-            // If a goal trigger is present, subscribe to it so we can mark level complete and notify the player
-            if (goalTrigger != null)
-            {
-                goalTrigger.onInteract.AddListener(HandleGoalTriggered);
-                playerInstance.OnGoalRegistered(goalTrigger.gameObject);
-            }
-        }
-        else
-        {
-            Debug.LogWarning("GameManager: No PlayerController found or prefab assigned. Player not spawned.");
+            goalTrigger.onInteract.RemoveListener(HandleGoalTriggered); // guard against double-subscribe
+            goalTrigger.onInteract.AddListener(HandleGoalTriggered);
+            playerInstance.OnGoalRegistered(goalTrigger.gameObject);
         }
     }
 
-    /// <summary>Call from ItemDeliveryTrigger.onDeliverySuccess to reset the level when delivery completes.</summary>
+    // ── Spawn ─────────────────────────────────────────────────────────────────
+
+    void SpawnPlayer()
+    {
+        // If a NetworkManager exists, NetworkPlayerSpawner handles spawning.
+        // When the spawned player's PlayerControllerM.Start() runs (owner only),
+        // it calls GameServices.RegisterPlayer() → onPlayerRegistered → OnPlayerRegistered().
+        if (InstanceFinder.NetworkManager != null)
+        {
+            Debug.Log("GameManagerM: NetworkManager present — deferring spawn to network.");
+            return;
+        }
+
+        // No NetworkManager = true offline build, spawn immediately.
+        SpawnPlayerLocal();
+    }
+
+    /// <summary>
+    /// Offline fallback: spawns a local player when network connection times out.
+    /// Tints the player grey to signal offline/disconnected state.
+    /// </summary>
+    public void ActivateOfflineMode()
+    {
+        Debug.Log("GameManagerM: Activating offline mode (no server connection).");
+        SpawnPlayerLocal();
+
+        if (playerInstance != null && playerInstance.spriteRenderer != null)
+            playerInstance.spriteRenderer.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+    }
+
+    void SpawnPlayerLocal()
+    {
+        if (playerInstance != null) return; // already spawned
+
+        if (playerPrefab != null && startPoint != null)
+        {
+            var spawned = Instantiate(playerPrefab, startPoint.position, Quaternion.identity);
+            // RegisterPlayer fires onPlayerRegistered → OnPlayerRegistered() sets playerInstance
+            gameServices?.RegisterPlayer(spawned);
+        }
+        else
+        {
+            var existing = FindFirstObjectByType<PlayerControllerM>();
+            if (existing != null)
+            {
+                if (startPoint != null) existing.transform.position = startPoint.position;
+                gameServices?.RegisterPlayer(existing);
+            }
+            else
+            {
+                Debug.LogWarning("GameManager: No PlayerController found or prefab assigned. Player not spawned.");
+            }
+        }
+    }
+
+    // ── Triggers ──────────────────────────────────────────────────────────────
+
     public void OnDeliveryComplete()
     {
         Debug.Log("GameManager: Delivery complete.");
@@ -98,16 +142,6 @@ public class GameManagerM : MonoBehaviour
     void HandleGoalTriggered(GameObject source, Vector2 contactPoint)
     {
         ResetGame();
-        // if (gameState != null && !gameState.levelComplete)
-        // {
-        //     gameState.levelComplete = true;
-        //     Debug.Log("GameManager: Goal triggered. Level complete.");
-        // }
-
-        // if (playerInstance != null)
-        // {
-        //     playerInstance.OnGoalTriggered(source, contactPoint);
-        // }
     }
 
     void HandleResetTriggered(GameObject source, Vector2 contactPoint)
@@ -116,39 +150,35 @@ public class GameManagerM : MonoBehaviour
         ResetGame();
     }
 
+    // ── Reset ─────────────────────────────────────────────────────────────────
+
     void ResetGame()
     {
-        // Respawn only: move player to start. Goals, carried item, and trigger states are preserved
-        // (e.g. player fell off map — they lose position but keep quest/delivery state).
         if (gameState != null)
-        {
             gameState.levelComplete = false;
-        }
 
-        // respawn the player at the start point
-        if (playerInstance == null)
+        // Use GameServices as authoritative source for the local player.
+        // Avoids FindFirstObjectByType which can return remote/disabled players in multiplayer.
+        var player = playerInstance ?? gameServices?.GetPlayer();
+
+        if (player != null)
         {
-            playerInstance = FindFirstObjectByType<PlayerControllerM>();
-        }
-
-        if (playerInstance != null)
-        {
-            Vector3 spawnPos = startPoint != null ? startPoint.position : playerInstance.transform.position;
-            // call into the player to reset internal state if available
-            playerInstance.ResetForRespawn(spawnPos);
-
-            // re-assign settings/state in case they were changed
-            if (playerSettings != null) playerInstance.settings = playerSettings;
-            if (gameState != null) playerInstance.gameState = gameState;
+            Vector3 spawnPos = startPoint != null ? startPoint.position : player.transform.position;
+            player.ResetForRespawn(spawnPos);
+            if (playerSettings != null) player.settings = playerSettings;
+            if (gameState != null) player.gameState = gameState;
         }
         else
         {
-            Debug.LogWarning("GameManager.ResetGame: No PlayerController found to respawn.");
+            Debug.LogWarning("GameManager.ResetGame: No local player found to respawn.");
         }
     }
 
     void OnDestroy()
     {
+        if (gameServices != null)
+            gameServices.onPlayerRegistered -= OnPlayerRegistered;
+
         if (resetTriggers != null)
         {
             foreach (var t in resetTriggers)
@@ -158,9 +188,6 @@ public class GameManagerM : MonoBehaviour
         }
 
         if (goalTrigger != null)
-        {
             goalTrigger.onInteract.RemoveListener(HandleGoalTriggered);
-        }
     }
-
 }

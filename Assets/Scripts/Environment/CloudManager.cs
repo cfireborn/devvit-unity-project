@@ -290,4 +290,8 @@ public class CloudManager : MonoBehaviour
     {
         return _active;
     }
+
+    /// <summary>Look up a cloud GameObject by its network ID. Used by NetworkCloudManager on the host.</summary>
+    public bool TryGetCloudById(int netId, out GameObject cloud) =>
+        _idToCloud.TryGetValue(netId, out cloud);
 }

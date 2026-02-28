@@ -64,6 +64,14 @@ Transform the Compersion Unity 2D platformer into a multiplayer game using Fishn
 4. `Assets/Scripts/Network/PlatformerDistanceCondition.cs` - Interest management (AOI culling)
 5. `Assets/Scripts/Network/CloudStateSync.cs` - Efficient cloud position updates (10Hz)
 
+**Known Issue — Phase 3.5 (Ladder Sync — NEEDS IMPLEMENTATION):**
+- `CloudLadderController` is not networked. Ladders appear on the server/host but not on remote clients.
+- Fix: Create `NetworkCloudLadderController.cs` — attach to CloudLadderController's GameObject, add NetworkObject component.
+  - Server: listen to ladder create/destroy events (add C# events to CloudLadderController similar to CloudManager)
+  - Send [ObserversRpc] RpcCreateLadder(cloudAId, cloudBId, ladderPos) and RpcDestroyLadder(id)
+  - Clients: instantiate ladder prefab at given position/height when RPC fires
+  - Late joiners: [TargetRpc] send all current ladders on client connect
+
 **Priority 3 - Integration:**
 6. `Assets/Scripts/Network/EdgegapConnector.cs` - Client connection to Edgegap servers
 7. `Assets/Scripts/Editor/ServerBuilder.cs` - Automated Linux server build script

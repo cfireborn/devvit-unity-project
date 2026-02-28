@@ -39,6 +39,9 @@ public class NetworkCloudManager : NetworkBehaviour
     float _syncTimer;
     const float SyncInterval = 0.1f; // 10Hz
 
+    // Client-side: maps cloud ID → stored move speed (CloudPlatform disabled on client)
+    readonly Dictionary<int, float> _clientCloudSpeeds = new Dictionary<int, float>();
+
     void Awake()
     {
         _cloudManager = GetComponent<CloudManager>();
@@ -89,12 +92,12 @@ public class NetworkCloudManager : NetworkBehaviour
     public override void OnStopClient()
     {
         base.OnStopClient();
-        // Clean up any locally created cloud objects
         foreach (var go in _clientClouds.Values)
         {
             if (go != null) Destroy(go);
         }
         _clientClouds.Clear();
+        _clientCloudSpeeds.Clear();
     }
 
     // ── Update (server-side position sync) ───────────────────────────────────
@@ -110,6 +113,24 @@ public class NetworkCloudManager : NetworkBehaviour
             _cloudManager.GetCloudPositions(out int[] ids, out Vector2[] positions);
             if (ids.Length > 0)
                 RpcSyncPositions(ids, positions);
+        }
+    }
+
+    void FixedUpdate()
+    {
+        // Clients drive kinematic cloud Rigidbodies manually (CloudPlatform is disabled on clients)
+        if (IsServerStarted) return;
+
+        foreach (var kvp in _clientClouds)
+        {
+            var go = kvp.Value;
+            if (go == null) continue;
+            if (!_clientCloudSpeeds.TryGetValue(kvp.Key, out float speed)) continue;
+            if (speed == 0f) continue;
+
+            var rb = go.GetComponent<Rigidbody2D>();
+            if (rb != null)
+                rb.MovePosition(rb.position + new Vector2(speed * Time.fixedDeltaTime, 0f));
         }
     }
 
@@ -160,15 +181,17 @@ public class NetworkCloudManager : NetworkBehaviour
     {
         for (int i = 0; i < ids.Length; i++)
         {
-            if (_clientClouds.TryGetValue(ids[i], out GameObject go) && go != null)
+            if (!_clientClouds.TryGetValue(ids[i], out GameObject go) || go == null) continue;
+
+            var rb = go.GetComponent<Rigidbody2D>();
+            Vector2 current = rb != null ? rb.position : (Vector2)go.transform.position;
+            float error = Vector2.Distance(current, positions[i]);
+
+            // Only correct if meaningfully drifted — avoids fighting with MovePosition
+            if (error > 1.5f)
             {
-                // Snap if too far off, otherwise lerp gently
-                Vector2 current = go.transform.position;
-                float error = Vector2.Distance(current, positions[i]);
-                if (error > 2f)
-                    go.transform.position = positions[i];
-                else if (error > 0.05f)
-                    go.transform.position = Vector2.Lerp(current, positions[i], 0.3f);
+                if (rb != null) rb.MovePosition(positions[i]);
+                else go.transform.position = positions[i];
             }
         }
     }
@@ -193,15 +216,23 @@ public class NetworkCloudManager : NetworkBehaviour
         GameObject cloud = Instantiate(prefabs[prefabIdx], pos, Quaternion.identity);
         cloud.transform.localScale = new Vector3(scale, scale, scale);
 
+        // Disable CloudPlatform — it would fight Rigidbody2D with linearVelocity.
+        // We drive movement ourselves via MovePosition in FixedUpdate.
         var platform = cloud.GetComponent<CloudPlatform>();
         if (platform != null)
+            platform.enabled = false;
+
+        // Kinematic: not simulated by physics engine, moved via MovePosition.
+        // This prevents the cloud from pushing/dragging the player unpredictably.
+        var rb = cloud.GetComponent<Rigidbody2D>();
+        if (rb != null)
         {
-            platform.SetMovementSpeed(speed);
-            platform.ignoreNoSpawnZones = true; // clients don't self-despawn
-            // No CloudManager reference — server controls lifecycle
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         }
 
         _clientClouds[id] = cloud;
+        _clientCloudSpeeds[id] = speed;
     }
 
     void ClientDespawnCloud(int id)
@@ -211,5 +242,6 @@ public class NetworkCloudManager : NetworkBehaviour
             if (go != null) Destroy(go);
             _clientClouds.Remove(id);
         }
+        _clientCloudSpeeds.Remove(id);
     }
 }
