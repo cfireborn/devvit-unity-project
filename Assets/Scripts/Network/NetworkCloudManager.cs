@@ -35,6 +35,12 @@ public class NetworkCloudManager : NetworkBehaviour
     // Set by ActivateOfflineMode() — prevents OnStartClient from re-disabling CloudManager
     bool _offlineMode;
 
+    // Cached flags set by OnStartServer/OnStopServer and OnStartClient/OnStopClient.
+    // IsServerStarted / IsClientStarted on NetworkBehaviour dereference the NetworkObject's
+    // internal manager, which is null in offline mode and causes NullReferenceExceptions.
+    bool _serverRunning;
+    bool _clientRunning;
+
     // Client-side: maps network cloud ID → locally instantiated cloud GameObject
     readonly Dictionary<int, GameObject> _clientClouds = new Dictionary<int, GameObject>();
 
@@ -65,6 +71,7 @@ public class NetworkCloudManager : NetworkBehaviour
     public override void OnStartServer()
     {
         base.OnStartServer();
+        _serverRunning = true;
         _cloudManager.enabled = true;
         _cloudManager.OnCloudSpawned += ServerOnCloudSpawned;
         _cloudManager.OnCloudDespawned += ServerOnCloudDespawned;
@@ -76,6 +83,7 @@ public class NetworkCloudManager : NetworkBehaviour
     public override void OnStopServer()
     {
         base.OnStopServer();
+        _serverRunning = false;
         _cloudManager.OnCloudSpawned -= ServerOnCloudSpawned;
         _cloudManager.OnCloudDespawned -= ServerOnCloudDespawned;
 
@@ -88,7 +96,8 @@ public class NetworkCloudManager : NetworkBehaviour
     public override void OnStartClient()
     {
         base.OnStartClient();
-        if (!IsServerStarted && !_offlineMode)
+        _clientRunning = true;
+        if (!_serverRunning && !_offlineMode)
         {
             // Pure client: disable CloudManager — server drives all clouds
             _cloudManager.enabled = false;
@@ -103,6 +112,15 @@ public class NetworkCloudManager : NetworkBehaviour
     public void ActivateOfflineMode()
     {
         _offlineMode = true;
+
+        // If the whole GameObject was disabled in the scene, bring it back.
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
+
+        // Re-acquire reference in case Awake never ran (GO was inactive at start).
+        if (_cloudManager == null)
+            _cloudManager = GetComponent<CloudManager>();
+
         if (_cloudManager != null)
             _cloudManager.enabled = true;
     }
@@ -110,6 +128,7 @@ public class NetworkCloudManager : NetworkBehaviour
     public override void OnStopClient()
     {
         base.OnStopClient();
+        _clientRunning = false;
         foreach (var kvp in _clientClouds)
         {
             // Only destroy clouds we created — server-managed ones belong to CloudManager
@@ -125,7 +144,7 @@ public class NetworkCloudManager : NetworkBehaviour
 
     void Update()
     {
-        if (!IsServerStarted) return;
+        if (!_serverRunning) return;
 
         _syncTimer += Time.deltaTime;
         if (_syncTimer >= SyncInterval)
@@ -140,7 +159,7 @@ public class NetworkCloudManager : NetworkBehaviour
     void FixedUpdate()
     {
         // Only pure clients drive kinematic clouds — server has CloudPlatform running natively
-        if (IsServerStarted) return;
+        if (_serverRunning || !_clientRunning) return;
 
         foreach (var kvp in _clientClouds)
         {
@@ -234,7 +253,7 @@ public class NetworkCloudManager : NetworkBehaviour
         if (_clientClouds.ContainsKey(id)) return; // already exists
 
         // Host: the cloud already exists in CloudManager — just borrow the reference.
-        if (IsServerStarted)
+        if (_serverRunning)
         {
             if (_cloudManager.TryGetCloudById(id, out GameObject existing))
             {

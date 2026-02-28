@@ -109,7 +109,7 @@ public class GameManagerM : MonoBehaviour
         // Delegate to NetworkCloudManager so it sets its _offlineMode flag (prevents
         // OnStartClient from re-disabling CloudManager if it fires late) and re-enables
         // CloudManager. Falls back to a scene search in case the inspector ref isn't assigned.
-        var ncm = FindFirstObjectByType<NetworkCloudManager>();
+        var ncm = FindFirstObjectByType<NetworkCloudManager>(FindObjectsInactive.Include);
         if (ncm != null)
         {
             ncm.ActivateOfflineMode();

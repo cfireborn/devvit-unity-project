@@ -99,6 +99,16 @@ public class NetworkBootstrapper : MonoBehaviour
 
     void TriggerOfflineFallback()
     {
+        // Unsubscribe first so the StopConnection() call below doesn't re-trigger
+        // OnClientConnectionState and accidentally set _connectionEstablished or
+        // fire OnStartClient on NetworkBehaviours after offline mode is active.
+        var nm = InstanceFinder.NetworkManager;
+        if (nm != null)
+        {
+            nm.ClientManager.OnClientConnectionState -= OnClientConnectionState;
+            nm.ClientManager.StopConnection();
+        }
+
         var gm = FindFirstObjectByType<GameManagerM>();
         if (gm != null)
             gm.ActivateOfflineMode();
