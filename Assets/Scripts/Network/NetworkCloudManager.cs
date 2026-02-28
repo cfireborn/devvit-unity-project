@@ -35,6 +35,9 @@ public class NetworkCloudManager : NetworkBehaviour
     // Client-side: maps network cloud ID → locally instantiated cloud GameObject
     readonly Dictionary<int, GameObject> _clientClouds = new Dictionary<int, GameObject>();
 
+    // Host-only: IDs whose GameObjects are owned by CloudManager (don't Destroy them on despawn)
+    readonly HashSet<int> _serverManagedClouds = new HashSet<int>();
+
     // Server-side position sync timer
     float _syncTimer;
     const float SyncInterval = 0.1f; // 10Hz
@@ -92,12 +95,15 @@ public class NetworkCloudManager : NetworkBehaviour
     public override void OnStopClient()
     {
         base.OnStopClient();
-        foreach (var go in _clientClouds.Values)
+        foreach (var kvp in _clientClouds)
         {
-            if (go != null) Destroy(go);
+            // Only destroy clouds we created — server-managed ones belong to CloudManager
+            if (!_serverManagedClouds.Contains(kvp.Key) && kvp.Value != null)
+                Destroy(kvp.Value);
         }
         _clientClouds.Clear();
         _clientCloudSpeeds.Clear();
+        _serverManagedClouds.Clear();
     }
 
     // ── Update (server-side position sync) ───────────────────────────────────
@@ -118,7 +124,7 @@ public class NetworkCloudManager : NetworkBehaviour
 
     void FixedUpdate()
     {
-        // Clients drive kinematic cloud Rigidbodies manually (CloudPlatform is disabled on clients)
+        // Only pure clients drive kinematic clouds — server has CloudPlatform running natively
         if (IsServerStarted) return;
 
         foreach (var kvp in _clientClouds)
@@ -161,26 +167,28 @@ public class NetworkCloudManager : NetworkBehaviour
 
     // ── RPCs (server → clients) ───────────────────────────────────────────────
 
-    /// <summary>Tells all clients to spawn a cloud.</summary>
-    [ObserversRpc(ExcludeServer = true)]
+    /// <summary>Tells all observers (including host) to register a cloud.</summary>
+    [ObserversRpc]
     void RpcSpawnCloud(int id, int prefabIdx, Vector2 pos, float scale, float speed)
     {
         ClientSpawnCloud(id, prefabIdx, pos, scale, speed);
     }
 
-    /// <summary>Tells all clients to despawn a cloud.</summary>
-    [ObserversRpc(ExcludeServer = true)]
+    /// <summary>Tells all observers (including host) to unregister a cloud.</summary>
+    [ObserversRpc]
     void RpcDespawnCloud(int id)
     {
         ClientDespawnCloud(id);
     }
 
     /// <summary>Periodic position corrections for all active clouds.</summary>
-    [ObserversRpc(ExcludeServer = true)]
+    [ObserversRpc]
     void RpcSyncPositions(int[] ids, Vector2[] positions)
     {
         for (int i = 0; i < ids.Length; i++)
         {
+            // Host's clouds are authoritative — don't correct them
+            if (_serverManagedClouds.Contains(ids[i])) continue;
             if (!_clientClouds.TryGetValue(ids[i], out GameObject go) || go == null) continue;
 
             var rb = go.GetComponent<Rigidbody2D>();
@@ -209,6 +217,18 @@ public class NetworkCloudManager : NetworkBehaviour
     void ClientSpawnCloud(int id, int prefabIdx, Vector2 pos, float scale, float speed)
     {
         if (_clientClouds.ContainsKey(id)) return; // already exists
+
+        // Host: the cloud already exists in CloudManager — just borrow the reference.
+        if (IsServerStarted)
+        {
+            if (_cloudManager.TryGetCloudById(id, out GameObject existing))
+            {
+                _clientClouds[id] = existing;
+                _serverManagedClouds.Add(id);
+                // No speed entry needed — CloudPlatform drives it natively on server
+            }
+            return;
+        }
 
         var prefabs = _cloudManager.cloudPrefabs;
         if (prefabs == null || prefabIdx < 0 || prefabIdx >= prefabs.Length) return;
@@ -239,9 +259,12 @@ public class NetworkCloudManager : NetworkBehaviour
     {
         if (_clientClouds.TryGetValue(id, out GameObject go))
         {
-            if (go != null) Destroy(go);
+            // Server-managed clouds belong to CloudManager — don't Destroy them here
+            if (!_serverManagedClouds.Contains(id) && go != null)
+                Destroy(go);
             _clientClouds.Remove(id);
         }
+        _serverManagedClouds.Remove(id);
         _clientCloudSpeeds.Remove(id);
     }
 }
