@@ -120,6 +120,10 @@ public class GameManagerM : MonoBehaviour
             cloudManager.enabled = true;
         }
 
+        var nlc = FindFirstObjectByType<NetworkCloudLadderController>(FindObjectsInactive.Include);
+        if (nlc != null)
+            nlc.ActivateOfflineMode();
+
         if (playerInstance != null && playerInstance.spriteRenderer != null)
             playerInstance.spriteRenderer.color = new Color(0.55f, 0.55f, 0.55f, 1f);
     }
