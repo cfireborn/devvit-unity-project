@@ -832,7 +832,8 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    WebGL: FISHNET;FISHNET_V4
+    Server: FISHNET;FISHNET_V4;EDGEGAP_PLUGIN_SERVERS
+    WebGL: FISHNET;FISHNET_V4;EDGEGAP_PLUGIN_SERVERS
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

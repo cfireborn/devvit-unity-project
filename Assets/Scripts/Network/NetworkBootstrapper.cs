@@ -18,6 +18,12 @@ public class NetworkBootstrapper : MonoBehaviour
     [Tooltip("Address to connect to when running as a client.")]
     public string serverAddress = "localhost";
 
+    [Tooltip("Port for Tugboat (UDP) — editor and standalone clients.")]
+    public ushort tugboatPort = 7770;
+
+    [Tooltip("Port for Bayou (WebSocket) — WebGL clients.")]
+    public ushort bayouPort = 7771;
+
     [Header("Editor Testing")]
     [Tooltip("Start as Host in the main editor window. Virtual players (MPPM) always start as clients.")]
     public bool editorStartAsHost = true;
@@ -50,19 +56,25 @@ public class NetworkBootstrapper : MonoBehaviour
         {
             Debug.Log("NetworkBootstrapper: Editor (Main) — starting as Host.");
             nm.ServerManager.StartConnection();
-            nm.ClientManager.StartConnection(serverAddress);
+            nm.ClientManager.StartConnection(serverAddress, tugboatPort);
         }
         else
         {
-            Debug.Log($"NetworkBootstrapper: Editor (Virtual Player) — connecting to {serverAddress}.");
-            nm.ClientManager.StartConnection(serverAddress);
+            Debug.Log($"NetworkBootstrapper: Editor (Virtual Player) — connecting to {serverAddress}:{tugboatPort}.");
+            nm.ClientManager.StartConnection(serverAddress, tugboatPort);
             StartCoroutine(ConnectionTimeoutRoutine());
         }
 
 #elif UNITY_WEBGL
-        Debug.Log($"NetworkBootstrapper: WebGL — connecting to {serverAddress}.");
-        nm.ClientManager.StartConnection(serverAddress);
-        StartCoroutine(ConnectionTimeoutRoutine());
+        Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {serverAddress}:{bayouPort}.");
+        var edgegap = GetComponent<EdgegapConnector>();
+        if (edgegap != null)
+            StartCoroutine(ConnectViaEdgegap(nm, edgegap));
+        else
+        {
+            nm.ClientManager.StartConnection(serverAddress, bayouPort);
+            StartCoroutine(ConnectionTimeoutRoutine());
+        }
 
 #else
         nm.ServerManager.StartConnection();
@@ -95,6 +107,19 @@ public class NetworkBootstrapper : MonoBehaviour
             Debug.LogWarning($"NetworkBootstrapper: No connection after {connectionTimeoutSeconds}s — falling back to offline mode.");
             TriggerOfflineFallback();
         }
+    }
+
+    IEnumerator ConnectViaEdgegap(NetworkManager nm, EdgegapConnector connector)
+    {
+        yield return StartCoroutine(connector.GetSession());
+        if (connector.IsReady)
+        {
+            serverAddress = connector.ServerIP;
+            bayouPort     = connector.ServerPort;
+        }
+        // Connect regardless — if Edgegap failed, we try serverAddress and timeout to offline.
+        nm.ClientManager.StartConnection(serverAddress, bayouPort);
+        StartCoroutine(ConnectionTimeoutRoutine());
     }
 
     void TriggerOfflineFallback()
