@@ -5,7 +5,7 @@ using System.IO;
 
 public static class ServerBuilder
 {
-    const string OutputPath = "Builds/LinuxServer/GameServer";
+    const string OutputPath = "Builds/EdgegapServer/ServerBuild";
 
     [MenuItem("Build/Build Linux Server")]
     public static void BuildLinuxServer()
