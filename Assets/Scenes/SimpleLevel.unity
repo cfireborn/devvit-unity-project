@@ -1456,6 +1456,9 @@ GameObject:
   - component: {fileID: 1319779691}
   - component: {fileID: 1319779689}
   - component: {fileID: 1319779693}
+  - component: {fileID: 1319779695}
+  - component: {fileID: 1319779694}
+  - component: {fileID: 1319779696}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -1525,7 +1528,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34e4a322dca349547989b14021da4e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Managing.Transporting.TransportManager
-  Transport: {fileID: 1319779693}
+  Transport: {fileID: 1319779694}
   _intermediateLayer: {fileID: 0}
   _latencySimulator:
     _enabled: 0
@@ -1635,7 +1638,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f05c616f1c0e94f378a23b6316530f83, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkBootstrapper
-  serverAddress: localhost
+  serverAddress: 5c1464d0170a.pr.edgegap.net
+  tugboatPort: 30438
+  bayouPort: 32745
   editorStartAsHost: 1
   connectionTimeoutSeconds: 5
 --- !u!114 &1319779693
@@ -1657,9 +1662,60 @@ MonoBehaviour:
   _ipv4BindAddress: 
   _enableIpv6: 1
   _ipv6BindAddress: 
-  _port: 7770
+  _port: 7777
   _maximumClients: 4095
   _clientAddress: localhost
+--- !u!114 &1319779694
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1319779680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 314b449d3505bd24487ba69b61c2fda5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Transporting.Multipass.Multipass
+  GlobalServerActions: 1
+  _transports:
+  - {fileID: 1319779695}
+  - {fileID: 1319779693}
+--- !u!114 &1319779695
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1319779680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 362dfd7e6009fb44c90beec3df0ad853, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Bayou::FishNet.Transporting.Bayou.Bayou
+  _useWss: 0
+  _sslConfiguration:
+    Enabled: 0
+    CertificatePath: 
+    CertificatePassword: 
+    SslProtocol: 0
+  _mtu: 1023
+  _port: 7771
+  _maximumClients: 2000
+  _clientAddress: localhost
+--- !u!114 &1319779696
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1319779680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac934682199254e94af7249035a193bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EdgegapConnector
+  settings: {fileID: 11400000, guid: b4a4f16240da94df89fb1747ee10d03e, type: 2}
 --- !u!1 &1333666526 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 321453559038796871, guid: 050f98b585d44454791b0829175a34a9, type: 3}

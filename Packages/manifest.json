@@ -10,6 +10,7 @@
     "com.unity.multiplayer.center": "1.0.0",
     "com.unity.multiplayer.playmode": "1.6.3",
     "com.unity.render-pipelines.universal": "17.2.0",
+    "com.unity.services.multiplayer": "1.1.8",
     "com.unity.test-framework": "1.6.0",
     "com.unity.timeline": "1.8.9",
     "com.unity.toolchain.macos-arm64-linux-x86_64": "2.0.5",

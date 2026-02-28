@@ -2,6 +2,7 @@ using System.Collections;
 using FishNet;
 using FishNet.Managing;
 using FishNet.Transporting;
+using FishNet.Transporting.Multipass;
 using UnityEngine;
 #if UNITY_EDITOR
 using Unity.Multiplayer.Playmode;
@@ -18,10 +19,10 @@ public class NetworkBootstrapper : MonoBehaviour
     [Tooltip("Address to connect to when running as a client.")]
     public string serverAddress = "localhost";
 
-    [Tooltip("Port for Tugboat (UDP) — editor and standalone clients.")]
-    public ushort tugboatPort = 7770;
+    [Tooltip("Port for Tugboat (UDP) — editor and standalone clients. Use the Edgegap external UDP port when connecting to a remote server.")]
+    public ushort tugboatPort = 7777;
 
-    [Tooltip("Port for Bayou (WebSocket) — WebGL clients.")]
+    [Tooltip("Port for Bayou (WebSocket) — WebGL clients. Use the Edgegap external TCP port when connecting to a remote server.")]
     public ushort bayouPort = 7771;
 
     [Header("Editor Testing")]
@@ -52,6 +53,7 @@ public class NetworkBootstrapper : MonoBehaviour
 
 #elif UNITY_EDITOR
         bool isHost = editorStartAsHost && CurrentPlayer.IsMainEditor;
+        SetClientTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
         if (isHost)
         {
             Debug.Log("NetworkBootstrapper: Editor (Main) — starting as Host.");
@@ -67,6 +69,7 @@ public class NetworkBootstrapper : MonoBehaviour
 
 #elif UNITY_WEBGL
         Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {serverAddress}:{bayouPort}.");
+        SetClientTransport<FishNet.Transporting.Bayou.Bayou>(nm);
         var edgegap = GetComponent<EdgegapConnector>();
         if (edgegap != null)
             StartCoroutine(ConnectViaEdgegap(nm, edgegap));
@@ -78,8 +81,16 @@ public class NetworkBootstrapper : MonoBehaviour
 
 #else
         nm.ServerManager.StartConnection();
-        nm.ClientManager.StartConnection(serverAddress);
+        nm.ClientManager.StartConnection(serverAddress, tugboatPort);
 #endif
+    }
+
+    // Selects which sub-transport Multipass uses for the client connection.
+    // No-op if the transport isn't Multipass (single-transport setup).
+    static void SetClientTransport<T>(NetworkManager nm) where T : Transport
+    {
+        if (nm.TransportManager.Transport is Multipass mp)
+            mp.SetClientTransport<T>();
     }
 
     void OnDestroy()
