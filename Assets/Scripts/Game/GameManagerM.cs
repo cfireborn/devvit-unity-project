@@ -106,10 +106,19 @@ public class GameManagerM : MonoBehaviour
         // Spawn player first so CloudManager.Start() can find it via GameServices immediately.
         SpawnPlayerLocal();
 
-        // NetworkCloudManager.Awake() disabled this when it saw a NetworkManager.
-        // Re-enable it so clouds spawn and move normally in offline single-player.
-        if (cloudManager != null)
+        // Delegate to NetworkCloudManager so it sets its _offlineMode flag (prevents
+        // OnStartClient from re-disabling CloudManager if it fires late) and re-enables
+        // CloudManager. Falls back to a scene search in case the inspector ref isn't assigned.
+        var ncm = FindFirstObjectByType<NetworkCloudManager>();
+        if (ncm != null)
+        {
+            ncm.ActivateOfflineMode();
+        }
+        else if (cloudManager != null)
+        {
+            // No NetworkCloudManager in scene — just re-enable directly (pure offline build).
             cloudManager.enabled = true;
+        }
 
         if (playerInstance != null && playerInstance.spriteRenderer != null)
             playerInstance.spriteRenderer.color = new Color(0.55f, 0.55f, 0.55f, 1f);

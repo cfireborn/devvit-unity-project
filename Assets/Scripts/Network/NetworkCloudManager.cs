@@ -32,6 +32,9 @@ public class NetworkCloudManager : NetworkBehaviour
 {
     CloudManager _cloudManager;
 
+    // Set by ActivateOfflineMode() — prevents OnStartClient from re-disabling CloudManager
+    bool _offlineMode;
+
     // Client-side: maps network cloud ID → locally instantiated cloud GameObject
     readonly Dictionary<int, GameObject> _clientClouds = new Dictionary<int, GameObject>();
 
@@ -85,11 +88,23 @@ public class NetworkCloudManager : NetworkBehaviour
     public override void OnStartClient()
     {
         base.OnStartClient();
-        if (!IsServerStarted)
+        if (!IsServerStarted && !_offlineMode)
         {
             // Pure client: disable CloudManager — server drives all clouds
             _cloudManager.enabled = false;
         }
+    }
+
+    /// <summary>
+    /// Called by GameManagerM when the network connection times out.
+    /// Re-enables CloudManager for local single-player cloud spawning,
+    /// and prevents OnStartClient from disabling it again if it fires late.
+    /// </summary>
+    public void ActivateOfflineMode()
+    {
+        _offlineMode = true;
+        if (_cloudManager != null)
+            _cloudManager.enabled = true;
     }
 
     public override void OnStopClient()
