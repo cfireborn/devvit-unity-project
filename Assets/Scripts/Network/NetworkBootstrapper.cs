@@ -57,7 +57,8 @@ public class NetworkBootstrapper : MonoBehaviour
         if (isHost)
         {
             Debug.Log("NetworkBootstrapper: Editor (Main) — starting as Host.");
-            nm.ServerManager.StartConnection();
+            // Only start Tugboat server in editor — Bayou is for WebGL production only.
+            StartServerTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
             nm.ClientManager.StartConnection(serverAddress, tugboatPort);
         }
         else
@@ -91,6 +92,23 @@ public class NetworkBootstrapper : MonoBehaviour
     {
         if (nm.TransportManager.Transport is Multipass mp)
             mp.SetClientTransport<T>();
+    }
+
+    // Starts only a specific sub-transport's server. Falls back to StartConnection() if not Multipass.
+    static void StartServerTransport<T>(NetworkManager nm) where T : Transport
+    {
+        if (nm.TransportManager.Transport is Multipass mp)
+        {
+            for (int i = 0; i < mp.Transports.Count; i++)
+            {
+                if (mp.Transports[i] is T)
+                {
+                    mp.StartConnection(true, i);
+                    return;
+                }
+            }
+        }
+        nm.ServerManager.StartConnection();
     }
 
     void OnDestroy()

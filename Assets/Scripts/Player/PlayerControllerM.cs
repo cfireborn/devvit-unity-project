@@ -288,10 +288,10 @@ public class PlayerControllerM : MonoBehaviour
         if (_isGroundedFixed)
             _coyoteTimeRemaining = settings.coyoteTime;
         else
-            _coyoteTimeRemaining = Mathf.Max(0f, _coyoteTimeRemaining - Time.fixedDeltaTime);
+            _coyoteTimeRemaining = Mathf.Max(0f, _coyoteTimeRemaining - TickOrFixedDelta());
 
         // Jump buffer: decay so we only trigger if we land within the window
-        _jumpBufferRemaining = Mathf.Max(0f, _jumpBufferRemaining - Time.fixedDeltaTime);
+        _jumpBufferRemaining = Mathf.Max(0f, _jumpBufferRemaining - TickOrFixedDelta());
 
         bool canJump = (_isGroundedFixed || _coyoteTimeRemaining > 0f) && (jumpPressed || _jumpBufferRemaining > 0f);
 
@@ -507,6 +507,14 @@ public class PlayerControllerM : MonoBehaviour
         _jumpBufferRemaining = 0f;
     }
 
+
+    // Returns the correct timestep whether we're running in OnTick (networked) or FixedUpdate (offline).
+    float TickOrFixedDelta()
+    {
+        if (InstanceFinder.NetworkManager != null)
+            return (float)InstanceFinder.TimeManager.TickDelta;
+        return Time.fixedDeltaTime;
+    }
 
     private bool CheckGround()
     {

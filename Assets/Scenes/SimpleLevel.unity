@@ -272,18 +272,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1954574926}
     m_Modifications:
-    - target: {fileID: 1328068032357876674, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-      propertyPath: isMoving
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1328068032357876674, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-      propertyPath: canBuildLadder
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1328068032357876674, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-      propertyPath: ignoreNoSpawnZones
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 1350014221247916768, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: SceneId
       value: 1979677079
@@ -335,10 +323,6 @@ PrefabInstance:
     - target: {fileID: 4791846076617009745, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: m_Name
       value: Cloud_2
-      objectReference: {fileID: 0}
-    - target: {fileID: 5534825623448470730, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-      propertyPath: m_Enabled
-      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -845,6 +829,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1212037533935751444, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: ignoreNoSpawnZones
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4470191923710027063, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
+      propertyPath: m_CollisionDetection
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
@@ -1513,7 +1501,7 @@ MonoBehaviour:
   _timingType: 0
   _allowTickDropping: 1
   _maximumFrameTicks: 3
-  _tickRate: 30
+  _tickRate: 60
   _pingInterval: 1
   _physicsMode: 1
 --- !u!114 &1319779684
@@ -1638,10 +1626,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f05c616f1c0e94f378a23b6316530f83, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkBootstrapper
-  serverAddress: 5c1464d0170a.pr.edgegap.net
-  tugboatPort: 30438
-  bayouPort: 32745
-  editorStartAsHost: 1
+  serverAddress: d96c6ee9fd7c.pr.edgegap.net
+  tugboatPort: 30773
+  bayouPort: 31409
+  editorStartAsHost: 0
   connectionTimeoutSeconds: 5
 --- !u!114 &1319779693
 MonoBehaviour:
@@ -1662,7 +1650,7 @@ MonoBehaviour:
   _ipv4BindAddress: 
   _enableIpv6: 1
   _ipv6BindAddress: 
-  _port: 7777
+  _port: 30773
   _maximumClients: 4095
   _clientAddress: localhost
 --- !u!114 &1319779694
@@ -1700,7 +1688,7 @@ MonoBehaviour:
     CertificatePassword: 
     SslProtocol: 0
   _mtu: 1023
-  _port: 7771
+  _port: 31409
   _maximumClients: 2000
   _clientAddress: localhost
 --- !u!114 &1319779696
