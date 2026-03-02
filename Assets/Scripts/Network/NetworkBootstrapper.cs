@@ -34,6 +34,11 @@ public class NetworkBootstrapper : MonoBehaviour
     [Tooltip("Seconds to wait for a server connection before falling back to offline single-player mode.")]
     public float connectionTimeoutSeconds = 5f;
 
+    // Read-only accessors for AdminMenu to display current resolved values.
+    public string ActiveAddress     => _serverAddress;
+    public ushort ActiveTugboatPort => _tugboatPort;
+    public ushort ActiveBayouPort   => _bayouPort;
+
     bool _connectionEstablished;
     bool _offlineTriggered;
 
@@ -53,6 +58,15 @@ public class NetworkBootstrapper : MonoBehaviour
         _tugboatPort   = edgegapTugboatPort;
         _bayouPort     = edgegapBayouPort;
 #endif
+        // Runtime override from AdminMenu — survives scene reload within a play session.
+        if (AdminMenuPrefs.UseLocalOverride.HasValue)
+        {
+            bool useLocal  = AdminMenuPrefs.UseLocalOverride.Value;
+            _serverAddress = useLocal ? localAddress      : edgegapAddress;
+            _tugboatPort   = useLocal ? localTugboatPort  : edgegapTugboatPort;
+            _bayouPort     = useLocal ? localBayouPort    : edgegapBayouPort;
+            Debug.Log($"NetworkBootstrapper: AdminMenu override → {(useLocal ? "LOCAL" : "EDGEGAP")} ({_serverAddress})");
+        }
 
         NetworkManager nm = InstanceFinder.NetworkManager;
         if (nm == null)
