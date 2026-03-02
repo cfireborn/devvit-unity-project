@@ -836,6 +836,7 @@ PlayerSettings:
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
     Server: FISHNET;FISHNET_V4;EDGEGAP_PLUGIN_SERVERS
+    Standalone: FISHNET;FISHNET_V4;EDGEGAP_PLUGIN_SERVERS
     WebGL: FISHNET;FISHNET_V4;EDGEGAP_PLUGIN_SERVERS
   additionalCompilerArguments: {}
   platformArchitecture: {}

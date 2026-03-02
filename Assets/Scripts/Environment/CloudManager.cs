@@ -253,6 +253,16 @@ public class CloudManager : MonoBehaviour
             else
             {
                 cloud = Instantiate(prefab, _poolParent);
+
+                // Strip all FishNet network components immediately so they cannot
+                // deactivate the GameObject in offline mode. NetworkObject.Start()
+                // calls TryStartDeactivation() → gameObject.SetActive(false) when
+                // _isNetworked=true and no server/client is running.
+                // DestroyImmediate removes the components before Start() fires.
+                foreach (var nb in cloud.GetComponentsInChildren<NetworkBehaviour>(true))
+                    DestroyImmediate(nb);
+                var nob = cloud.GetComponent<NetworkObject>();
+                if (nob != null) DestroyImmediate(nob);
             }
 
             cloud.transform.position = spawnPos;

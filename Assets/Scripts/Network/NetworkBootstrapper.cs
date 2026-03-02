@@ -60,6 +60,7 @@ public class NetworkBootstrapper : MonoBehaviour
             // Only start Tugboat server in editor — Bayou is for WebGL production only.
             StartServerTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
             nm.ClientManager.StartConnection(serverAddress, tugboatPort);
+            StartCoroutine(ConnectionTimeoutRoutine());
         }
         else
         {
@@ -161,6 +162,10 @@ public class NetworkBootstrapper : MonoBehaviour
         {
             nm.ClientManager.OnClientConnectionState -= OnClientConnectionState;
             nm.ClientManager.StopConnection();
+            // If we were the host (server + client), stop the server too so
+            // offline mode starts cleanly without a dangling server.
+            if (nm.IsServerStarted)
+                nm.ServerManager.StopConnection(sendDisconnectMessage: true);
         }
 
         var gm = FindFirstObjectByType<GameManagerM>();
