@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using FishNet;
 using FishNet.Managing;
@@ -11,19 +12,19 @@ using Unity.Multiplayer.Playmode;
 /// <summary>
 /// Attach to NetworkManager GameObject.
 /// Starts server/host/client based on build target and MPPM player index.
-/// Falls back to offline single-player if connection isn't established within the timeout.
+/// Falls back to offline single-player on any connection failure.
 /// </summary>
 public class NetworkBootstrapper : MonoBehaviour
 {
-    [Header("Connection Settings")]
-    [Tooltip("Address to connect to when running as a client.")]
-    public string serverAddress = "localhost";
+    [Header("Local Testing")]
+    public string localAddress     = "localhost";
+    public ushort localTugboatPort = 7770;
+    public ushort localBayouPort   = 7771;
 
-    [Tooltip("Port for Tugboat (UDP) — editor and standalone clients. Use the Edgegap external UDP port when connecting to a remote server.")]
-    public ushort tugboatPort = 7777;
-
-    [Tooltip("Port for Bayou (WebSocket) — WebGL clients. Use the Edgegap external TCP port when connecting to a remote server.")]
-    public ushort bayouPort = 7771;
+    [Header("Edgegap")]
+    public string edgegapAddress     = "";
+    public ushort edgegapTugboatPort = 30773;
+    public ushort edgegapBayouPort   = 31409;
 
     [Header("Editor Testing")]
     [Tooltip("Start as Host in the main editor window. Virtual players (MPPM) always start as clients.")]
@@ -34,13 +35,29 @@ public class NetworkBootstrapper : MonoBehaviour
     public float connectionTimeoutSeconds = 5f;
 
     bool _connectionEstablished;
+    bool _offlineTriggered;
+
+    // Resolved at startup from build target.
+    string _serverAddress;
+    ushort _tugboatPort;
+    ushort _bayouPort;
 
     void Start()
     {
+#if UNITY_EDITOR || UNITY_STANDALONE_OSX || UNITY_SERVER
+        _serverAddress = localAddress;
+        _tugboatPort   = localTugboatPort;
+        _bayouPort     = localBayouPort;
+#else
+        _serverAddress = edgegapAddress;
+        _tugboatPort   = edgegapTugboatPort;
+        _bayouPort     = edgegapBayouPort;
+#endif
+
         NetworkManager nm = InstanceFinder.NetworkManager;
         if (nm == null)
         {
-            Debug.LogError("NetworkBootstrapper: No NetworkManager found!");
+            Debug.LogError("NetworkBootstrapper: No NetworkManager found — going offline.");
             TriggerOfflineFallback();
             return;
         }
@@ -49,7 +66,7 @@ public class NetworkBootstrapper : MonoBehaviour
 
 #if UNITY_SERVER
         Debug.Log("NetworkBootstrapper: Starting as dedicated server.");
-        nm.ServerManager.StartConnection();
+        TryStartServer(nm);
 
 #elif UNITY_EDITOR
         bool isHost = editorStartAsHost && CurrentPlayer.IsMainEditor;
@@ -57,45 +74,94 @@ public class NetworkBootstrapper : MonoBehaviour
         if (isHost)
         {
             Debug.Log("NetworkBootstrapper: Editor (Main) — starting as Host.");
-            // Only start Tugboat server in editor — Bayou is for WebGL production only.
-            StartServerTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
-            nm.ClientManager.StartConnection(serverAddress, tugboatPort);
-            StartCoroutine(ConnectionTimeoutRoutine());
+            TryStartServer(nm);
+            TryConnectClient(nm, _serverAddress, _tugboatPort);
         }
         else
         {
-            Debug.Log($"NetworkBootstrapper: Editor (Virtual Player) — connecting to {serverAddress}:{tugboatPort}.");
-            nm.ClientManager.StartConnection(serverAddress, tugboatPort);
-            StartCoroutine(ConnectionTimeoutRoutine());
+            Debug.Log($"NetworkBootstrapper: Editor (Virtual Player) — connecting to {_serverAddress}:{_tugboatPort}.");
+            TryConnectClient(nm, _serverAddress, _tugboatPort);
         }
 
 #elif UNITY_WEBGL
-        Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {serverAddress}:{bayouPort}.");
+        Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {_serverAddress}:{_bayouPort}.");
         SetClientTransport<FishNet.Transporting.Bayou.Bayou>(nm);
-        var edgegap = GetComponent<EdgegapConnector>();
-        if (edgegap != null)
-            StartCoroutine(ConnectViaEdgegap(nm, edgegap));
+        var edgegapConnector = GetComponent<EdgegapConnector>();
+        if (edgegapConnector != null)
+            StartCoroutine(ConnectViaEdgegap(nm, edgegapConnector));
         else
-        {
-            nm.ClientManager.StartConnection(serverAddress, bayouPort);
-            StartCoroutine(ConnectionTimeoutRoutine());
-        }
+            TryConnectClient(nm, _serverAddress, _bayouPort);
 
 #else
-        nm.ServerManager.StartConnection();
-        nm.ClientManager.StartConnection(serverAddress, tugboatPort);
+        TryStartServer(nm);
+        TryConnectClient(nm, _serverAddress, _tugboatPort);
 #endif
     }
 
+    // Attempts to start the server. Any exception triggers offline fallback.
+    void TryStartServer(NetworkManager nm)
+    {
+        try
+        {
+#if UNITY_EDITOR
+            StartServerTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
+#else
+            nm.ServerManager.StartConnection();
+#endif
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"NetworkBootstrapper: Server failed to start ({e.Message}) — going offline.");
+            TriggerOfflineFallback();
+        }
+    }
+
+    // Validates address/port, then attempts client connection.
+    // On bad config or exception, falls back to offline immediately.
+    void TryConnectClient(NetworkManager nm, string address, ushort port)
+    {
+        if (!ValidateClientTarget(address, port))
+        {
+            TriggerOfflineFallback();
+            return;
+        }
+
+        try
+        {
+            nm.ClientManager.StartConnection(address, port);
+            StartCoroutine(ConnectionTimeoutRoutine());
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"NetworkBootstrapper: StartConnection threw ({e.Message}) — going offline.");
+            TriggerOfflineFallback();
+        }
+    }
+
+    // Returns false (and logs) if address or port are obviously invalid.
+    static bool ValidateClientTarget(string address, ushort port)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            Debug.LogWarning("NetworkBootstrapper: Server address is empty — going offline.");
+            return false;
+        }
+        if (port == 0)
+        {
+            Debug.LogWarning("NetworkBootstrapper: Port is 0 — going offline.");
+            return false;
+        }
+        return true;
+    }
+
     // Selects which sub-transport Multipass uses for the client connection.
-    // No-op if the transport isn't Multipass (single-transport setup).
     static void SetClientTransport<T>(NetworkManager nm) where T : Transport
     {
         if (nm.TransportManager.Transport is Multipass mp)
             mp.SetClientTransport<T>();
     }
 
-    // Starts only a specific sub-transport's server. Falls back to StartConnection() if not Multipass.
+    // Starts only a specific sub-transport's server within Multipass.
     static void StartServerTransport<T>(NetworkManager nm) where T : Transport
     {
         if (nm.TransportManager.Transport is Multipass mp)
@@ -126,6 +192,13 @@ public class NetworkBootstrapper : MonoBehaviour
             _connectionEstablished = true;
             Debug.Log("NetworkBootstrapper: Client connected successfully.");
         }
+        else if (args.ConnectionState == LocalConnectionState.Stopped && !_connectionEstablished)
+        {
+            // Stopped before ever reaching Started = connection failed.
+            // Fall back immediately rather than waiting for the timeout.
+            Debug.LogWarning("NetworkBootstrapper: Client connection failed — going offline immediately.");
+            TriggerOfflineFallback();
+        }
     }
 
     IEnumerator ConnectionTimeoutRoutine()
@@ -134,7 +207,7 @@ public class NetworkBootstrapper : MonoBehaviour
 
         if (!_connectionEstablished)
         {
-            Debug.LogWarning($"NetworkBootstrapper: No connection after {connectionTimeoutSeconds}s — falling back to offline mode.");
+            Debug.LogWarning($"NetworkBootstrapper: No connection after {connectionTimeoutSeconds}s — going offline.");
             TriggerOfflineFallback();
         }
     }
@@ -144,26 +217,24 @@ public class NetworkBootstrapper : MonoBehaviour
         yield return StartCoroutine(connector.GetSession());
         if (connector.IsReady)
         {
-            serverAddress = connector.ServerIP;
-            bayouPort     = connector.ServerPort;
+            _serverAddress = connector.ServerIP;
+            _bayouPort     = connector.ServerPort;
         }
-        // Connect regardless — if Edgegap failed, we try serverAddress and timeout to offline.
-        nm.ClientManager.StartConnection(serverAddress, bayouPort);
-        StartCoroutine(ConnectionTimeoutRoutine());
+        // Connect regardless — if Edgegap lookup failed, TryConnectClient will validate and fall back.
+        TryConnectClient(nm, _serverAddress, _bayouPort);
     }
 
     void TriggerOfflineFallback()
     {
-        // Unsubscribe first so the StopConnection() call below doesn't re-trigger
-        // OnClientConnectionState and accidentally set _connectionEstablished or
-        // fire OnStartClient on NetworkBehaviours after offline mode is active.
+        if (_offlineTriggered) return;
+        _offlineTriggered = true;
+
+        // Unsubscribe before StopConnection so the Stopped event doesn't re-enter.
         var nm = InstanceFinder.NetworkManager;
         if (nm != null)
         {
             nm.ClientManager.OnClientConnectionState -= OnClientConnectionState;
             nm.ClientManager.StopConnection();
-            // If we were the host (server + client), stop the server too so
-            // offline mode starts cleanly without a dangling server.
             if (nm.IsServerStarted)
                 nm.ServerManager.StopConnection(sendDisconnectMessage: true);
         }
