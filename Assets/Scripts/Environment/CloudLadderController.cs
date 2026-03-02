@@ -1,6 +1,5 @@
+using System;
 using System.Collections.Generic;
-using FishNet;
-using FishNet.Object;
 using UnityEngine;
 
 /// <summary>
@@ -44,6 +43,11 @@ public class CloudLadderController : MonoBehaviour
     public float maxVerticalGap = 8f;
     [Tooltip("Maximum number of ladders that can be active. Pool prevents spawning beyond this.")]
     public int maxLadders = 10;
+
+    // Injected by NetworkCloudLadderController before CloudLadderController is enabled.
+    internal Action<GameObject, CloudPlatform, CloudPlatform> _onLadderActivated;
+    // null = ReturnLadderToPool path. Server: FishNet Despawn or Destroy.
+    internal Action<GameObject> _onLadderDeactivated;
 
     readonly Dictionary<(CloudPlatform, CloudPlatform), GameObject> _ladders = new Dictionary<(CloudPlatform, CloudPlatform), GameObject>();
     readonly HashSet<(CloudPlatform, CloudPlatform)> _forcedPairs = new HashSet<(CloudPlatform, CloudPlatform)>();
@@ -244,61 +248,21 @@ public class CloudLadderController : MonoBehaviour
     {
         if (ladder == null) return;
 
-        if (InstanceFinder.IsServerStarted)
+        if (_onLadderDeactivated != null)
         {
-            // Networked server: FishNet despawns on server and destroys on all clients
-            var nob = ladder.GetComponent<NetworkObject>();
-            if (nob != null && nob.IsSpawned)
-                InstanceFinder.ServerManager.Despawn(nob);
-            else
-                Destroy(ladder);
+            _onLadderDeactivated(ladder);
+            return;
         }
-        else
-        {
-            ReturnLadderToPool(ladder);
-        }
+
+        ReturnLadderToPool(ladder);
     }
 
     void CreateLadder(CloudPlatform lower, CloudPlatform upper)
     {
-        GameObject ladder;
-
-        if (InstanceFinder.IsServerStarted)
-        {
-            // Networked server: Instantiate and let FishNet Spawn replicate to all clients.
-            // NetworkLadder.SyncCloudIds() tells clients which clouds this ladder bridges.
-            ladder = Instantiate(ladderPrefab);
-            ladder.tag = "Ladder";
-            var col = ladder.GetComponent<BoxCollider2D>();
-            if (col != null) col.isTrigger = true;
-            var rootRenderer = ladder.GetComponent<SpriteRenderer>();
-            if (rootRenderer != null) Destroy(rootRenderer);
-
-            _ladders[(lower, upper)] = ladder;
-            UpdateLadderPosition(lower, upper, ladder);
-
-            var nob = ladder.GetComponent<NetworkObject>();
-            if (nob != null)
-            {
-                InstanceFinder.ServerManager.Spawn(nob);
-
-                // Sync cloud IDs so clients know which clouds to derive geometry from
-                var nobA = lower.gameObject.GetComponent<NetworkObject>();
-                var nobB = upper.gameObject.GetComponent<NetworkObject>();
-                int cloudAId = (nobA != null && nobA.IsSpawned) ? nobA.ObjectId : -1;
-                int cloudBId = (nobB != null && nobB.IsSpawned) ? nobB.ObjectId : -1;
-
-                var nl = ladder.GetComponent<NetworkLadder>();
-                if (nl != null) nl.SyncCloudIds(cloudAId, cloudBId);
-            }
-        }
-        else
-        {
-            // Offline / non-networked: use pool
-            ladder = GetLadderFromPool();
-            _ladders[(lower, upper)] = ladder;
-            UpdateLadderPosition(lower, upper, ladder);
-        }
+        var ladder = GetLadderFromPool();
+        UpdateLadderPosition(lower, upper, ladder);
+        _ladders[(lower, upper)] = ladder;
+        _onLadderActivated?.Invoke(ladder, lower, upper);
     }
 
     /// <summary>Rebuilds ladder visuals and collider between two cloud platforms.

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -81,7 +82,7 @@ public class AdminMenu : MonoBehaviour
     {
         // ── Keyboard shortcut (editor / standalone) ───────────────
 #if UNITY_EDITOR || UNITY_STANDALONE
-        if (Input.GetKeyDown(KeyCode.BackQuote))
+        if (Keyboard.current != null && Keyboard.current.backquoteKey.wasPressedThisFrame)
             TogglePanel();
 #endif
 
@@ -91,23 +92,22 @@ public class AdminMenu : MonoBehaviour
         if (_cornerTapTimer <= 0f)
             _cornerTapCount = 0;
 
-        if (Input.touchCount > 0)
+        bool tappedCorner = false;
+        var touchscreen = Touchscreen.current;
+        if (touchscreen != null && touchscreen.primaryTouch.press.wasPressedThisFrame)
         {
-            Touch t = Input.GetTouch(0);
-            if (t.phase == TouchPhase.Began)
+            Vector2 pos = touchscreen.primaryTouch.position.ReadValue();
+            tappedCorner = pos.x > Screen.width * 0.8f && pos.y > Screen.height * 0.8f;
+        }
+
+        if (tappedCorner)
+        {
+            _cornerTapCount++;
+            _cornerTapTimer = CornerTapWindow;
+            if (_cornerTapCount >= CornerTapsNeeded)
             {
-                bool inCorner = t.position.x > Screen.width  * 0.8f &&
-                                t.position.y > Screen.height * 0.8f;
-                if (inCorner)
-                {
-                    _cornerTapCount++;
-                    _cornerTapTimer = CornerTapWindow;
-                    if (_cornerTapCount >= CornerTapsNeeded)
-                    {
-                        _cornerTapCount = 0;
-                        TogglePanel();
-                    }
-                }
+                _cornerTapCount = 0;
+                TogglePanel();
             }
         }
 #endif

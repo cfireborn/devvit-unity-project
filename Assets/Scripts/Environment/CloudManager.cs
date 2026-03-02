@@ -1,7 +1,8 @@
+using System;
 using System.Collections.Generic;
-using FishNet;
-using FishNet.Object;
 using UnityEngine;
+using Object = UnityEngine.Object;
+using Random = UnityEngine.Random;
 
 /// <summary>
 /// Spawns and despawns cloud platforms around the player. Uses distance threshold for updates
@@ -42,6 +43,14 @@ public class CloudManager : MonoBehaviour
     public Vector2 scaleRange = new Vector2(0.8f, 1.2f);
     [Tooltip("Max retries when spawn position is in blockSpawn zone.")]
     public int maxSpawnRetries = 10;
+
+    // Injected by NetworkCloudManager before CloudManager is enabled.
+    // Server: reparent to root + ServerManager.Spawn + SyncScale.
+    // Offline first-creation: strip FishNet components.
+    // Offline pool-reuse: no-op (already stripped).
+    internal Action<GameObject, float> _onCloudActivated;
+    // null = offline pool path. Server: FishNet Despawn or Destroy.
+    internal Action<GameObject> _onCloudDeactivated;
 
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
     readonly List<CloudNoSpawnZone> _blockSpawnZones = new List<CloudNoSpawnZone>();
@@ -175,14 +184,9 @@ public class CloudManager : MonoBehaviour
     {
         _active.Remove(cloud);
 
-        if (InstanceFinder.IsServerStarted)
+        if (_onCloudDeactivated != null)
         {
-            // Networked server: let FishNet despawn and destroy the NetworkObject
-            var nob = cloud.GetComponent<NetworkObject>();
-            if (nob != null && nob.IsSpawned)
-                InstanceFinder.ServerManager.Despawn(nob);
-            else
-                Destroy(cloud);
+            _onCloudDeactivated(cloud);
             return;
         }
 
@@ -218,63 +222,26 @@ public class CloudManager : MonoBehaviour
         float speed = Random.Range(speedRange.x, speedRange.y);
 
         GameObject cloud;
-
-        if (InstanceFinder.IsServerStarted)
+        if (_pool.Count > 0)
         {
-            // Networked server: Instantiate and let FishNet Spawn replicate to all clients.
-            // FishNet destroys the GO on despawn — no pooling for server-managed clouds.
-            cloud = Instantiate(prefab);
-            cloud.transform.position = spawnPos;
-            cloud.transform.localScale = new Vector3(scale, scale, scale);
-
-            var platform = cloud.GetComponent<CloudPlatform>();
-            if (platform == null) platform = cloud.AddComponent<CloudPlatform>();
-            platform.SetCloudManager(this);
-            platform.SetMovementSpeed(speed);
-            platform.isPooled = true;
-
-            var nob = cloud.GetComponent<NetworkObject>();
-            if (nob != null)
-            {
-                InstanceFinder.ServerManager.Spawn(nob);
-                // SyncScale RPC is buffered (BufferLast) — late joiners will receive it
-                var nc = cloud.GetComponent<NetworkCloud>();
-                if (nc != null) nc.SyncScale(scale);
-            }
+            cloud = _pool.Dequeue();
+            cloud.SetActive(true);
         }
         else
         {
-            // Offline / non-networked: use pool
-            if (_pool.Count > 0)
-            {
-                cloud = _pool.Dequeue();
-                cloud.SetActive(true);
-            }
-            else
-            {
-                cloud = Instantiate(prefab, _poolParent);
-
-                // Strip all FishNet network components immediately so they cannot
-                // deactivate the GameObject in offline mode. NetworkObject.Start()
-                // calls TryStartDeactivation() → gameObject.SetActive(false) when
-                // _isNetworked=true and no server/client is running.
-                // DestroyImmediate removes the components before Start() fires.
-                foreach (var nb in cloud.GetComponentsInChildren<NetworkBehaviour>(true))
-                    DestroyImmediate(nb);
-                var nob = cloud.GetComponent<NetworkObject>();
-                if (nob != null) DestroyImmediate(nob);
-            }
-
-            cloud.transform.position = spawnPos;
-            cloud.transform.localScale = new Vector3(scale, scale, scale);
-
-            var platform = cloud.GetComponent<CloudPlatform>();
-            if (platform == null) platform = cloud.AddComponent<CloudPlatform>();
-            platform.SetCloudManager(this);
-            platform.SetMovementSpeed(speed);
-            platform.isPooled = true;
+            cloud = Instantiate(prefab, _poolParent);
         }
 
+        cloud.transform.position = spawnPos;
+        cloud.transform.localScale = new Vector3(scale, scale, scale);
+
+        var platform = cloud.GetComponent<CloudPlatform>();
+        if (platform == null) platform = cloud.AddComponent<CloudPlatform>();
+        platform.SetCloudManager(this);
+        platform.SetMovementSpeed(speed);
+        platform.isPooled = true;
+
+        _onCloudActivated?.Invoke(cloud, scale);
         _active.Add(cloud);
     }
 

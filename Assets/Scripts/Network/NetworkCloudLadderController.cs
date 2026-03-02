@@ -1,3 +1,4 @@
+using System;
 using FishNet;
 using FishNet.Object;
 using UnityEngine;
@@ -35,10 +36,53 @@ public class NetworkCloudLadderController : NetworkBehaviour
     {
         _ladderController = GetComponent<CloudLadderController>();
 
+        // Always set offline delegates first so _onLadderActivated is never null
+        // when CloudLadderController is enabled.
+        if (_ladderController != null)
+            SetOfflineDelegates();
+
         // Disable CloudLadderController immediately in a network context.
         // OnStartServer() re-enables it for the server only.
         if (_ladderController != null && InstanceFinder.NetworkManager != null)
             _ladderController.enabled = false;
+    }
+
+    // ── Delegate injection ────────────────────────────────────────────────────
+
+    void SetServerDelegates()
+    {
+        _ladderController._onLadderActivated = (go, lower, upper) =>
+        {
+            go.transform.SetParent(null);  // FishNet requires root-level NetworkObject at Spawn
+            var nob = go.GetComponent<NetworkObject>();
+            if (nob != null)
+            {
+                InstanceFinder.ServerManager.Spawn(nob);
+                var nobA = lower.GetComponent<NetworkObject>();
+                var nobB = upper.GetComponent<NetworkObject>();
+                var nl   = go.GetComponent<NetworkLadder>();
+                if (nl != null && nobA != null && nobB != null)
+                    nl.SyncCloudIds(nobA.ObjectId, nobB.ObjectId);
+            }
+        };
+        _ladderController._onLadderDeactivated = go =>
+        {
+            var nob = go.GetComponent<NetworkObject>();
+            if (nob != null && nob.IsSpawned) InstanceFinder.ServerManager.Despawn(nob);
+            else Destroy(go);
+        };
+    }
+
+    void SetOfflineDelegates()
+    {
+        _ladderController._onLadderActivated = (go, lower, upper) =>
+        {
+            foreach (var nb in go.GetComponentsInChildren<NetworkBehaviour>(true))
+                DestroyImmediate(nb);
+            var nob = go.GetComponent<NetworkObject>();
+            if (nob != null) DestroyImmediate(nob);
+        };
+        _ladderController._onLadderDeactivated = null;  // pool path handles it
     }
 
     // ── Server lifecycle ──────────────────────────────────────────────────────
@@ -47,7 +91,11 @@ public class NetworkCloudLadderController : NetworkBehaviour
     {
         base.OnStartServer();
         _serverRunning = true;
-        if (_ladderController != null) _ladderController.enabled = true;
+        if (_ladderController != null)
+        {
+            SetServerDelegates();
+            _ladderController.enabled = true;
+        }
     }
 
     public override void OnStopServer()
@@ -87,7 +135,10 @@ public class NetworkCloudLadderController : NetworkBehaviour
         if (_ladderController == null)
             _ladderController = GetComponent<CloudLadderController>();
         if (_ladderController != null)
+        {
+            SetOfflineDelegates();
             _ladderController.enabled = true;
+        }
     }
 
     // ── LateUpdate: rebuild ladder geometry from synced cloud positions ───────

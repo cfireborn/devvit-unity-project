@@ -167,6 +167,50 @@ The `_offlineMode` flag exists because `OnStartClient` can fire after the timeou
 
 ---
 
+## The Ladder System
+
+Ladders appear between cloud pairs that satisfy three geometry rules:
+
+- **Horizontal overlap**: the X extents of the two cloud bounds must share at least some overlap (clouds must be above/below each other, not purely side-by-side)
+- **Horizontal proximity**: center-to-center horizontal distance ≤ `maxDistance`
+- **Vertical gap**: the gap between the top of the lower cloud and the bottom of the upper cloud must be between `minVerticalGap` and `maxVerticalGap`
+
+Each ladder is a root GameObject (BoxCollider2D trigger) with sprite children built at runtime: one bottom cap, N tiled middle segments (count calculated from gap height ÷ sprite height), and one top cap. All children are `SpriteRenderer` components positioned in local space. Positions update every frame as clouds drift, so the ladder always spans the correct gap.
+
+`CloudLadderController.LateUpdate()` runs the pair-check loop every frame. Each cloud may appear in at most one ladder pair — tracked via a `usedClouds` HashSet so no cloud gets two ladders pulling at it. Designer-forced ladders bypass this one-per-cloud rule via `TryBuildLadder(a, b)`.
+
+### Multiplayer: clients never run `CloudLadderController`
+
+In a networked session, `NetworkCloudLadderController.Awake()` disables `CloudLadderController` on clients. Clients receive ladders as FishNet `NetworkObject` spawns. Each ladder's `NetworkLadder` component stores the `ObjectId` of the two cloud NetworkObjects it bridges — synced via `SyncCloudIds()` (`[ObserversRpc(BufferLast = true)]`), so late-joining clients receive the correct IDs immediately on connect.
+
+`NetworkCloudLadderController.LateUpdate()` runs on clients every frame: it iterates every spawned `NetworkLadder`, looks up the two cloud GameObjects from FishNet's `Objects.Spawned` dictionary, and calls `CloudLadderController.UpdateLadderPosition()` to rebuild the collider and visuals from those already-synced cloud bounds. Zero extra bandwidth — geometry re-derives itself each frame from data that is already there.
+
+---
+
+## Architecture Pattern
+
+Game logic scripts have zero FishNet coupling. All network operations live in companion NetworkBehaviour wrapper scripts. Delegates injected by the wrapper bridge the two layers at runtime.
+
+| Game Logic Script | Network Wrapper | Bridge mechanism |
+|---|---|---|
+| `PlayerControllerM` | `NetworkPlayerController` | Enable/disable only (no delegates; input runs only for the owning client) |
+| `CloudManager` | `NetworkCloudManager` | `_onCloudActivated`, `_onCloudDeactivated` |
+| `CloudLadderController` | `NetworkCloudLadderController` | `_onLadderActivated`, `_onLadderDeactivated` |
+
+### Template for new server-authoritative objects (enemies, items, balloon houses)
+
+1. **`Enemy.cs`** — zero FishNet coupling. Plain `Update()` movement, serialized fields for tuning.
+2. **`NetworkEnemy.cs : NetworkBehaviour`**:
+   - `Awake()`: disables `Enemy` component; injects offline delegates
+   - `OnStartServer()`: injects server delegates; enables `Enemy`
+   - `OnStartClient()`: if pure client, `rb.simulated = false` (NetworkTransform drives position)
+   - `ActivateOfflineMode()`: injects offline delegates; enables `Enemy`
+3. **Prefab setup**: add `NetworkObject + NetworkTransform`; register in NetworkManager's Spawnable Prefabs list
+4. **State sync**: `[ObserversRpc(RunLocally = true, BufferLast = true)]` — FishNet v4's equivalent of `[SyncVar]`
+5. **Offline strip**: inject an offline delegate in `NetworkEnemy` that calls `DestroyImmediate` on all `NetworkBehaviour` and `NetworkObject` components on the first instantiation from pool
+
+---
+
 ## Editing the Player
 
 `PlayerControllerM.cs` handles all input and physics locally. It is never run by remote clients. `NetworkPlayerController.cs` enables/disables it based on ownership and syncs visual state (movement direction, gliding) to other players at 15Hz via ServerRpc → ObserversRpc.

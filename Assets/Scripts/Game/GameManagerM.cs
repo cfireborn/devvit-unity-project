@@ -104,7 +104,9 @@ public class GameManagerM : MonoBehaviour
         Debug.Log("GameManagerM: Activating offline mode (no server connection).");
 
         // Spawn player first so CloudManager.Start() can find it via GameServices immediately.
-        SpawnPlayerLocal();
+        var spawner = FindFirstObjectByType<NetworkPlayerSpawner>();
+        if (spawner != null) spawner.ActivateOfflineMode();
+        else SpawnPlayerLocal();  // fallback for scenes without NetworkPlayerSpawner
 
         // Delegate to NetworkCloudManager so it sets its _offlineMode flag (prevents
         // OnStartClient from re-disabling CloudManager if it fires late) and re-enables

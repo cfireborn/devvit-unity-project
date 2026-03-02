@@ -47,6 +47,28 @@ public class NetworkPlayerSpawner : MonoBehaviour
             SpawnPlayer(conn);
     }
 
+    public void ActivateOfflineMode()
+    {
+        if (playerPrefab == null)
+        {
+            Debug.LogWarning("NetworkPlayerSpawner: playerPrefab not assigned — GameManagerM fallback will run.");
+            return;
+        }
+        Vector3 pos = spawnPoint != null ? spawnPoint.position : Vector3.zero;
+        var go = Instantiate(playerPrefab.gameObject, pos, Quaternion.identity);
+
+        // Strip FishNet components before Start() fires (same pattern as offline cloud stripping).
+        // NetworkPlayerController.Awake() has already disabled PlayerControllerM, so re-enable it.
+        foreach (var nb in go.GetComponentsInChildren<NetworkBehaviour>(true))
+            DestroyImmediate(nb);
+        var nob = go.GetComponent<NetworkObject>();
+        if (nob != null) DestroyImmediate(nob);
+
+        var player = go.GetComponent<PlayerControllerM>();
+        if (player != null) player.enabled = true;
+        FindFirstObjectByType<GameServices>()?.RegisterPlayer(player);
+    }
+
     void SpawnPlayer(NetworkConnection conn)
     {
         if (!InstanceFinder.IsServerStarted) return;

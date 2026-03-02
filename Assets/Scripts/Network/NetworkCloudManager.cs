@@ -1,3 +1,4 @@
+using System;
 using FishNet;
 using FishNet.Object;
 using UnityEngine;
@@ -32,6 +33,11 @@ public class NetworkCloudManager : NetworkBehaviour
     {
         _cloudManager = GetComponent<CloudManager>();
 
+        // Always set offline delegates first so _onCloudActivated is never null
+        // when CloudManager is enabled (even before a network role is determined).
+        if (_cloudManager != null)
+            SetOfflineDelegates();
+
         // Disable CloudManager immediately in a network context.
         // CloudManager.Start() would run before OnStartServer/OnStartClient and cause
         // both host and client to spawn independent clouds.
@@ -40,13 +46,52 @@ public class NetworkCloudManager : NetworkBehaviour
             _cloudManager.enabled = false;
     }
 
+    // ── Delegate injection ────────────────────────────────────────────────────
+
+    void SetServerDelegates()
+    {
+        _cloudManager._onCloudActivated = (go, scale) =>
+        {
+            go.transform.SetParent(null);  // FishNet requires root-level NetworkObject at Spawn
+            var nob = go.GetComponent<NetworkObject>();
+            if (nob != null)
+            {
+                InstanceFinder.ServerManager.Spawn(nob);
+                var nc = go.GetComponent<NetworkCloud>();
+                if (nc != null) nc.SyncScale(scale);
+            }
+        };
+        _cloudManager._onCloudDeactivated = go =>
+        {
+            var nob = go.GetComponent<NetworkObject>();
+            if (nob != null && nob.IsSpawned) InstanceFinder.ServerManager.Despawn(nob);
+            else Destroy(go);
+        };
+    }
+
+    void SetOfflineDelegates()
+    {
+        _cloudManager._onCloudActivated = (go, scale) =>
+        {
+            foreach (var nb in go.GetComponentsInChildren<NetworkBehaviour>(true))
+                DestroyImmediate(nb);
+            var nob = go.GetComponent<NetworkObject>();
+            if (nob != null) DestroyImmediate(nob);
+        };
+        _cloudManager._onCloudDeactivated = null;  // pool path handles it
+    }
+
     // ── Server lifecycle ──────────────────────────────────────────────────────
 
     public override void OnStartServer()
     {
         base.OnStartServer();
         _serverRunning = true;
-        if (_cloudManager != null) _cloudManager.enabled = true;
+        if (_cloudManager != null)
+        {
+            SetServerDelegates();
+            _cloudManager.enabled = true;
+        }
     }
 
     public override void OnStopServer()
@@ -94,6 +139,9 @@ public class NetworkCloudManager : NetworkBehaviour
             _cloudManager = GetComponent<CloudManager>();
 
         if (_cloudManager != null)
+        {
+            SetOfflineDelegates();
             _cloudManager.enabled = true;
+        }
     }
 }
