@@ -49,24 +49,19 @@ public class NetworkBootstrapper : MonoBehaviour
 
     void Start()
     {
+        // Compile flag sets the default; AdminMenu can override at runtime.
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX || UNITY_SERVER
-        _serverAddress = localAddress;
-        _tugboatPort   = localTugboatPort;
-        _bayouPort     = localBayouPort;
+        bool useLocal = true;
 #else
-        _serverAddress = edgegapAddress;
-        _tugboatPort   = edgegapTugboatPort;
-        _bayouPort     = edgegapBayouPort;
+        bool useLocal = false;
 #endif
-        // Runtime override from AdminMenu — survives scene reload within a play session.
         if (AdminMenuPrefs.UseLocalOverride.HasValue)
-        {
-            bool useLocal  = AdminMenuPrefs.UseLocalOverride.Value;
-            _serverAddress = useLocal ? localAddress      : edgegapAddress;
-            _tugboatPort   = useLocal ? localTugboatPort  : edgegapTugboatPort;
-            _bayouPort     = useLocal ? localBayouPort    : edgegapBayouPort;
-            Debug.Log($"NetworkBootstrapper: AdminMenu override → {(useLocal ? "LOCAL" : "EDGEGAP")} ({_serverAddress})");
-        }
+            useLocal = AdminMenuPrefs.UseLocalOverride.Value;
+
+        _serverAddress = useLocal ? localAddress      : edgegapAddress;
+        _tugboatPort   = useLocal ? localTugboatPort  : edgegapTugboatPort;
+        _bayouPort     = useLocal ? localBayouPort    : edgegapBayouPort;
+        Debug.Log($"NetworkBootstrapper: {(useLocal ? "LOCAL" : "EDGEGAP")} — {_serverAddress}  UDP:{_tugboatPort}  WS:{_bayouPort}");
 
         NetworkManager nm = InstanceFinder.NetworkManager;
         if (nm == null)

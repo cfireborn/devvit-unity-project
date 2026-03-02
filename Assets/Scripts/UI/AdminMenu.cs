@@ -30,6 +30,9 @@ public class AdminMenu : MonoBehaviour
     [Tooltip("Label on the server toggle button — auto-updated.")]
     [SerializeField] TMP_Text serverToggleLabel;
 
+    [Header("Mute")]
+    [SerializeField] TMP_Text muteButtonLabel;
+
     [Header("Debug Log")]
     [SerializeField] GameObject debugLogPanel;
     [SerializeField] TMP_Text debugLogText;
@@ -61,7 +64,10 @@ public class AdminMenu : MonoBehaviour
         if (bootstrapper == null)
             bootstrapper = FindFirstObjectByType<NetworkBootstrapper>();
 
-        adminPanel.SetActive(false);
+        // Restore panel visibility if we just reloaded from a button press.
+        adminPanel.SetActive(AdminMenuPrefs.KeepPanelOpen);
+        AdminMenuPrefs.KeepPanelOpen = false;
+
         if (debugLogPanel != null)
             debugLogPanel.SetActive(false);
 
@@ -71,11 +77,6 @@ public class AdminMenu : MonoBehaviour
     void OnDestroy()
     {
         Application.logMessageReceived -= OnLogMessage;
-    }
-
-    void Start()
-    {
-        RefreshAddressDisplay();
     }
 
     void Update()
@@ -121,6 +122,10 @@ public class AdminMenu : MonoBehaviour
                 : Color.white - (_invisibleMagenta * (1f - _timeSinceStatus / FadeDuration));
         }
 
+        // ── Live address display (only while panel is open) ───────
+        if (adminPanel.activeSelf)
+            RefreshAddressDisplay();
+
         // ── Rebuild debug log text ─────────────────────────────────
         if (_logDirty && debugLogText != null)
         {
@@ -139,8 +144,6 @@ public class AdminMenu : MonoBehaviour
     public void TogglePanel()
     {
         adminPanel.SetActive(!adminPanel.activeSelf);
-        if (adminPanel.activeSelf)
-            RefreshAddressDisplay();
     }
 
     public void ToggleDebugLog()
@@ -159,6 +162,7 @@ public class AdminMenu : MonoBehaviour
     {
         bool currentlyLocal = IsCurrentlyLocal();
         AdminMenuPrefs.UseLocalOverride = !currentlyLocal;
+        AdminMenuPrefs.KeepPanelOpen   = true;
 
         string dest = currentlyLocal ? "Edgegap" : "Local";
         ShowStatus($"Switching to {dest} — reloading...", isError: false);
@@ -170,8 +174,25 @@ public class AdminMenu : MonoBehaviour
     /// </summary>
     public void RetryConnection()
     {
+        AdminMenuPrefs.KeepPanelOpen = true;
         ShowStatus("Retrying — reloading scene...", isError: false);
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    // ── Audio ─────────────────────────────────────────────────────
+
+    public void ToggleMute()
+    {
+        AudioSource audio = Camera.main?.GetComponent<AudioSource>();
+        if (audio == null)
+        {
+            ShowStatus("No AudioSource on Main Camera.", isError: true);
+            return;
+        }
+        audio.mute = !audio.mute;
+        if (muteButtonLabel != null)
+            muteButtonLabel.text = audio.mute ? "Unmute" : "Mute";
+        ShowStatus(audio.mute ? "Muted." : "Unmuted.", isError: false);
     }
 
     // ── Extensible action buttons ─────────────────────────────────
@@ -208,14 +229,19 @@ public class AdminMenu : MonoBehaviour
             return;
         }
 
-        bool   local = IsCurrentlyLocal();
-        string mode  = local ? "LOCAL" : "EDGEGAP";
-        string addr  = bootstrapper.ActiveAddress;
-        ushort tPort = bootstrapper.ActiveTugboatPort;
-        ushort bPort = bootstrapper.ActiveBayouPort;
+        bool local = IsCurrentlyLocal();
+
+        // Read directly from the inspector fields so the display always matches
+        // the config, regardless of when NetworkBootstrapper.Start() resolved them.
+        string addr  = local ? bootstrapper.localAddress      : bootstrapper.edgegapAddress;
+        ushort tPort = local ? bootstrapper.localTugboatPort  : bootstrapper.edgegapTugboatPort;
+        ushort bPort = local ? bootstrapper.localBayouPort    : bootstrapper.edgegapBayouPort;
+
+        if (!local && string.IsNullOrWhiteSpace(addr))
+            addr = "<i>(edgegapAddress not set in Inspector)</i>";
 
         activeAddressText.text =
-            $"<b>[{mode}]</b>\n" +
+            $"<b>[{(local ? "LOCAL" : "EDGEGAP")}]</b>\n" +
             $"{addr}\n" +
             $"UDP  (Tugboat) : {tPort}\n" +
             $"TCP  (Bayou)   : {bPort}";
@@ -226,8 +252,16 @@ public class AdminMenu : MonoBehaviour
 
     bool IsCurrentlyLocal()
     {
-        if (bootstrapper == null) return true;
-        return bootstrapper.ActiveAddress == bootstrapper.localAddress;
+        // If the admin menu has set an override, that's the authoritative answer.
+        if (AdminMenuPrefs.UseLocalOverride.HasValue)
+            return AdminMenuPrefs.UseLocalOverride.Value;
+
+        // Otherwise fall back to the compile-time default.
+#if UNITY_EDITOR || UNITY_STANDALONE_OSX || UNITY_SERVER
+        return true;
+#else
+        return false;
+#endif
     }
 
     /// <summary>
@@ -271,4 +305,10 @@ public static class AdminMenuPrefs
     /// null  = use compile-time default
     /// </summary>
     public static bool? UseLocalOverride = null;
+
+    /// <summary>
+    /// When true, AdminMenu reopens itself after the next scene reload.
+    /// Reset to false after reading in Awake.
+    /// </summary>
+    public static bool KeepPanelOpen = false;
 }
