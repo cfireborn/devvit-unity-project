@@ -99,3 +99,6 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 .DS_Store
+DevvitExports/SampleGame.wasm.unityweb
+DevvitExports/SampleGame.framework.js
+DevvitExports/SampleGame.data.unityweb

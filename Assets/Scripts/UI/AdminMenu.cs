@@ -32,6 +32,8 @@ public class AdminMenu : MonoBehaviour
 
     [Header("Mute")]
     [SerializeField] TMP_Text muteButtonLabel;
+    [Tooltip("Assign the AudioSource to mute. If blank, falls back to Camera.main's AudioSource.")]
+    [SerializeField] AudioSource targetAudioSource;
 
     [Header("Debug Log")]
     [SerializeField] GameObject debugLogPanel;
@@ -183,10 +185,12 @@ public class AdminMenu : MonoBehaviour
 
     public void ToggleMute()
     {
-        AudioSource audio = Camera.main?.GetComponent<AudioSource>();
+        AudioSource audio = targetAudioSource != null
+            ? targetAudioSource
+            : Camera.main?.GetComponent<AudioSource>();
         if (audio == null)
         {
-            ShowStatus("No AudioSource on Main Camera.", isError: true);
+            ShowStatus("No AudioSource found — assign one to Target Audio Source.", isError: true);
             return;
         }
         audio.mute = !audio.mute;

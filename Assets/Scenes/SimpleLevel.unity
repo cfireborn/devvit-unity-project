@@ -1525,7 +1525,7 @@ AudioSource:
   m_Volume: 0.09
   m_Pitch: 1
   Loop: 1
-  Mute: 0
+  Mute: 1
   Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
@@ -2812,6 +2812,8 @@ MonoBehaviour:
   activeAddressText: {fileID: 1819388207}
   statusFeedbackText: {fileID: 1818181267}
   serverToggleLabel: {fileID: 1228372737}
+  muteButtonLabel: {fileID: 373102297}
+  targetAudioSource: {fileID: 519420034}
   debugLogPanel: {fileID: 530095455}
   debugLogText: {fileID: 511333362}
   debugLogScroll: {fileID: 1404150028}
@@ -3460,9 +3462,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Managing.NetworkManager
   _refreshDefaultPrefabs: 0
   _runInBackground: 1
-  _dontDestroyOnLoad: 1
+  _dontDestroyOnLoad: 0
   _objectPool: {fileID: 0}
-  _persistence: 0
+  _persistence: 1
   _logging: {fileID: 0}
   _spawnablePrefabs: {fileID: 11400000, guid: c61b7193432544e52bd70131299c1b81, type: 2}
 --- !u!4 &1319779688
@@ -3893,13 +3895,13 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 998967627}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
+      - m_Target: {fileID: 998967629}
+        m_TargetAssemblyTypeName: AdminMenu, Assembly-CSharp
+        m_MethodName: ToggleMute
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
           m_StringArgument: 
