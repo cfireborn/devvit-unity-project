@@ -269,6 +269,14 @@ Every new spawnable prefab must be registered in **NetworkManager → Spawnable 
 
 `Build → Build Linux Server` menu item (editor script, in progress). Output: `Builds/LinuxServer/`.
 
+### Testing the WebGL build locally
+
+```bash
+cd Builds/WebGL && python3 -m http.server 8080
+```
+
+Then open `http://localhost:8080/compersion` in a browser.
+
 ### Editor multi-client testing
 
 `Window → Multiplayer Play Mode`. Main editor window = host. Each virtual player = a pure client connecting to localhost.
