@@ -35,6 +35,14 @@ public class AdminMenu : MonoBehaviour
     [Tooltip("Assign the AudioSource to mute. If blank, falls back to Camera.main's AudioSource.")]
     [SerializeField] AudioSource targetAudioSource;
 
+    [Header("Edgegap Runtime Overrides")]
+    [Tooltip("Input field for editing Edgegap server address at runtime.")]
+    [SerializeField] TMP_InputField edgegapAddressInput;
+    [Tooltip("Input field for editing Edgegap Tugboat (UDP) port at runtime.")]
+    [SerializeField] TMP_InputField edgegapTugboatPortInput;
+    [Tooltip("Input field for editing Edgegap Bayou (TCP/WS) port at runtime.")]
+    [SerializeField] TMP_InputField edgegapBayouPortInput;
+
     [Header("Debug Log")]
     [SerializeField] GameObject debugLogPanel;
     [SerializeField] TMP_Text debugLogText;
@@ -67,8 +75,10 @@ public class AdminMenu : MonoBehaviour
             bootstrapper = FindFirstObjectByType<NetworkBootstrapper>();
 
         // Restore panel visibility if we just reloaded from a button press.
-        adminPanel.SetActive(AdminMenuPrefs.KeepPanelOpen);
+        bool wasOpen = AdminMenuPrefs.KeepPanelOpen;
         AdminMenuPrefs.KeepPanelOpen = false;
+        adminPanel.SetActive(wasOpen);
+        if (wasOpen) PopulateEdgegapInputs();
 
         if (debugLogPanel != null)
             debugLogPanel.SetActive(false);
@@ -146,6 +156,8 @@ public class AdminMenu : MonoBehaviour
     public void TogglePanel()
     {
         adminPanel.SetActive(!adminPanel.activeSelf);
+        if (adminPanel.activeSelf)
+            PopulateEdgegapInputs();
     }
 
     public void ToggleDebugLog()
@@ -162,6 +174,7 @@ public class AdminMenu : MonoBehaviour
     /// </summary>
     public void ToggleServerTarget()
     {
+        FlushEdgegapInputs();
         bool currentlyLocal = IsCurrentlyLocal();
         AdminMenuPrefs.UseLocalOverride = !currentlyLocal;
         AdminMenuPrefs.KeepPanelOpen   = true;
@@ -176,6 +189,7 @@ public class AdminMenu : MonoBehaviour
     /// </summary>
     public void RetryConnection()
     {
+        FlushEdgegapInputs();
         AdminMenuPrefs.KeepPanelOpen = true;
         ShowStatus("Retrying — reloading scene...", isError: false);
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
@@ -221,12 +235,78 @@ public class AdminMenu : MonoBehaviour
         }
     }
 
+    // ── Edgegap input field handlers ─────────────────────────────
+    // Wire each TMP_InputField's OnEndEdit event to the matching method.
+
+    // Called before every scene reload to capture whatever is currently typed,
+    // even if OnEndEdit hasn't fired yet (e.g. button clicked without tabbing away).
+    void FlushEdgegapInputs()
+    {
+        if (edgegapAddressInput != null)
+            OnEdgegapAddressEndEdit(edgegapAddressInput.text);
+        if (edgegapTugboatPortInput != null)
+            OnEdgegapTugboatPortEndEdit(edgegapTugboatPortInput.text);
+        if (edgegapBayouPortInput != null)
+            OnEdgegapBayouPortEndEdit(edgegapBayouPortInput.text);
+    }
+
+    public void OnEdgegapAddressEndEdit(string value)
+    {
+        AdminMenuPrefs.EdgegapAddressOverride = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        ShowStatus(string.IsNullOrWhiteSpace(value) ? "Address cleared — using Inspector value." : $"Address set: {value.Trim()}", isError: false);
+    }
+
+    public void OnEdgegapTugboatPortEndEdit(string value)
+    {
+        if (ushort.TryParse(value.Trim(), out ushort port) && port > 0)
+        {
+            AdminMenuPrefs.EdgegapTugboatPortOverride = port;
+            ShowStatus($"Tugboat port set: {port}", isError: false);
+        }
+        else
+        {
+            ShowStatus($"Invalid Tugboat port \"{value}\" — must be 1–65535.", isError: true);
+            if (edgegapTugboatPortInput != null)
+                edgegapTugboatPortInput.text = (AdminMenuPrefs.EdgegapTugboatPortOverride ?? bootstrapper?.edgegapTugboatPort ?? 0).ToString();
+        }
+    }
+
+    public void OnEdgegapBayouPortEndEdit(string value)
+    {
+        if (ushort.TryParse(value.Trim(), out ushort port) && port > 0)
+        {
+            AdminMenuPrefs.EdgegapBayouPortOverride = port;
+            ShowStatus($"Bayou port set: {port}", isError: false);
+        }
+        else
+        {
+            ShowStatus($"Invalid Bayou port \"{value}\" — must be 1–65535.", isError: true);
+            if (edgegapBayouPortInput != null)
+                edgegapBayouPortInput.text = (AdminMenuPrefs.EdgegapBayouPortOverride ?? bootstrapper?.edgegapBayouPort ?? 0).ToString();
+        }
+    }
+
     // ── Internals ─────────────────────────────────────────────────
+
+    // Populates the input fields with current effective values (override > inspector).
+    // Call when panel opens so fields show the right starting values.
+    void PopulateEdgegapInputs()
+    {
+        if (bootstrapper == null) return;
+        if (edgegapAddressInput != null)
+            edgegapAddressInput.text    = AdminMenuPrefs.EdgegapAddressOverride
+                                          ?? bootstrapper.edgegapAddress;
+        if (edgegapTugboatPortInput != null)
+            edgegapTugboatPortInput.text = (AdminMenuPrefs.EdgegapTugboatPortOverride
+                                           ?? bootstrapper.edgegapTugboatPort).ToString();
+        if (edgegapBayouPortInput != null)
+            edgegapBayouPortInput.text   = (AdminMenuPrefs.EdgegapBayouPortOverride
+                                           ?? bootstrapper.edgegapBayouPort).ToString();
+    }
 
     void RefreshAddressDisplay()
     {
         if (activeAddressText == null) return;
-
         if (bootstrapper == null)
         {
             activeAddressText.text = "[No Bootstrapper found]";
@@ -235,14 +315,16 @@ public class AdminMenu : MonoBehaviour
 
         bool local = IsCurrentlyLocal();
 
-        // Read directly from the inspector fields so the display always matches
-        // the config, regardless of when NetworkBootstrapper.Start() resolved them.
-        string addr  = local ? bootstrapper.localAddress      : bootstrapper.edgegapAddress;
-        ushort tPort = local ? bootstrapper.localTugboatPort  : bootstrapper.edgegapTugboatPort;
-        ushort bPort = local ? bootstrapper.localBayouPort    : bootstrapper.edgegapBayouPort;
+        // Show effective values: AdminMenuPrefs override takes priority over inspector fields.
+        string addr  = local ? bootstrapper.localAddress
+                             : (AdminMenuPrefs.EdgegapAddressOverride ?? bootstrapper.edgegapAddress);
+        ushort tPort = local ? bootstrapper.localTugboatPort
+                             : (AdminMenuPrefs.EdgegapTugboatPortOverride ?? bootstrapper.edgegapTugboatPort);
+        ushort bPort = local ? bootstrapper.localBayouPort
+                             : (AdminMenuPrefs.EdgegapBayouPortOverride ?? bootstrapper.edgegapBayouPort);
 
         if (!local && string.IsNullOrWhiteSpace(addr))
-            addr = "<i>(edgegapAddress not set in Inspector)</i>";
+            addr = "<i>(edgegapAddress not set)</i>";
 
         activeAddressText.text =
             $"<b>[{(local ? "LOCAL" : "EDGEGAP")}]</b>\n" +
@@ -315,4 +397,10 @@ public static class AdminMenuPrefs
     /// Reset to false after reading in Awake.
     /// </summary>
     public static bool KeepPanelOpen = false;
+
+    // Edgegap runtime overrides — edited via the admin menu input fields.
+    // null = use the inspector field value on NetworkBootstrapper.
+    public static string  EdgegapAddressOverride      = null;
+    public static ushort? EdgegapTugboatPortOverride  = null;
+    public static ushort? EdgegapBayouPortOverride    = null;
 }

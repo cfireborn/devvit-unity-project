@@ -61,6 +61,18 @@ public class NetworkBootstrapper : MonoBehaviour
         _serverAddress = useLocal ? localAddress      : edgegapAddress;
         _tugboatPort   = useLocal ? localTugboatPort  : edgegapTugboatPort;
         _bayouPort     = useLocal ? localBayouPort    : edgegapBayouPort;
+
+        // Apply any per-field Edgegap overrides set from the admin menu.
+        if (!useLocal)
+        {
+            if (!string.IsNullOrWhiteSpace(AdminMenuPrefs.EdgegapAddressOverride))
+                _serverAddress = AdminMenuPrefs.EdgegapAddressOverride;
+            if (AdminMenuPrefs.EdgegapTugboatPortOverride.HasValue)
+                _tugboatPort = AdminMenuPrefs.EdgegapTugboatPortOverride.Value;
+            if (AdminMenuPrefs.EdgegapBayouPortOverride.HasValue)
+                _bayouPort = AdminMenuPrefs.EdgegapBayouPortOverride.Value;
+        }
+
         Debug.Log($"NetworkBootstrapper: {(useLocal ? "LOCAL" : "EDGEGAP")} — {_serverAddress}  UDP:{_tugboatPort}  WS:{_bayouPort}");
 
         NetworkManager nm = InstanceFinder.NetworkManager;
