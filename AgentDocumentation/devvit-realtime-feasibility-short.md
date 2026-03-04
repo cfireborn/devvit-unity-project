@@ -1,0 +1,1 @@
+Devvit's realtime is pub/sub through Reddit's serverless infrastructure — the round-trip latency (200–600ms+) and lack of a persistent game loop make it incompatible with real-time physics multiplayer. Keep FishNet + Edgegap for gameplay, but Devvit realtime is a good fit for meta-features like live player count and leaderboard push updates alongside the existing stack.
