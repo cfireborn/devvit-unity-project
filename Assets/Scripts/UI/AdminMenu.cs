@@ -10,7 +10,7 @@ using UnityEngine.UI;
 ///
 /// Show/hide:
 ///   - Call TogglePanel() from a Button's OnClick
-///   - In Editor / Standalone: press backtick (`) key
+///   - In Editor / Standalone: press backtick (sampleInputList) key
 ///   - In WebGL: tap the top-right corner 5 times quickly
 ///
 /// To add new action buttons: add a public method here, wire it to a Button in the Inspector.
@@ -63,11 +63,6 @@ public class AdminMenu : MonoBehaviour
     const int MaxLogLines = 60;
     bool _logDirty;
 
-    // ── WebGL corner-tap detection ────────────────────────────────
-    int   _cornerTapCount;
-    float _cornerTapTimer;
-    const float CornerTapWindow  = 1.5f;
-    const int   CornerTapsNeeded = 5;
 
     void Awake()
     {
@@ -97,32 +92,6 @@ public class AdminMenu : MonoBehaviour
 #if UNITY_EDITOR || UNITY_STANDALONE
         if (Keyboard.current != null && Keyboard.current.backquoteKey.wasPressedThisFrame)
             TogglePanel();
-#endif
-
-        // ── WebGL: 5-tap top-right corner ─────────────────────────
-#if UNITY_WEBGL
-        _cornerTapTimer -= Time.deltaTime;
-        if (_cornerTapTimer <= 0f)
-            _cornerTapCount = 0;
-
-        bool tappedCorner = false;
-        var touchscreen = Touchscreen.current;
-        if (touchscreen != null && touchscreen.primaryTouch.press.wasPressedThisFrame)
-        {
-            Vector2 pos = touchscreen.primaryTouch.position.ReadValue();
-            tappedCorner = pos.x > Screen.width * 0.8f && pos.y > Screen.height * 0.8f;
-        }
-
-        if (tappedCorner)
-        {
-            _cornerTapCount++;
-            _cornerTapTimer = CornerTapWindow;
-            if (_cornerTapCount >= CornerTapsNeeded)
-            {
-                _cornerTapCount = 0;
-                TogglePanel();
-            }
-        }
 #endif
 
         // ── Iaapa fading status text ───────────────────────────────

@@ -63,8 +63,11 @@ public class MobileTouchReceiver : MonoBehaviour, IPointerDownHandler, IPointerU
         transform.SetAsFirstSibling();
     }
 
+    public event System.Action<PointerEventData> onPointerDown;
+
     public void OnPointerDown(PointerEventData eventData)
     {
+        onPointerDown?.Invoke(eventData);
         if (virtualJoystick != null)
         {
             virtualJoystick.OnPointerDown(eventData);

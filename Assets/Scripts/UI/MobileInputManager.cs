@@ -19,8 +19,17 @@ public class MobileInputManager : MonoBehaviour
     [Tooltip("Automatically create a full-screen touch receiver at runtime (recommended for screen zones).")]
     [SerializeField] private bool autoCreateTouchReceiver = true;
 
+    [Header("Admin Panel")]
+    [SerializeField] private AdminMenu adminMenu;
+
     private bool isMobilePlatform = false;
     private static MobileInputManager _instance;
+
+    MobileTouchReceiver _touchReceiver;
+    int   _cornerTapCount;
+    float _cornerTapTimer;
+    const float CornerTapWindow  = 1.5f;
+    const int   CornerTapsNeeded = 5;
 
     public static MobileInputManager Instance => _instance;
 
@@ -49,10 +58,47 @@ public class MobileInputManager : MonoBehaviour
         if (virtualJoystick == null)
             virtualJoystick = FindFirstObjectByType<VirtualJoystick>();
 
+        if (adminMenu == null)
+            adminMenu = FindFirstObjectByType<AdminMenu>();
+
         // Auto-create touch receiver if enabled
         if (autoCreateTouchReceiver && (isMobilePlatform || showOnDesktopForTesting))
-        {
             CreateTouchReceiver();
+
+        // Subscribe to touch receiver (created above or pre-existing)
+        _touchReceiver = FindFirstObjectByType<MobileTouchReceiver>();
+        if (_touchReceiver != null)
+            _touchReceiver.onPointerDown += OnTouchReceiverPointerDown;
+    }
+
+    void OnDestroy()
+    {
+        if (_touchReceiver != null)
+            _touchReceiver.onPointerDown -= OnTouchReceiverPointerDown;
+    }
+
+    void Update()
+    {
+        _cornerTapTimer -= Time.deltaTime;
+        if (_cornerTapTimer <= 0f)
+            _cornerTapCount = 0;
+    }
+
+    void OnTouchReceiverPointerDown(UnityEngine.EventSystems.PointerEventData eventData)
+    {
+        Vector2 pos = eventData.position;
+        bool inCorner = pos.x > Screen.width * 0.8f && pos.y > Screen.height * 0.6f;
+        Debug.Log($"MobileInputManager: press at {pos} — inCorner={inCorner} ({Screen.width}x{Screen.height})");
+        if (!inCorner) return;
+
+        _cornerTapCount++;
+        _cornerTapTimer = CornerTapWindow;
+        Debug.Log($"MobileInputManager: corner tap {_cornerTapCount}/{CornerTapsNeeded}");
+        if (_cornerTapCount >= CornerTapsNeeded)
+        {
+            _cornerTapCount = 0;
+            if (adminMenu != null)
+                adminMenu.TogglePanel();
         }
     }
 
