@@ -11,8 +11,8 @@ WORKDIR /root/
 
 RUN chmod +x /root/build/ServerBuild /root/start.sh
 
-RUN apt-get update && \
-    apt-get install -y ca-certificates libglu1-mesa nginx openssl && \
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends ca-certificates nginx-light openssl && \
     apt-get clean && \
     update-ca-certificates
 
