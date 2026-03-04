@@ -107,11 +107,7 @@ public class NetworkBootstrapper : MonoBehaviour
 #elif UNITY_WEBGL
         Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {_serverAddress}:{_bayouPort}.");
         SetClientTransport<FishNet.Transporting.Bayou.Bayou>(nm);
-        var edgegapConnector = GetComponent<EdgegapConnector>();
-        if (edgegapConnector != null)
-            StartCoroutine(ConnectViaEdgegap(nm, edgegapConnector));
-        else
-            TryConnectClient(nm, _serverAddress, _bayouPort);
+        TryConnectClient(nm, _serverAddress, _bayouPort);
 
 #else
         TryStartServer(nm);
@@ -231,18 +227,6 @@ public class NetworkBootstrapper : MonoBehaviour
             Debug.LogWarning($"NetworkBootstrapper: No connection after {connectionTimeoutSeconds}s — going offline.");
             TriggerOfflineFallback();
         }
-    }
-
-    IEnumerator ConnectViaEdgegap(NetworkManager nm, EdgegapConnector connector)
-    {
-        yield return StartCoroutine(connector.GetSession());
-        if (connector.IsReady)
-        {
-            _serverAddress = connector.ServerIP;
-            _bayouPort     = connector.ServerPort;
-        }
-        // Connect regardless — if Edgegap lookup failed, TryConnectClient will validate and fall back.
-        TryConnectClient(nm, _serverAddress, _bayouPort);
     }
 
     void TriggerOfflineFallback()
