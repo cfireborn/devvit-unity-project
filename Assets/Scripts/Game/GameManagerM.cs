@@ -96,7 +96,6 @@ public class GameManagerM : MonoBehaviour
 
     /// <summary>
     /// Offline fallback: spawns a local player when network connection times out.
-    /// Tints the player grey to signal offline/disconnected state.
     /// Re-enables CloudManager so clouds spawn normally in single-player.
     /// </summary>
     public void ActivateOfflineMode()
@@ -126,8 +125,6 @@ public class GameManagerM : MonoBehaviour
         if (nlc != null)
             nlc.ActivateOfflineMode();
 
-        if (playerInstance != null && playerInstance.spriteRenderer != null)
-            playerInstance.spriteRenderer.color = new Color(0.55f, 0.55f, 0.55f, 1f);
     }
 
     void SpawnPlayerLocal()

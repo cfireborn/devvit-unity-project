@@ -24,7 +24,7 @@ public class NetworkBootstrapper : MonoBehaviour
     [Header("Edgegap")]
     public string edgegapAddress     = "";
     public ushort edgegapTugboatPort = 30773;
-    public ushort edgegapBayouPort   = 31409;
+    public ushort edgegapBayouPort   = 7772;
 
     [Header("Editor Testing")]
     [Tooltip("Start as Host in the main editor window. Virtual players (MPPM) always start as clients.")]
@@ -33,6 +33,10 @@ public class NetworkBootstrapper : MonoBehaviour
     [Header("Offline Fallback")]
     [Tooltip("Seconds to wait for a server connection before falling back to offline single-player mode.")]
     public float connectionTimeoutSeconds = 5f;
+
+    [Header("UI Feedback")]
+    [Tooltip("Tinted orange when the client successfully connects to the server.")]
+    [SerializeField] VirtualJoystick joystick;
 
     // Read-only accessors for AdminMenu to display current resolved values.
     public string ActiveAddress     => _serverAddress;
@@ -208,6 +212,8 @@ public class NetworkBootstrapper : MonoBehaviour
         {
             _connectionEstablished = true;
             Debug.Log("NetworkBootstrapper: Client connected successfully.");
+            if (joystick != null)
+                joystick.SetConnectedTint(new Color(1f, 0.78f, 0.52f)); // soft warm tint
         }
         else if (args.ConnectionState == LocalConnectionState.Stopped && !_connectionEstablished)
         {

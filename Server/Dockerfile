@@ -4,28 +4,28 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG SERVER_BUILD_PATH=Builds/EdgegapServer
 
 COPY ${SERVER_BUILD_PATH} /root/build/
-COPY Server/nginx.conf /etc/nginx/nginx.conf
-COPY Server/start.sh   /root/start.sh
+COPY Server/stunnel.conf /etc/stunnel/stunnel.conf
+COPY Server/start.sh     /root/start.sh
 
 WORKDIR /root/
 
 RUN chmod +x /root/build/ServerBuild /root/start.sh
 
-RUN apt-get update --fix-missing && \
-    apt-get install -y --no-install-recommends ca-certificates nginx-light openssl && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates stunnel4 openssl && \
     apt-get clean && \
     update-ca-certificates
 
-# Generate a self-signed cert for WSS termination.
-# Browsers accept self-signed certs for WebSocket connections (unlike HTTPS page loads).
-RUN mkdir -p /etc/nginx/certs && \
+# Generate self-signed cert for WSS termination (combined .pem for stunnel)
+RUN mkdir -p /etc/stunnel && \
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-        -keyout /etc/nginx/certs/server.key \
-        -out    /etc/nginx/certs/server.crt \
-        -subj   "/CN=compersion-server"
+        -keyout /etc/stunnel/server.key \
+        -out    /etc/stunnel/server.crt \
+        -subj   "/CN=compersion-server" && \
+    cat /etc/stunnel/server.crt /etc/stunnel/server.key > /etc/stunnel/server.pem
 
 # 7770/udp — Tugboat (UDP, editor/standalone clients)
-# 7772/tcp — nginx WSS proxy → Bayou (WebGL clients)
+# 7772/tcp — stunnel WSS proxy → Bayou (WebGL clients)
 # 7771 is Bayou plain ws, internal only — not exposed
 EXPOSE 7770/udp
 EXPOSE 7772/tcp

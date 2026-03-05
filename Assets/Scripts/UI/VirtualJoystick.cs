@@ -180,6 +180,12 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHan
         inputVector.y = clampedPosition.y / maxDistance;
     }
 
+    public void SetConnectedTint(Color tint)
+    {
+        if (smallCircleImage != null)
+            smallCircleImage.color = new Color(tint.r, tint.g, tint.b, smallCircleImage.color.a);
+    }
+
     private void SetBigCircleAlpha(float alpha)
     {
         Color color = bigCircleMaxModulate;
