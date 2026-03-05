@@ -145,8 +145,9 @@ public class AdminMenu : MonoBehaviour
     {
         FlushEdgegapInputs();
         bool currentlyLocal = IsCurrentlyLocal();
-        AdminMenuPrefs.UseLocalOverride = !currentlyLocal;
-        AdminMenuPrefs.KeepPanelOpen   = true;
+        AdminMenuPrefs.UseLocalOverride  = !currentlyLocal;
+        AdminMenuPrefs.KeepPanelOpen    = true;
+        AdminMenuPrefs.AttemptConnection = true;
 
         string dest = currentlyLocal ? "Edgegap" : "Local";
         ShowStatus($"Switching to {dest} — reloading...", isError: false);
@@ -159,7 +160,8 @@ public class AdminMenu : MonoBehaviour
     public void RetryConnection()
     {
         FlushEdgegapInputs();
-        AdminMenuPrefs.KeepPanelOpen = true;
+        AdminMenuPrefs.KeepPanelOpen    = true;
+        AdminMenuPrefs.AttemptConnection = true;
         ShowStatus("Retrying — reloading scene...", isError: false);
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
@@ -370,6 +372,12 @@ public static class AdminMenuPrefs
     /// Reset to false after reading in Awake.
     /// </summary>
     public static bool KeepPanelOpen = false;
+
+    /// <summary>
+    /// WebGL starts offline by default. Set true before a scene reload to allow
+    /// NetworkBootstrapper to attempt a server connection on the next Start().
+    /// </summary>
+    public static bool AttemptConnection = false;
 
     // Edgegap runtime overrides — edited via the admin menu input fields.
     // null = use the inspector field value on NetworkBootstrapper.

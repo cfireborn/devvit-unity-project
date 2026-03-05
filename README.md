@@ -267,22 +267,41 @@ Every new spawnable prefab must be registered in **NetworkManager → Spawnable 
 
 ### Linux Server + Containerize (for Edgegap)
 
-Use the **Edgegap Server Hosting** window (`Window → Edgegap Server Hosting`):
-1. **Build** — compiles the Linux server binary to `Builds/EdgegapServer/`
-2. **Containerize** — builds the Docker image using `Server/Dockerfile`
-3. **Push & Deploy** — uploads and starts the deployment on Edgegap
+#### Prerequisites (one-time)
 
-The Dockerfile installs `cloudflared` and bakes in `Server/cloudflare-credentials.json` (not committed — see below). On startup `start.sh` runs cloudflared alongside the game server binary.
+- Docker Desktop running
+- `Server/cloudflare-credentials.json` present (git-ignored — see Cloudflare Tunnel section below)
+- Logged in to the Edgegap plugin (`Tools → Edgegap Server Hosting`)
 
-#### Edgegap port config (app version settings)
+#### Deploy steps (every release)
 
-| Port | Protocol | Purpose |
+1. Open **Tools → Edgegap Server Hosting**
+2. Click **Build** — compiles the Linux dedicated server binary to `Builds/EdgegapServer/`
+3. Click **Containerize** — runs `docker build` using `Server/Dockerfile`, which installs cloudflared and bakes in the tunnel credentials
+4. Click **Upload** (or Push) — pushes the image to Edgegap's registry
+5. Click **Deploy** — starts a new deployment; wait for status to show **Running**
+6. In the deployment details, note the **server hostname** (e.g. `abc123.pr.edgegap.net`) and the **external UDP port** mapped to internal port `7777`
+
+#### Connecting the Unity editor to the deployed server
+
+After each deploy, update **NetworkBootstrapper** in the Inspector:
+
+- **Edgegap Tugboat Address** → the deployment hostname (e.g. `abc123.pr.edgegap.net`)
+- **Edgegap Tugboat Port** → the external UDP port from the deployment details
+
+Press Play in the editor — the main window connects as host via Tugboat UDP directly to Edgegap. Virtual players (MPPM) connect as clients the same way.
+
+WebGL players connect automatically via Cloudflare Tunnel (`compersion.charliefeuerborn.com:443`) — no inspector changes needed there between deploys.
+
+#### Edgegap app version port config
+
+| Internal Port | Protocol | Purpose |
 |------|----------|---------|
-| `7777` | UDP | Tugboat (editor / standalone clients) |
+| `7777` | UDP | Tugboat (editor / standalone / macOS clients) |
 
-No TCP port needed — WebSocket traffic goes through Cloudflare Tunnel.
+No TCP port needed — WebSocket traffic goes through Cloudflare Tunnel outbound, not an inbound port.
 
-#### WebGL client connection
+#### WebGL client connection (stable — never needs updating)
 
 In the **NetworkBootstrapper** Inspector:
 - **Edgegap Address**: `compersion.charliefeuerborn.com`

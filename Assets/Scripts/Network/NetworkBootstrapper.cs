@@ -120,6 +120,12 @@ public class NetworkBootstrapper : MonoBehaviour
         }
 
 #elif UNITY_WEBGL
+        if (!AdminMenuPrefs.AttemptConnection)
+        {
+            Debug.Log("NetworkBootstrapper: WebGL — offline by default. Open admin panel and press Retry to connect.");
+            TriggerOfflineFallback();
+            return;
+        }
         Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {_bayouAddress}:{_bayouPort}.");
         SetClientTransport<FishNet.Transporting.Bayou.Bayou>(nm);
         TryConnectClient(nm, _bayouAddress, _bayouPort);
