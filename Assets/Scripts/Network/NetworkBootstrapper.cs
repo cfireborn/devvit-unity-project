@@ -18,13 +18,13 @@ public class NetworkBootstrapper : MonoBehaviour
 {
     [Header("Local Testing")]
     public string localAddress     = "localhost";
-    public ushort localTugboatPort = 7770;
+    public ushort localTugboatPort = 7777;
     public ushort localBayouPort   = 7771;
 
     [Header("Edgegap")]
-    public string edgegapAddress     = "";
-    public ushort edgegapTugboatPort = 30773;
-    public ushort edgegapBayouPort   = 7772;
+    public string edgegapAddress     = "5963fffe3b47.pr.edgegap.net";
+    public ushort edgegapTugboatPort = 32647;
+    public ushort edgegapBayouPort   = 31672;
 
     [Header("Editor Testing")]
     [Tooltip("Start as Host in the main editor window. Virtual players (MPPM) always start as clients.")]
