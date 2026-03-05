@@ -102,6 +102,12 @@ InitTestScene*.unity*
 
 # Cloudflare Tunnel credentials — contains tunnel secret, do not commit
 Server/cloudflare-credentials.json
+
+# Unity test runner artifacts
+Assets/Resources/PerformanceTestRunInfo.json
+Assets/Resources/PerformanceTestRunInfo.json.meta
+Assets/Resources/PerformanceTestRunSettings.json
+Assets/Resources/PerformanceTestRunSettings.json.meta
 DevvitExports/SampleGame.wasm.unityweb
 DevvitExports/SampleGame.framework.js
 DevvitExports/SampleGame.data.unityweb

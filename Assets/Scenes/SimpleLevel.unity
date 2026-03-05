@@ -2970,7 +2970,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1728924530}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.9999644
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -4197,9 +4197,10 @@ MonoBehaviour:
   localAddress: localhost
   localTugboatPort: 7777
   localBayouPort: 7771
-  edgegapAddress: 4e9be7d402dc.pr.edgegap.net
-  edgegapTugboatPort: 32747
-  edgegapBayouPort: 32011
+  edgegapAddress: compersion.charliefeuerborn.com
+  edgegapBayouPort: 443
+  edgegapTugboatAddress: 99de5d6ddf3c.pr.edgegap.net
+  edgegapTugboatPort: 32253
   editorStartAsHost: 0
   connectionTimeoutSeconds: 5
   joystick: {fileID: 1564902180}

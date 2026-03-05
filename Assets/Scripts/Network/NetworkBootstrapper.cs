@@ -21,10 +21,15 @@ public class NetworkBootstrapper : MonoBehaviour
     public ushort localTugboatPort = 7777;
     public ushort localBayouPort   = 7771;
 
-    [Header("Edgegap")]
-    public string edgegapAddress     = "5963fffe3b47.pr.edgegap.net";
-    public ushort edgegapTugboatPort = 32647;
-    public ushort edgegapBayouPort   = 31672;
+    [Header("Edgegap — WebSocket (Bayou / WebGL)")]
+    [Tooltip("Cloudflare Tunnel domain — stable, never changes between deployments.")]
+    public string edgegapAddress   = "compersion.charliefeuerborn.com";
+    public ushort edgegapBayouPort = 443;
+
+    [Header("Edgegap — UDP (Tugboat / Editor / macOS)")]
+    [Tooltip("Direct Edgegap hostname for UDP. Changes each deployment — update after every redeploy.")]
+    public string edgegapTugboatAddress = "";
+    public ushort edgegapTugboatPort    = 7777;
 
     [Header("Editor Testing")]
     [Tooltip("Start as Host in the main editor window. Virtual players (MPPM) always start as clients.")]
@@ -39,15 +44,17 @@ public class NetworkBootstrapper : MonoBehaviour
     [SerializeField] VirtualJoystick joystick;
 
     // Read-only accessors for AdminMenu to display current resolved values.
-    public string ActiveAddress     => _serverAddress;
-    public ushort ActiveTugboatPort => _tugboatPort;
-    public ushort ActiveBayouPort   => _bayouPort;
+    public string ActiveAddress         => _bayouAddress;
+    public string ActiveTugboatAddress  => _tugboatAddress;
+    public ushort ActiveTugboatPort     => _tugboatPort;
+    public ushort ActiveBayouPort       => _bayouPort;
 
     bool _connectionEstablished;
     bool _offlineTriggered;
 
     // Resolved at startup from build target.
-    string _serverAddress;
+    string _bayouAddress;    // Bayou/WebGL  — Cloudflare Tunnel domain, stable
+    string _tugboatAddress;  // Tugboat/UDP  — direct Edgegap hostname, changes per deployment
     ushort _tugboatPort;
     ushort _bayouPort;
 
@@ -62,22 +69,26 @@ public class NetworkBootstrapper : MonoBehaviour
         if (AdminMenuPrefs.UseLocalOverride.HasValue)
             useLocal = AdminMenuPrefs.UseLocalOverride.Value;
 
-        _serverAddress = useLocal ? localAddress      : edgegapAddress;
-        _tugboatPort   = useLocal ? localTugboatPort  : edgegapTugboatPort;
-        _bayouPort     = useLocal ? localBayouPort    : edgegapBayouPort;
+        _bayouAddress   = useLocal ? localAddress : edgegapAddress;
+        _tugboatAddress = useLocal ? localAddress
+                                   : (!string.IsNullOrWhiteSpace(edgegapTugboatAddress)
+                                      ? edgegapTugboatAddress
+                                      : edgegapAddress);
+        _tugboatPort    = useLocal ? localTugboatPort : edgegapTugboatPort;
+        _bayouPort      = useLocal ? localBayouPort   : edgegapBayouPort;
 
         // Apply any per-field Edgegap overrides set from the admin menu.
         if (!useLocal)
         {
             if (!string.IsNullOrWhiteSpace(AdminMenuPrefs.EdgegapAddressOverride))
-                _serverAddress = AdminMenuPrefs.EdgegapAddressOverride;
+                _bayouAddress = _tugboatAddress = AdminMenuPrefs.EdgegapAddressOverride;
             if (AdminMenuPrefs.EdgegapTugboatPortOverride.HasValue)
                 _tugboatPort = AdminMenuPrefs.EdgegapTugboatPortOverride.Value;
             if (AdminMenuPrefs.EdgegapBayouPortOverride.HasValue)
                 _bayouPort = AdminMenuPrefs.EdgegapBayouPortOverride.Value;
         }
 
-        Debug.Log($"NetworkBootstrapper: {(useLocal ? "LOCAL" : "EDGEGAP")} — {_serverAddress}  UDP:{_tugboatPort}  WS:{_bayouPort}");
+        Debug.Log($"NetworkBootstrapper: {(useLocal ? "LOCAL" : "EDGEGAP")} — Bayou:{_bayouAddress}:{_bayouPort}  Tugboat:{_tugboatAddress}:{_tugboatPort}");
 
         NetworkManager nm = InstanceFinder.NetworkManager;
         if (nm == null)
@@ -100,22 +111,25 @@ public class NetworkBootstrapper : MonoBehaviour
         {
             Debug.Log("NetworkBootstrapper: Editor (Main) — starting as Host.");
             TryStartServer(nm);
-            TryConnectClient(nm, _serverAddress, _tugboatPort);
+            TryConnectClient(nm, _tugboatAddress, _tugboatPort);
         }
         else
         {
-            Debug.Log($"NetworkBootstrapper: Editor (Virtual Player) — connecting to {_serverAddress}:{_tugboatPort}.");
-            TryConnectClient(nm, _serverAddress, _tugboatPort);
+            Debug.Log($"NetworkBootstrapper: Editor (Virtual Player) — connecting to {_tugboatAddress}:{_tugboatPort}.");
+            TryConnectClient(nm, _tugboatAddress, _tugboatPort);
         }
 
 #elif UNITY_WEBGL
-        Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {_serverAddress}:{_bayouPort}.");
+        Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {_bayouAddress}:{_bayouPort}.");
         SetClientTransport<FishNet.Transporting.Bayou.Bayou>(nm);
-        TryConnectClient(nm, _serverAddress, _bayouPort);
+        TryConnectClient(nm, _bayouAddress, _bayouPort);
 
 #else
+        // Standalone (macOS / Windows) — Tugboat UDP direct to Edgegap
+        Debug.Log($"NetworkBootstrapper: Standalone — connecting via Tugboat to {_tugboatAddress}:{_tugboatPort}.");
+        SetClientTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
         TryStartServer(nm);
-        TryConnectClient(nm, _serverAddress, _tugboatPort);
+        TryConnectClient(nm, _tugboatAddress, _tugboatPort);
 #endif
     }
 

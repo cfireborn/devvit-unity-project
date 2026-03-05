@@ -285,21 +285,25 @@ public class AdminMenu : MonoBehaviour
         bool local = IsCurrentlyLocal();
 
         // Show effective values: AdminMenuPrefs override takes priority over inspector fields.
-        string addr  = local ? bootstrapper.localAddress
-                             : (AdminMenuPrefs.EdgegapAddressOverride ?? bootstrapper.edgegapAddress);
+        string bayouAddr   = local ? bootstrapper.localAddress
+                                   : (AdminMenuPrefs.EdgegapAddressOverride ?? bootstrapper.edgegapAddress);
+        string tugboatAddr = local ? bootstrapper.localAddress
+                                   : (AdminMenuPrefs.EdgegapAddressOverride
+                                      ?? (string.IsNullOrWhiteSpace(bootstrapper.edgegapTugboatAddress)
+                                          ? bootstrapper.edgegapAddress
+                                          : bootstrapper.edgegapTugboatAddress));
         ushort tPort = local ? bootstrapper.localTugboatPort
                              : (AdminMenuPrefs.EdgegapTugboatPortOverride ?? bootstrapper.edgegapTugboatPort);
         ushort bPort = local ? bootstrapper.localBayouPort
                              : (AdminMenuPrefs.EdgegapBayouPortOverride ?? bootstrapper.edgegapBayouPort);
 
-        if (!local && string.IsNullOrWhiteSpace(addr))
-            addr = "<i>(edgegapAddress not set)</i>";
+        if (!local && string.IsNullOrWhiteSpace(bayouAddr))
+            bayouAddr = "<i>(edgegapAddress not set)</i>";
 
         activeAddressText.text =
             $"<b>[{(local ? "LOCAL" : "EDGEGAP")}]</b>\n" +
-            $"{addr}\n" +
-            $"UDP  (Tugboat) : {tPort}\n" +
-            $"TCP  (Bayou)   : {bPort}";
+            $"WSS  (Bayou)   : {bayouAddr}:{bPort}\n" +
+            $"UDP  (Tugboat) : {tugboatAddr}:{tPort}";
 
         if (serverToggleLabel != null)
             serverToggleLabel.text = local ? "Switch to Edgegap" : "Switch to Local";
