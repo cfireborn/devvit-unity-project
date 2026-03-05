@@ -99,6 +99,9 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 .DS_Store
+
+# Cloudflare Tunnel credentials — contains tunnel secret, do not commit
+Server/cloudflare-credentials.json
 DevvitExports/SampleGame.wasm.unityweb
 DevvitExports/SampleGame.framework.js
 DevvitExports/SampleGame.data.unityweb

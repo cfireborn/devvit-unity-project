@@ -1,0 +1,7 @@
+tunnel: 391101e6-0e49-42af-8656-31d145f588fb
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: compersion.charliefeuerborn.com
+    service: ws://localhost:7771
+  - service: http_status:404

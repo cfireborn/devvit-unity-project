@@ -265,9 +265,44 @@ Every new spawnable prefab must be registered in **NetworkManager → Spawnable 
 
 `File → Build Settings → WebGL → Build`. Use the existing `export_devvit.sh` script for packaging.
 
-### Linux Server (for Edgegap)
+### Linux Server + Containerize (for Edgegap)
 
-`Build → Build Linux Server` menu item (editor script, in progress). Output: `Builds/LinuxServer/`.
+Use the **Edgegap Server Hosting** window (`Window → Edgegap Server Hosting`):
+1. **Build** — compiles the Linux server binary to `Builds/EdgegapServer/`
+2. **Containerize** — builds the Docker image using `Server/Dockerfile`
+3. **Push & Deploy** — uploads and starts the deployment on Edgegap
+
+The Dockerfile installs `cloudflared` and bakes in `Server/cloudflare-credentials.json` (not committed — see below). On startup `start.sh` runs cloudflared alongside the game server binary.
+
+#### Edgegap port config (app version settings)
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| `7777` | UDP | Tugboat (editor / standalone clients) |
+
+No TCP port needed — WebSocket traffic goes through Cloudflare Tunnel.
+
+#### WebGL client connection
+
+In the **NetworkBootstrapper** Inspector:
+- **Edgegap Address**: `compersion.charliefeuerborn.com`
+- **Edgegap Bayou Port**: `443`
+
+#### Cloudflare Tunnel — one-time setup
+
+The tunnel `compersion` (ID `391101e6-0e49-42af-8656-31d145f588fb`) routes `wss://compersion.charliefeuerborn.com` → `ws://localhost:7771` (Bayou) inside the container. The stable domain survives Edgegap redeployments — clients always connect to the same address.
+
+To set up from scratch on a new machine:
+```bash
+brew install cloudflared
+cloudflared tunnel login
+cloudflared tunnel create compersion
+cloudflared tunnel route dns compersion compersion.charliefeuerborn.com
+cp ~/.cloudflared/<new-tunnel-id>.json Server/cloudflare-credentials.json
+# Update tunnel ID in Server/cloudflare-tunnel.yml to match
+```
+
+`Server/cloudflare-credentials.json` is git-ignored (contains tunnel secret). Keep a copy in `~/.cloudflared/` — that's where cloudflared stores it by default.
 
 ### Testing the WebGL build locally
 
