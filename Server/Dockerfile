@@ -27,7 +27,7 @@ RUN mkdir -p /etc/stunnel && \
 # 7770/udp — Tugboat (UDP, editor/standalone clients)
 # 7772/tcp — stunnel WSS proxy → Bayou (WebGL clients)
 # 7771 is Bayou plain ws, internal only — not exposed
-EXPOSE 7770/udp
+EXPOSE 7777/udp
 EXPOSE 7772/tcp
 
 CMD ["/root/start.sh"]

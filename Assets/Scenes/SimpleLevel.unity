@@ -2969,8 +2969,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1728924531}
   m_HandleRect: {fileID: 1728924530}
   m_Direction: 2
-  m_Value: 0
-  m_Size: 0.9999984
+  m_Value: 1
+  m_Size: 0.9999644
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -4121,7 +4121,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Managing.Server.ServerManager
   _authenticator: {fileID: 0}
-  _remoteClientTimeout: 2
+  _remoteClientTimeout: 1
   _remoteClientTimeoutDuration: 60
   _allowPredictedSpawning: 0
   _reservedObjectIds: 15
@@ -4197,9 +4197,9 @@ MonoBehaviour:
   localAddress: localhost
   localTugboatPort: 7777
   localBayouPort: 7771
-  edgegapAddress: 5963fffe3b47.pr.edgegap.net
-  edgegapTugboatPort: 32647
-  edgegapBayouPort: 31672
+  edgegapAddress: 4e9be7d402dc.pr.edgegap.net
+  edgegapTugboatPort: 32747
+  edgegapBayouPort: 32011
   editorStartAsHost: 0
   connectionTimeoutSeconds: 5
   joystick: {fileID: 1564902180}
@@ -7703,7 +7703,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.00007655265}
+  m_AnchoredPosition: {x: 0, y: -0.00021503902}
   m_SizeDelta: {x: 0, y: 831.92}
   m_Pivot: {x: 0, y: 1}
 --- !u!23 &2142987146
