@@ -276,7 +276,7 @@ PrefabInstance:
     - target: {fileID: 8310575160776078934, guid: e77c0cb5bd1bdc647a2be58071874d38, type: 3}
       propertyPath: cloudManager
       value: 
-      objectReference: {fileID: 1504431311}
+      objectReference: {fileID: 0}
     - target: {fileID: 8310575160776078934, guid: e77c0cb5bd1bdc647a2be58071874d38, type: 3}
       propertyPath: resetTriggers.Array.size
       value: 3
@@ -2263,6 +2263,14 @@ PrefabInstance:
       value: 3607084542
       objectReference: {fileID: 0}
     - target: {fileID: 8115042951945831125, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
+      propertyPath: _isGlobal
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8115042951945831125, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
+      propertyPath: _isSpawnable
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8115042951945831125, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: WasActiveDuringEdit
       value: 1
       objectReference: {fileID: 0}
@@ -2576,8 +2584,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 146617254}
   m_HandleRect: {fileID: 146617253}
   m_Direction: 0
-  m_Value: 0
-  m_Size: 1
+  m_Value: 1
+  m_Size: 0.99999994
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -5078,17 +5086,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1504431311 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
-  m_PrefabInstance: {fileID: 1864930203}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1190467174}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 63bd85b5392842f4485c7474bcdc5308, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CloudManager
 --- !u!114 &1504431314
 MonoBehaviour:
   m_ObjectHideFlags: 0

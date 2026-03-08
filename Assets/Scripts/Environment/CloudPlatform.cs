@@ -3,6 +3,11 @@ using UnityEngine;
 /// <summary>
 /// Moves a cloud horizontally. CloudManager sets the speed on spawn.
 /// Stops and despawns when entering CloudNoSpawnZone with blockEntry.
+///
+/// The Rigidbody2D must be set to Kinematic. Movement is applied via
+/// Rigidbody2D.MovePosition so that players (Dynamic rigidbodies) standing
+/// on the cloud are carried along correctly by Unity's physics solver.
+/// A velocity-driven Dynamic body does NOT transfer motion to standing bodies.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 public class CloudPlatform : MonoBehaviour
@@ -30,10 +35,15 @@ public class CloudPlatform : MonoBehaviour
     [HideInInspector]
     public int networkPrefabIndex = 0;
 
+    /// <summary>Index of the lane this cloud belongs to. Set by CloudManager on spawn. -1 = not assigned to a lane (e.g. pre-placed scene cloud).</summary>
+    [HideInInspector]
+    public int laneIndex = -1;
+
     CloudManager _cloudManager;
     bool _playerOnCloud;
     bool _isInBlockEntryZone;
     bool _isDespawning;
+    public bool wasActiveAtStart; 
     float _despawnTimer;
     Vector3 _scaleAtDespawnStart;
     Rigidbody2D _rb;
@@ -41,6 +51,11 @@ public class CloudPlatform : MonoBehaviour
     void Awake()
     {
         _rb = GetComponent<Rigidbody2D>();
+        if (_rb != null)
+        {
+            _rb.bodyType = RigidbodyType2D.Kinematic;
+            _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+        }
     }
 
     void OnEnable()
@@ -60,7 +75,7 @@ public class CloudPlatform : MonoBehaviour
             transform.localScale = _scaleAtDespawnStart * (1f - t);
             if (_despawnTimer >= despawnAnimationDuration)
             {
-                _cloudManager?.ReturnCloudToPool(gameObject);
+                _cloudManager?.DeactivateCloud(gameObject);
             }
         }
     }
@@ -68,15 +83,11 @@ public class CloudPlatform : MonoBehaviour
     void FixedUpdate()
     {
         if (_rb == null) return;
-        if (_isInBlockEntryZone || _isDespawning)
-        {
-            _rb.linearVelocity = Vector2.zero;
-            return;
-        }
-        if (isMoving)
-        {
-            _rb.linearVelocity = new Vector2(moveSpeed, 0f);
-        }
+        if (_isInBlockEntryZone || _isDespawning || !isMoving) return;
+
+        // MovePosition on a Kinematic body is processed by the physics solver so
+        // Dynamic bodies (players) in contact are correctly carried along.
+        _rb.MovePosition(_rb.position + new Vector2(moveSpeed * Time.fixedDeltaTime, 0f));
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -86,7 +97,6 @@ public class CloudPlatform : MonoBehaviour
 
         _isInBlockEntryZone = true;
         isMoving = false;
-        _rb.linearVelocity = Vector2.zero;
 
         if (!_playerOnCloud)
         {
@@ -139,11 +149,6 @@ public class CloudPlatform : MonoBehaviour
     {
         isMoving = moving;
         SetMovementSpeed(speed);
-
-        if (!moving && _rb != null)
-        {
-            _rb.linearVelocity = Vector2.zero;
-        }
     }
 
     /// <summary>Set by CloudManager when spawning.</summary>

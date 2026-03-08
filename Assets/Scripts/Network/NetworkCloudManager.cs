@@ -33,10 +33,15 @@ public class NetworkCloudManager : NetworkBehaviour
     {
         _cloudManager = GetComponent<CloudManager>();
 
-        // Always set offline delegates first so _onCloudActivated is never null
-        // when CloudManager is enabled (even before a network role is determined).
-        if (_cloudManager != null)
-            SetOfflineDelegates();
+        if (_cloudManager == null)
+        {
+            Debug.LogError("NetworkCloudManager requires a CloudManager component on the same GameObject.");
+            enabled = false;
+            return;
+        }
+
+        _cloudManager.CollectSceneClouds();
+        SetOfflineDelegates();
 
         // Disable CloudManager immediately in a network context.
         // CloudManager.Start() would run before OnStartServer/OnStartClient and cause
@@ -140,6 +145,7 @@ public class NetworkCloudManager : NetworkBehaviour
 
         if (_cloudManager != null)
         {
+            _cloudManager.CollectSceneClouds();
             SetOfflineDelegates();
             _cloudManager.enabled = true;
         }
