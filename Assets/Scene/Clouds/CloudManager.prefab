@@ -45,19 +45,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63bd85b5392842f4485c7474bcdc5308, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CloudManager
-  player: {fileID: 0}
   cloudLadderController: {fileID: 4449832523319277437}
   cloudPrefabs:
   - {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
   - {fileID: 4791846076617009745, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-  spawnRadius: 7
-  despawnRadius: 20
-  maxClouds: 15
-  distanceThresholdForUpdate: 0.2
-  minDistanceFromOtherClouds: 0.25
-  speedRange: {x: -1, y: 1}
-  scaleRange: {x: 0.9, y: 1.1}
-  maxSpawnRetries: 10
+  settings: {fileID: 11400000, guid: 6a2d0b4cf4dd5dc4c980ee5193abef3b, type: 2}
 --- !u!114 &4449832523319277437
 MonoBehaviour:
   m_ObjectHideFlags: 0

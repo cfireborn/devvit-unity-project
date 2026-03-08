@@ -76,7 +76,20 @@ public class CloudLadderController : MonoBehaviour
         }
 
         var validPairs = new HashSet<(CloudPlatform, CloudPlatform)>();
+
+        // Seed usedClouds from ladders that already exist (non-forced only).
+        // This enforces the one-auto-ladder-per-cloud rule across frames: a cloud
+        // that is already part of an active auto-ladder cannot be picked up into a
+        // second one until its current ladder is removed.
         var usedClouds = new HashSet<CloudPlatform>();
+        foreach (var kvp in _ladders)
+        {
+            if (!_forcedPairs.Contains(kvp.Key))
+            {
+                usedClouds.Add(kvp.Key.Item1);
+                usedClouds.Add(kvp.Key.Item2);
+            }
+        }
 
         for (int i = 0; i < platformList.Count; i++)
         {
@@ -102,6 +115,15 @@ public class CloudLadderController : MonoBehaviour
 
         foreach (var pair in _forcedPairs)
             validPairs.Add(pair);
+
+        // Keep existing ladders that still pass ShouldHaveLadder (prevents flicker:
+        // we already reserved their clouds in usedClouds, so they weren't re-added in the loop)
+        foreach (var kvp in _ladders)
+        {
+            if (kvp.Key.Item1 == null || kvp.Key.Item2 == null) continue;
+            if (ShouldHaveLadder(kvp.Key.Item1, kvp.Key.Item2))
+                validPairs.Add(kvp.Key);
+        }
 
         var activeSet = new HashSet<GameObject>(clouds);
         var forcedToRemove = new List<(CloudPlatform, CloudPlatform)>();

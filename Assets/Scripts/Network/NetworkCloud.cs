@@ -4,10 +4,13 @@ using UnityEngine;
 /// <summary>
 /// Attach to every cloud prefab alongside NetworkObject + NetworkTransform.
 ///
-/// - Server: CloudPlatform runs normally, moves the cloud via linearVelocity.
+/// - Server: CloudPlatform runs normally, moves the cloud via MovePosition.
 ///           NetworkTransform broadcasts the resulting position to all clients.
-/// - Clients: CloudPlatform is disabled, Rigidbody2D set to Kinematic.
-///            NetworkTransform drives position — same engine as player sync.
+///           Scene clouds that were active at load are re-enabled in OnStartServer
+///           so they begin moving once the network is up.
+/// - Clients: CloudPlatform is disabled (NetworkTransform drives position).
+///            Only clouds that were originally enabled have their CloudPlatform
+///            suppressed — designer-disabled clouds are left untouched.
 ///
 /// Scale is synced via a BufferLast ObserversRpc so clients get the correct random
 /// scale on spawn, and late-joining clients receive the last-sent value automatically.
@@ -18,20 +21,51 @@ public class NetworkCloud : NetworkBehaviour
     CloudPlatform _platform;
     Rigidbody2D _rb;
 
+    // Whether CloudPlatform was enabled when the scene loaded, recorded before any
+    // network lifecycle callback can change it. Used to distinguish:
+    //   true  — active cloud; suppress on clients, re-enable on server
+    //   false — designer-disabled cloud; leave untouched by networking
+    public bool _platformWasEnabledAtStart;
+
     void Awake()
     {
         _platform = GetComponent<CloudPlatform>();
         _rb = GetComponent<Rigidbody2D>();
+        _platformWasEnabledAtStart = _platform != null && _platform.enabled;
+        _platform.wasActiveAtStart = _platformWasEnabledAtStart;
+    }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+
+        // Re-enable CloudPlatform for scene clouds that were active at load.
+        // Pool-spawned clouds are already enabled; this specifically covers scene
+        // NetworkObjects whose CloudPlatform may have been left in an indeterminate
+        // state during the pre-network startup window.
+        if (_platformWasEnabledAtStart && _platform != null)
+            _platform.enabled = true;
+
+        if (_rb != null)
+        {
+            _rb.bodyType = RigidbodyType2D.Kinematic;
+            _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+        }
     }
 
     public override void OnStartClient()
     {
         base.OnStartClient();
 
-        if (IsServerStarted) return; // host already running natively
+        // Host already running natively via OnStartServer — nothing extra needed.
+        if (IsServerStarted) return;
 
-        // Pure client: NetworkTransform drives position, so CloudPlatform must not fight it
-        if (_platform != null) _platform.enabled = false;
+        // Pure client: NetworkTransform drives position, so CloudPlatform must not
+        // fight it. Only disable platforms that were originally active — designer-
+        // disabled clouds are left as-is so their disabled state is preserved.
+        if (_platform != null)
+            _platform.enabled = false;
+
         if (_rb != null)
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
