@@ -25,9 +25,9 @@ public class PlayerControllerM : MonoBehaviour
     private Item _carriedItem;
 
     private Rigidbody2D rb;
-    private bool isOnLadder;
     private bool isGliding;
     private bool goalReached;
+    private bool _wasOnLadder;
 
     // input capture (new Input System)
     private float moveInput;
@@ -76,6 +76,9 @@ public class PlayerControllerM : MonoBehaviour
     // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
     private bool _gameplayInputSuspended;
 
+    // Moving platform: apply platform/ladder delta so player moves with clouds and ladders
+    private IMovingPlatform _lastMovingPlatform;
+    private Vector2 _lastMovingPlatformPosition;
 
     // Read-only access for network visual sync
     public float MoveInputX => moveInput;
@@ -266,13 +269,21 @@ public class PlayerControllerM : MonoBehaviour
     {
         if (settings == null || goalReached) return;
 
+        bool isOnLadder = groundChecker != null && groundChecker.IsOnLadder;
         if (isOnLadder)
         {
+            if (!_wasOnLadder)
+            {
+                rb.linearVelocity = Vector2.zero;
+                rb.gravityScale = 0f;
+            }
+            _wasOnLadder = true;
             // On ladder: up/down (verticalInput) climbs, left/right (moveInput) moves horizontally. No gravity.
             rb.linearVelocity = new Vector2(moveInput * settings.moveSpeed, verticalInput * settings.ladderClimbSpeed);
             rb.gravityScale = 0f;
             return;
         }
+        _wasOnLadder = false;
 
         // Use GroundChecker for ground state (player sets platformTag from PlayerSettings)
         if (groundChecker != null)
@@ -492,12 +503,43 @@ public class PlayerControllerM : MonoBehaviour
         else
             rb.gravityScale = 3f;
 
-        isOnLadder = false;
         isGliding = false;
+        _wasOnLadder = false;
+        _lastMovingPlatform = null;
         _coyoteTimeRemaining = 0f;
         _jumpBufferRemaining = 0f;
+        groundChecker?.ClearLadderState();
     }
 
+    void LateUpdate()
+    {
+        ApplyMovingPlatformDelta();
+    }
+
+    void ApplyMovingPlatformDelta()
+    {
+        if (groundChecker == null || rb == null) return;
+
+        IMovingPlatform current = groundChecker.IsOnLadder ? groundChecker.CurrentLadder : groundChecker.CurrentPlatform;
+        if (current == null)
+        {
+            _lastMovingPlatform = null;
+            return;
+        }
+
+        Vector2 pos = current.GetPosition();
+        if (_lastMovingPlatform != current)
+        {
+            _lastMovingPlatform = current;
+            _lastMovingPlatformPosition = pos;
+            return;
+        }
+
+        Vector2 delta = pos - _lastMovingPlatformPosition;
+        _lastMovingPlatformPosition = pos;
+        if (delta.sqrMagnitude > 0.0001f)
+            rb.position += delta;
+    }
 
     // Returns the correct timestep whether we're running in OnTick (networked) or FixedUpdate (offline).
     float TickOrFixedDelta()
@@ -507,25 +549,4 @@ public class PlayerControllerM : MonoBehaviour
         return Time.fixedDeltaTime;
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        if (other.CompareTag("Ladder"))
-        {
-            isOnLadder = true;
-            rb.linearVelocity = Vector2.zero;
-            rb.gravityScale = 0f;
-        }
-    }
-
-    private void OnTriggerExit2D(Collider2D other)
-    {
-        if (other.CompareTag("Ladder"))
-        {
-            isOnLadder = false;
-            if (settings != null)
-                rb.gravityScale = settings.normalGravityScale;
-            else
-                rb.gravityScale = 3f;
-        }
-    }
 }

@@ -16,7 +16,8 @@ using UnityEngine;
 ///            disables CloudPlatform and sets Rigidbody2D to Kinematic on pure clients.
 /// - Offline fallback: ActivateOfflineMode() re-enables CloudManager for local pooling.
 ///
-/// This replaces the previous manual RPC/dictionary/position-sync approach.
+/// Server and offline modes are distinguished by which delegates are set on CloudManager;
+/// the component is disabled until OnStartServer or ActivateOfflineMode enables it.
 /// </summary>
 public class NetworkCloudManager : NetworkBehaviour
 {
@@ -76,13 +77,7 @@ public class NetworkCloudManager : NetworkBehaviour
 
     void SetOfflineDelegates()
     {
-        _cloudManager._onCloudActivated = (go, scale) =>
-        {
-            foreach (var nb in go.GetComponentsInChildren<NetworkBehaviour>(true))
-                DestroyImmediate(nb);
-            var nob = go.GetComponent<NetworkObject>();
-            if (nob != null) DestroyImmediate(nob);
-        };
+        _cloudManager._onCloudActivated = (go, scale) => NetworkOfflineUtil.StripNetworkComponents(go);
         _cloudManager._onCloudDeactivated = null;  // pool path handles it
     }
 

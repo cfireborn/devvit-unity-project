@@ -93,6 +93,7 @@ public class CloudManager : MonoBehaviour
 
     Transform _poolParent;
     bool _forceUpdate;
+    readonly List<Bounds> _boundsInWindow = new List<Bounds>();
 
     // ── Unity lifecycle ──────────────────────────────────────────────────────
 
@@ -120,7 +121,7 @@ public class CloudManager : MonoBehaviour
     void Start()
     {
         _poolParent = new GameObject("CloudPool").transform;
-        _poolParent.SetParent(transform);
+        _poolParent.SetParent(transform); // Keep pooled clouds under CloudManager for scene organization
 
         // Build lane array
         if (settings != null)
@@ -157,40 +158,27 @@ public class CloudManager : MonoBehaviour
         if (settings == null || cloudPrefabs == null || cloudPrefabs.Length == 0) return;
         if (_players.Count == 0 || _lanes == null) return;
 
-        bool anyLaneCrossed = false;
         for (int p = 0; p < _players.Count; p++)
         {
             if (_players[p] == null) continue;
             int currentLane = PlayerLaneIndex(_players[p]);
             if (currentLane == _lastLaneIndex[p] && !_forceUpdate) continue;
 
-            anyLaneCrossed = true;
             int oldLane = _lastLaneIndex[p];
             _lastLaneIndex[p] = currentLane;
 
-            // Compute activation radius in lane indices
-            int radius = Mathf.CeilToInt(settings.laneActivationDistance / settings.laneSpacing);
+            GetLaneRange(oldLane, out int oldMin, out int oldMax);
+            GetLaneRange(currentLane, out int newMin, out int newMax);
 
-            // Lanes that were in range of the old position
-            int oldMin = Mathf.Max(0, oldLane - radius);
-            int oldMax = Mathf.Min(_lanes.Length - 1, oldLane + radius);
-
-            // Lanes that are now in range
-            int newMin = Mathf.Max(0, currentLane - radius);
-            int newMax = Mathf.Min(_lanes.Length - 1, currentLane + radius);
-
-            // Activate lanes now in range that weren't before (for this player)
             for (int li = newMin; li <= newMax; li++)
             {
                 if (!_lanes[li].isActive)
                     ActivateLane(_lanes[li]);
             }
 
-            // Deactivate lanes that fell out of range for this player,
-            // but only if no other player still activates them
             for (int li = oldMin; li <= oldMax; li++)
             {
-                if (li >= newMin && li <= newMax) continue; // still in range for this player
+                if (li >= newMin && li <= newMax) continue;
                 if (_lanes[li].isActive && !AnyPlayerActivatesLane(li))
                     DeactivateLane(_lanes[li]);
             }
@@ -271,14 +259,21 @@ public class CloudManager : MonoBehaviour
         return Mathf.RoundToInt(player.position.y / settings.laneSpacing);
     }
 
-    bool AnyPlayerActivatesLane(int laneIndex)
+    void GetLaneRange(int laneIndex, out int min, out int max)
     {
         int radius = Mathf.CeilToInt(settings.laneActivationDistance / settings.laneSpacing);
+        min = Mathf.Max(0, laneIndex - radius);
+        max = Mathf.Min(_lanes.Length - 1, laneIndex + radius);
+    }
+
+    bool AnyPlayerActivatesLane(int laneIndex)
+    {
+        GetLaneRange(laneIndex, out int min, out int max);
         foreach (var pt in _players)
         {
             if (pt == null) continue;
             int pLane = PlayerLaneIndex(pt);
-            if (Mathf.Abs(pLane - laneIndex) <= radius) return true;
+            if (pLane >= min && pLane <= max) return true;
         }
         return false;
     }
@@ -310,37 +305,31 @@ public class CloudManager : MonoBehaviour
 
     bool IsLaneUnderpopulated(LaneState lane, float windowLeft, float windowRight)
     {
-        // Collect the bounds of every cloud whose collision bounds overlap or sit inside the window.
-        var boundsInWindow = new List<Bounds>();
+        _boundsInWindow.Clear();
         foreach (var cloud in lane.clouds)
         {
             if (cloud == null) continue;
             var platform = cloud.GetComponent<CloudPlatform>();
             if (platform == null) continue;
             Bounds b = platform.GetBounds();
-            // Include if any part of the cloud is within the window
             if (b.max.x >= windowLeft && b.min.x <= windowRight)
-                boundsInWindow.Add(b);
+                _boundsInWindow.Add(b);
         }
 
-        if (boundsInWindow.Count == 0) return true;
+        if (_boundsInWindow.Count == 0) return true;
 
-        // Sort by min.x (leading edge from left)
-        boundsInWindow.Sort((a, b) => a.min.x.CompareTo(b.min.x));
+        _boundsInWindow.Sort((a, b) => a.min.x.CompareTo(b.min.x));
 
-        // Check gap between the window left edge and the first cloud's left edge
-        float gapBeforeFirst = boundsInWindow[0].min.x - windowLeft;
+        float gapBeforeFirst = _boundsInWindow[0].min.x - windowLeft;
         if (gapBeforeFirst > settings.maxCloudSpacing) return true;
 
-        // Check gaps between consecutive cloud edges (trailing edge to next leading edge)
-        for (int i = 0; i < boundsInWindow.Count - 1; i++)
+        for (int i = 0; i < _boundsInWindow.Count - 1; i++)
         {
-            float gap = boundsInWindow[i + 1].min.x - boundsInWindow[i].max.x;
+            float gap = _boundsInWindow[i + 1].min.x - _boundsInWindow[i].max.x;
             if (gap > settings.maxCloudSpacing) return true;
         }
 
-        // Check gap between last cloud's trailing edge and the window right edge
-        float gapAfterLast = windowRight - boundsInWindow[boundsInWindow.Count - 1].max.x;
+        float gapAfterLast = windowRight - _boundsInWindow[_boundsInWindow.Count - 1].max.x;
         if (gapAfterLast > settings.maxCloudSpacing) return true;
 
         return false;
@@ -444,24 +433,20 @@ public class CloudManager : MonoBehaviour
     public void DeactivateCloud(GameObject cloud)
     {
         if (cloud == null) return;
-        
+
         cloud.SetActive(false);
 
-        if (!_pool.Contains(cloud) && !_nonPooled.Contains(cloud))
-        {
-            Debug.LogWarning("Attempted to deactivate a cloud this not managed by the CloudManager, might wanna check that out: " + cloud.name);
-        }
-
-        if (_pool.Contains(cloud)) {
-            ReturnCloudToPool(cloud); 
-            return;
-        }
-
-        if (_active.Contains(cloud))
+        if (_nonPooled.Contains(cloud))
         {
             _active.Remove(cloud);
             _onCloudDeactivated?.Invoke(cloud);
+            return;
         }
+
+        if (!_active.Contains(cloud) && !_pool.Contains(cloud))
+            Debug.LogWarning("Attempted to deactivate a cloud not managed by CloudManager: " + cloud.name);
+
+        ReturnCloudToPool(cloud);
     }
 
     /// <summary>Teleport a cloud back to the offscreen entry side of its lane (recirculate).</summary>
@@ -502,7 +487,7 @@ public class CloudManager : MonoBehaviour
             return;
         }
 
-        // Offline / non-networked: return to pool
+        // Offline: return to pool under CloudManager for scene organization
         cloud.SetActive(false);
         cloud.transform.SetParent(_poolParent);
         _pool.Enqueue(cloud);

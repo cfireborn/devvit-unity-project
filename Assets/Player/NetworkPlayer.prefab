@@ -436,7 +436,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69cfeaa7d05423241a3be7ad25c38613, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GroundChecker
-  platformTag: Default
+  platformTag: Platform
   groundCheckColliders:
   - {fileID: 6024923197877771774}
   groundCheckRadius: 0.15

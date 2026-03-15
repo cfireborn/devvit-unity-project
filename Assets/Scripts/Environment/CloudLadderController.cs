@@ -17,6 +17,7 @@ public class CloudLadderController : MonoBehaviour
     const string ChildNameBottom = "Bottom";
     const string ChildNameTop = "Top";
     const string ChildNameMiddlePrefix = "Middle_";
+    const int MaxLadderMiddleSegments = 64;
 
     [Header("References")]
     public CloudManager cloudManager;
@@ -49,6 +50,12 @@ public class CloudLadderController : MonoBehaviour
     // null = ReturnLadderToPool path. Server: FishNet Despawn or Destroy.
     internal Action<GameObject> _onLadderDeactivated;
 
+    readonly List<CloudPlatform> _cachedPlatformList = new List<CloudPlatform>();
+    readonly HashSet<(CloudPlatform, CloudPlatform)> _validPairsScratch = new HashSet<(CloudPlatform, CloudPlatform)>();
+    readonly HashSet<CloudPlatform> _usedCloudsScratch = new HashSet<CloudPlatform>();
+    readonly HashSet<GameObject> _activeSetScratch = new HashSet<GameObject>();
+    readonly List<(CloudPlatform, CloudPlatform)> _toRemoveScratch = new List<(CloudPlatform, CloudPlatform)>();
+
     readonly Dictionary<(CloudPlatform, CloudPlatform), GameObject> _ladders = new Dictionary<(CloudPlatform, CloudPlatform), GameObject>();
     readonly HashSet<(CloudPlatform, CloudPlatform)> _forcedPairs = new HashSet<(CloudPlatform, CloudPlatform)>();
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
@@ -64,30 +71,40 @@ public class CloudLadderController : MonoBehaviour
     {
         if (cloudManager == null || ladderPrefab == null) return;
 
-        var clouds = cloudManager.GetActiveClouds();
-        var platformList = new List<CloudPlatform>();
-        foreach (var go in clouds)
+        var platformList = GetActiveCloudPlatforms();
+        var validPairs = ComputeValidPairs(platformList);
+        var activeSet = _activeSetScratch;
+        activeSet.Clear();
+        foreach (var go in cloudManager.GetActiveClouds())
+            if (go != null) activeSet.Add(go);
+
+        RemoveInvalidLadders(validPairs, activeSet);
+        UpdateAllLadderPositions();
+    }
+
+    List<CloudPlatform> GetActiveCloudPlatforms()
+    {
+        _cachedPlatformList.Clear();
+        foreach (var go in cloudManager.GetActiveClouds())
         {
-            if (go != null)
-            {
-                var p = go.GetComponent<CloudPlatform>();
-                if (p != null) platformList.Add(p);
-            }
+            if (go == null) continue;
+            var p = go.GetComponent<CloudPlatform>();
+            if (p != null) _cachedPlatformList.Add(p);
         }
+        return _cachedPlatformList;
+    }
 
-        var validPairs = new HashSet<(CloudPlatform, CloudPlatform)>();
+    HashSet<(CloudPlatform, CloudPlatform)> ComputeValidPairs(List<CloudPlatform> platformList)
+    {
+        _validPairsScratch.Clear();
+        _usedCloudsScratch.Clear();
 
-        // Seed usedClouds from ladders that already exist (non-forced only).
-        // This enforces the one-auto-ladder-per-cloud rule across frames: a cloud
-        // that is already part of an active auto-ladder cannot be picked up into a
-        // second one until its current ladder is removed.
-        var usedClouds = new HashSet<CloudPlatform>();
         foreach (var kvp in _ladders)
         {
             if (!_forcedPairs.Contains(kvp.Key))
             {
-                usedClouds.Add(kvp.Key.Item1);
-                usedClouds.Add(kvp.Key.Item2);
+                _usedCloudsScratch.Add(kvp.Key.Item1);
+                _usedCloudsScratch.Add(kvp.Key.Item2);
             }
         }
 
@@ -97,45 +114,43 @@ public class CloudLadderController : MonoBehaviour
             {
                 var a = platformList[i];
                 var b = platformList[j];
-                if (usedClouds.Contains(a) || usedClouds.Contains(b) || !a.canBuildLadder || !b.canBuildLadder)
+                if (_usedCloudsScratch.Contains(a) || _usedCloudsScratch.Contains(b) || !a.canBuildLadder || !b.canBuildLadder)
                     continue;
                 if (ShouldHaveLadder(a, b))
                 {
                     var pair = OrderPair(a, b);
-                    validPairs.Add(pair);
-                    usedClouds.Add(pair.Item1);
-                    usedClouds.Add(pair.Item2);
+                    _validPairsScratch.Add(pair);
+                    _usedCloudsScratch.Add(pair.Item1);
+                    _usedCloudsScratch.Add(pair.Item2);
                     if (!_ladders.ContainsKey(pair) && _ladders.Count < maxLadders)
-                    {
                         CreateLadder(pair.Item1, pair.Item2);
-                    }
                 }
             }
         }
 
         foreach (var pair in _forcedPairs)
-            validPairs.Add(pair);
+            _validPairsScratch.Add(pair);
 
-        // Keep existing ladders that still pass ShouldHaveLadder (prevents flicker:
-        // we already reserved their clouds in usedClouds, so they weren't re-added in the loop)
         foreach (var kvp in _ladders)
         {
             if (kvp.Key.Item1 == null || kvp.Key.Item2 == null) continue;
             if (ShouldHaveLadder(kvp.Key.Item1, kvp.Key.Item2))
-                validPairs.Add(kvp.Key);
+                _validPairsScratch.Add(kvp.Key);
         }
 
-        var activeSet = new HashSet<GameObject>(clouds);
-        var forcedToRemove = new List<(CloudPlatform, CloudPlatform)>();
+        return _validPairsScratch;
+    }
+
+    void RemoveInvalidLadders(HashSet<(CloudPlatform, CloudPlatform)> validPairs, HashSet<GameObject> activeSet)
+    {
+        _toRemoveScratch.Clear();
         foreach (var pair in _forcedPairs)
         {
             if (pair.Item1 == null || pair.Item2 == null ||
                 !activeSet.Contains(pair.Item1.gameObject) || !activeSet.Contains(pair.Item2.gameObject))
-            {
-                forcedToRemove.Add(pair);
-            }
+                _toRemoveScratch.Add(pair);
         }
-        foreach (var pair in forcedToRemove)
+        foreach (var pair in _toRemoveScratch)
         {
             _forcedPairs.Remove(pair);
             if (_ladders.TryGetValue(pair, out var ladder) && ladder != null)
@@ -143,19 +158,22 @@ public class CloudLadderController : MonoBehaviour
             _ladders.Remove(pair);
         }
 
-        var toRemove = new List<(CloudPlatform, CloudPlatform)>();
+        _toRemoveScratch.Clear();
         foreach (var kvp in _ladders)
         {
             if (!validPairs.Contains(kvp.Key))
-                toRemove.Add(kvp.Key);
+                _toRemoveScratch.Add(kvp.Key);
         }
-        foreach (var pair in toRemove)
+        foreach (var pair in _toRemoveScratch)
         {
             if (_ladders.TryGetValue(pair, out var ladder) && ladder != null)
                 DespawnLadder(ladder);
             _ladders.Remove(pair);
         }
+    }
 
+    void UpdateAllLadderPositions()
+    {
         foreach (var kvp in _ladders)
         {
             if (kvp.Value != null)
@@ -163,7 +181,8 @@ public class CloudLadderController : MonoBehaviour
         }
     }
 
-    (CloudPlatform, CloudPlatform) OrderPair(CloudPlatform a, CloudPlatform b)
+    /// <summary>Returns (lower, upper) by vertical position. Used by NetworkCloudLadderController for client ladder rebuild.</summary>
+    public static (CloudPlatform, CloudPlatform) OrderPair(CloudPlatform a, CloudPlatform b)
     {
         Bounds ba = a.GetMainBounds();
         Bounds bb = b.GetMainBounds();
@@ -218,6 +237,7 @@ public class CloudLadderController : MonoBehaviour
         {
             var ladder = _pool.Dequeue();
             ladder.SetActive(true);
+            EnsureMovingPlatformLadder(ladder);
             return ladder;
         }
         var newLadder = Instantiate(ladderPrefab, _ladderParent);
@@ -227,7 +247,14 @@ public class CloudLadderController : MonoBehaviour
         var rootRenderer = newLadder.GetComponent<SpriteRenderer>();
         if (rootRenderer != null)
             Destroy(rootRenderer);
+        EnsureMovingPlatformLadder(newLadder);
         return newLadder;
+    }
+
+    static void EnsureMovingPlatformLadder(GameObject ladder)
+    {
+        if (ladder != null && ladder.GetComponent<MovingPlatformLadder>() == null)
+            ladder.AddComponent<MovingPlatformLadder>();
     }
 
     static float GetSpriteWorldHeight(Sprite sprite)
@@ -326,7 +353,7 @@ public class CloudLadderController : MonoBehaviour
             middleSr.transform.localScale = Vector3.one;
             middleSr.gameObject.SetActive(true);
         }
-        for (int i = middleCount; i < 64; i++)
+        for (int i = middleCount; i < MaxLadderMiddleSegments; i++)
         {
             var excess = ladder.transform.Find(ChildNameMiddlePrefix + i);
             if (excess != null) excess.gameObject.SetActive(false);

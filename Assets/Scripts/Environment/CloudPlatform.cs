@@ -8,9 +8,10 @@ using UnityEngine;
 /// Rigidbody2D.MovePosition so that players (Dynamic rigidbodies) standing
 /// on the cloud are carried along correctly by Unity's physics solver.
 /// A velocity-driven Dynamic body does NOT transfer motion to standing bodies.
+/// Also implements IMovingPlatform so the player can apply platform delta on clients.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
-public class CloudPlatform : MonoBehaviour
+public class CloudPlatform : MonoBehaviour, IMovingPlatform
 {
     [HideInInspector]
     public float moveSpeed;
@@ -145,12 +146,6 @@ public class CloudPlatform : MonoBehaviour
         }
     }
 
-    void SetMoving(bool moving, float speed)
-    {
-        isMoving = moving;
-        SetMovementSpeed(speed);
-    }
-
     /// <summary>Set by CloudManager when spawning.</summary>
     public void SetMovementSpeed(float speed)
     {
@@ -162,6 +157,8 @@ public class CloudPlatform : MonoBehaviour
     {
         _cloudManager = mgr;
     }
+
+    public Vector2 GetPosition() => (Vector2)transform.position;
 
     /// <summary>Combined bounds of all Collider2D on this cloud.</summary>
     public Bounds GetBounds()

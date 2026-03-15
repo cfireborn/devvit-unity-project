@@ -42,10 +42,6 @@ public class CloudBehaviorSettings : ScriptableObject
     [Tooltip("Maximum extra distance behind the entry edge at which a recycled cloud re-enters (adds random stagger so clouds don't all reappear at once).")]
     public float recycleReentryMaxGap = 4f;
 
-    [Header("Update Threshold")]
-    [Tooltip("Lane activation is only re-evaluated when any player has moved at least this far vertically.")]
-    public float distanceThresholdForUpdate = 0.5f;
-
     [Header("Dynamic Cloud Cap")]
     [Tooltip("Maximum number of dynamically spawned clouds that can be active at once across all lanes. Does not count manually placed scene clouds. 0 = unlimited.")]
     [Min(0)]

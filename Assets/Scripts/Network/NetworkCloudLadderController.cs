@@ -23,6 +23,8 @@ using UnityEngine;
 /// - Ladder NetworkObjects are re-spawned automatically on connect.
 /// - NetworkLadder.SyncCloudIds BufferLast RPC delivers cloud IDs on connect.
 /// No manual TargetRpc sync pass needed.
+/// Server and offline modes are distinguished by which delegates are set on CloudLadderController;
+/// the component is disabled until OnStartServer or ActivateOfflineMode enables it.
 /// </summary>
 public class NetworkCloudLadderController : NetworkBehaviour
 {
@@ -75,13 +77,7 @@ public class NetworkCloudLadderController : NetworkBehaviour
 
     void SetOfflineDelegates()
     {
-        _ladderController._onLadderActivated = (go, lower, upper) =>
-        {
-            foreach (var nb in go.GetComponentsInChildren<NetworkBehaviour>(true))
-                DestroyImmediate(nb);
-            var nob = go.GetComponent<NetworkObject>();
-            if (nob != null) DestroyImmediate(nob);
-        };
+        _ladderController._onLadderActivated = (go, lower, upper) => NetworkOfflineUtil.StripNetworkComponents(go);
         _ladderController._onLadderDeactivated = null;  // pool path handles it
     }
 
@@ -165,13 +161,7 @@ public class NetworkCloudLadderController : NetworkBehaviour
             var platformB = cloudBNob.GetComponent<CloudPlatform>();
             if (platformA == null || platformB == null) continue;
 
-            // Ensure lower/upper ordering (mirrors CloudLadderController.OrderPair)
-            CloudPlatform lower, upper;
-            if (platformA.GetMainBounds().min.y <= platformB.GetMainBounds().min.y)
-                (lower, upper) = (platformA, platformB);
-            else
-                (lower, upper) = (platformB, platformA);
-
+            var (lower, upper) = CloudLadderController.OrderPair(platformA, platformB);
             _ladderController.UpdateLadderPosition(lower, upper, kvp.Value.gameObject);
         }
     }
