@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96717fe2c7954244aa7c1afc5b48f31f, type: 3}
   m_Name: CloudManagerSettings_Basic
   m_EditorClassIdentifier: Assembly-CSharp::CloudManagerSettings
-  laneSpacing: 1
-  laneCount: 40
+  laneSpacing: 2.5
+  laneYOffset: -0.26
   laneActivationDistance: 10
   laneHeightVariation: 0
   minCloudSpacing: 0.8
@@ -23,6 +23,5 @@ MonoBehaviour:
   activeWindowHalfWidth: 10
   recycleMargin: 2
   recycleReentryMaxGap: 2
-  distanceThresholdForUpdate: 0.1
   maxDynamicClouds: 100
   maxSpawnRetries: 10

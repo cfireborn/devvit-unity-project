@@ -15,10 +15,6 @@ public class GameManagerM : MonoBehaviour
     [Tooltip("Assign an InteractionTrigger used as the level goal. The GameManager will subscribe to its onInteract event.")]
     public InteractionTrigger goalTrigger;
 
-    [Header("Reset Triggers")]
-    [Tooltip("InteractionTriggers that will reset the level when activated by the player.")]
-    public InteractionTrigger[] resetTriggers;
-
     [Header("Services")]
     public GameServices gameServices;
 
@@ -40,14 +36,9 @@ public class GameManagerM : MonoBehaviour
             if (goalTrigger != null) gameState.goalPosition = goalTrigger.transform.position;
         }
 
-        // Subscribe to reset triggers
-        if (resetTriggers != null)
-        {
-            foreach (var t in resetTriggers)
-            {
-                if (t != null) t.onInteract.AddListener(HandleResetTriggered);
-            }
-        }
+        var boundary = cloudManager != null ? cloudManager.boundaryManager : null;
+        if (boundary != null)
+            boundary.onPlayerExitedBoundary.AddListener(HandleResetTriggered);
 
         // onPlayerRegistered fires when the LOCAL player is ready (both networked and offline).
         // This is the single source of truth for playerInstance in all modes.
@@ -166,7 +157,7 @@ public class GameManagerM : MonoBehaviour
 
     void HandleResetTriggered(GameObject source, Vector2 contactPoint)
     {
-        Debug.Log("GameManager: Reset trigger activated. Resetting level.");
+        Debug.Log("GameManager: Player exited boundary. Resetting level.");
         ResetGame();
     }
 
@@ -199,13 +190,8 @@ public class GameManagerM : MonoBehaviour
         if (gameServices != null)
             gameServices.onPlayerRegistered -= OnPlayerRegistered;
 
-        if (resetTriggers != null)
-        {
-            foreach (var t in resetTriggers)
-            {
-                if (t != null) t.onInteract.RemoveListener(HandleResetTriggered);
-            }
-        }
+        if (cloudManager != null && cloudManager.boundaryManager != null)
+            cloudManager.boundaryManager.onPlayerExitedBoundary.RemoveListener(HandleResetTriggered);
 
         if (goalTrigger != null)
             goalTrigger.onInteract.RemoveListener(HandleGoalTriggered);

@@ -11,8 +11,8 @@ public class CloudBehaviorSettings : ScriptableObject
     [Header("Lane Layout")]
     [Tooltip("Vertical distance between adjacent lane centers in world units.")]
     public float laneSpacing = 0.5f;
-    [Tooltip("Total number of world-absolute lanes, starting at Y = 0 going upward.")]
-    public int laneCount = 40;
+    [Tooltip("Y offset applied to all lane positions (world units). Lanes are at baseY + laneYOffset + i * laneSpacing.")]
+    public float laneYOffset = 0f;
     [Tooltip("A lane activates when any player's Y is within this vertical distance of the lane center.")]
     public float laneActivationDistance = 10f;
     [Tooltip("Random Y offset applied to each cloud within its lane at spawn/recycle (±this value). 0 = exact lane center.")]
@@ -60,6 +60,7 @@ public class CloudBehaviorSettings : ScriptableObject
             speedRange.y = speedRange.x;
         if (scaleRange.y < scaleRange.x)
             scaleRange.y = scaleRange.x;
+        UnityEditor.SceneView.RepaintAll();
     }
 #endif
 }

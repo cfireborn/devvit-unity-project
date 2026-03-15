@@ -91,20 +91,33 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         _rb.MovePosition(_rb.position + new Vector2(moveSpeed * Time.fixedDeltaTime, 0f));
     }
 
-    void OnTriggerEnter2D(Collider2D other)
-    {
-        var zone = other.GetComponent<CloudNoSpawnZone>();
-        if (zone == null || !zone.blockEntry || ignoreNoSpawnZones) return;
+    /// <summary>True when the player is in contact with this cloud. Used by CloudManager for boundary stop vs despawn.</summary>
+    public bool IsPlayerOnCloud => _playerOnCloud;
 
+    /// <summary>Trigger the same behavior as entering a CloudNoSpawnZone with blockEntry (e.g. when cloud is outside respawn boundary). Stops the cloud; despawns if player is not on it.</summary>
+    public void TriggerBlockEntryFromBoundary()
+    {
+        if (ignoreNoSpawnZones) return;
+        EnterBlockEntryZone();
+    }
+
+    void EnterBlockEntryZone()
+    {
         _isInBlockEntryZone = true;
         isMoving = false;
-
         if (!_playerOnCloud)
         {
             _isDespawning = true;
             _despawnTimer = 0f;
             _scaleAtDespawnStart = transform.localScale;
         }
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        var zone = other.GetComponent<CloudNoSpawnZone>();
+        if (zone == null || !zone.blockEntry || ignoreNoSpawnZones) return;
+        EnterBlockEntryZone();
     }
 
     void OnTriggerExit2D(Collider2D other)
@@ -144,6 +157,11 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
                 _scaleAtDespawnStart = transform.localScale;
             }
         }
+    }
+
+    void SetMoving(bool moving)
+    {
+        isMoving = moving;
     }
 
     /// <summary>Set by CloudManager when spawning.</summary>

@@ -32,10 +32,20 @@ public class CloudManager : MonoBehaviour
 {
     [Header("References")]
     public CloudLadderController cloudLadderController;
+    [Tooltip("When set, lanes and cloud extent are derived from this boundary. When null, defaults to 50 lanes centered at this transform.")]
+    public BoundaryManager boundaryManager;
     [Tooltip("Cloud prefabs to spawn from. Each should have a CloudPlatform component.")]
     public GameObject[] cloudPrefabs;
     [Tooltip("All lane and density configuration.")]
     public CloudBehaviorSettings settings;
+
+    const int FallbackLaneCount = 50;
+
+#if UNITY_EDITOR
+    [Header("Editor")]
+    [Tooltip("Horizontal half-width of lane lines drawn in Scene view (world units).")]
+    [SerializeField] float _gizmoLaneHalfWidth = 50f;
+#endif
 
     // Injected by NetworkCloudManager before CloudManager is enabled.
     // Server: reparent to root + ServerManager.Spawn + SyncScale.
@@ -123,12 +133,26 @@ public class CloudManager : MonoBehaviour
         _poolParent = new GameObject("CloudPool").transform;
         _poolParent.SetParent(transform); // Keep pooled clouds under CloudManager for scene organization
 
-        // Build lane array
+        // Build lane array from boundary or fallback (50 lanes centered at CloudManager)
         if (settings != null)
         {
-            _lanes = new LaneState[settings.laneCount];
-            for (int i = 0; i < settings.laneCount; i++)
-                _lanes[i] = new LaneState(i, i * settings.laneSpacing);
+            float baseY;
+            int laneCount;
+            if (boundaryManager != null)
+            {
+                Bounds extended = boundaryManager.GetExtendedBounds();
+                laneCount = Mathf.Max(1, Mathf.CeilToInt(extended.size.y / settings.laneSpacing));
+                baseY = extended.min.y + settings.laneYOffset;
+            }
+            else
+            {
+                laneCount = FallbackLaneCount;
+                float centerY = transform.position.y;
+                baseY = centerY - (laneCount - 1) * 0.5f * settings.laneSpacing + settings.laneYOffset;
+            }
+            _lanes = new LaneState[laneCount];
+            for (int i = 0; i < laneCount; i++)
+                _lanes[i] = new LaneState(i, baseY + i * settings.laneSpacing);
         }
 
         // Register self and ladder controller with GameServices
@@ -199,6 +223,16 @@ public class CloudManager : MonoBehaviour
 
         float windowLeft  = minPlayerX - settings.activeWindowHalfWidth;
         float windowRight = maxPlayerX + settings.activeWindowHalfWidth;
+
+        Bounds? extendedBounds = boundaryManager != null ? boundaryManager.GetExtendedBounds() : (Bounds?)null;
+        Bounds? innerBounds = boundaryManager != null ? boundaryManager.GetInnerBounds() : (Bounds?)null;
+
+        if (extendedBounds.HasValue)
+        {
+            windowLeft = Mathf.Max(windowLeft, extendedBounds.Value.min.x);
+            windowRight = Mathf.Min(windowRight, extendedBounds.Value.max.x);
+        }
+
         float recycleLeft  = windowLeft  - settings.recycleMargin;
         float recycleRight = windowRight + settings.recycleMargin;
 
@@ -206,17 +240,31 @@ public class CloudManager : MonoBehaviour
         {
             if (!lane.isActive) continue;
 
-            // Recycle clouds that have drifted beyond the recycle boundary
-            foreach (var cloud in lane.clouds)
+            for (int c = lane.clouds.Count - 1; c >= 0; c--)
             {
+                var cloud = lane.clouds[c];
                 if (cloud == null) continue;
-                float cx = cloud.transform.position.x;
+                Vector2 cpos = cloud.transform.position;
+                float cx = cpos.x;
+
+                if (innerBounds.HasValue && !innerBounds.Value.Contains(new Vector3(cpos.x, cpos.y, 0f)))
+                {
+                    var platform = cloud.GetComponent<CloudPlatform>();
+                    if (platform != null)
+                        platform.TriggerBlockEntryFromBoundary();
+                    continue;
+                }
+
                 bool beyondExit = lane.speed >= 0f ? cx > recycleRight : cx < recycleLeft;
                 if (beyondExit)
-                    RecycleCloudToEntry(lane, cloud, windowLeft, windowRight);
+                {
+                    if (extendedBounds.HasValue && (cx < extendedBounds.Value.min.x || cx > extendedBounds.Value.max.x))
+                        DeactivateCloud(cloud);
+                    else
+                        RecycleCloudToEntry(lane, cloud, windowLeft, windowRight);
+                }
             }
 
-            // Maintain target density — spawn one cloud per frame if underpopulated
             if (IsLaneUnderpopulated(lane, windowLeft, windowRight))
                 SpawnCloudInLane(lane, windowLeft, windowRight);
         }
@@ -255,8 +303,10 @@ public class CloudManager : MonoBehaviour
 
     int PlayerLaneIndex(Transform player)
     {
-        if (settings == null || settings.laneSpacing <= 0f) return 0;
-        return Mathf.RoundToInt(player.position.y / settings.laneSpacing);
+        if (settings == null || settings.laneSpacing <= 0f || _lanes == null || _lanes.Length == 0) return 0;
+        float firstLaneY = _lanes[0].worldY;
+        int idx = Mathf.RoundToInt((player.position.y - firstLaneY) / settings.laneSpacing);
+        return Mathf.Clamp(idx, 0, _lanes.Length - 1);
     }
 
     void GetLaneRange(int laneIndex, out int min, out int max)
@@ -503,6 +553,12 @@ public class CloudManager : MonoBehaviour
 
     bool IsPositionInBlockSpawnZone(Vector2 pos)
     {
+        if (boundaryManager != null)
+        {
+            Bounds extended = boundaryManager.GetExtendedBounds();
+            if (pos.x < extended.min.x || pos.x > extended.max.x || pos.y < extended.min.y || pos.y > extended.max.y)
+                return true;
+        }
         foreach (var zone in _blockSpawnZones)
         {
             if (zone == null) continue;
@@ -517,4 +573,39 @@ public class CloudManager : MonoBehaviour
 
     /// <summary>Get all currently active clouds (pooled + non-pooled). Used by CloudLadderController.</summary>
     public IReadOnlyList<GameObject> GetActiveClouds() => _active;
+
+#if UNITY_EDITOR
+    void OnDrawGizmos()
+    {
+        if (settings == null) return;
+        int laneCount;
+        float baseY;
+        float leftX, rightX;
+        if (boundaryManager != null)
+        {
+            Bounds extended = boundaryManager.GetExtendedBounds();
+            laneCount = Mathf.Max(1, Mathf.CeilToInt(extended.size.y / settings.laneSpacing));
+            baseY = extended.min.y + settings.laneYOffset;
+            leftX = extended.min.x;
+            rightX = extended.max.x;
+        }
+        else
+        {
+            laneCount = FallbackLaneCount;
+            float centerY = transform.position.y;
+            baseY = centerY - (laneCount - 1) * 0.5f * settings.laneSpacing + settings.laneYOffset;
+            float halfWidth = _gizmoLaneHalfWidth;
+            leftX = -halfWidth;
+            rightX = halfWidth;
+        }
+        Gizmos.color = new Color(0f, 0.8f, 1f, 0.6f);
+        for (int i = 0; i < laneCount; i++)
+        {
+            float worldY = baseY + i * settings.laneSpacing;
+            Vector3 from = new Vector3(leftX, worldY, 0f);
+            Vector3 to = new Vector3(rightX, worldY, 0f);
+            Gizmos.DrawLine(from, to);
+        }
+    }
+#endif
 }
