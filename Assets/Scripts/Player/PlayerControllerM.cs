@@ -28,7 +28,6 @@ public class PlayerControllerM : MonoBehaviour
     private bool isOnLadder;
     private bool isGliding;
     private bool goalReached;
-    private int jumpsRemaining;
 
     // input capture (new Input System)
     private float moveInput;
@@ -37,7 +36,6 @@ public class PlayerControllerM : MonoBehaviour
     private bool jumpHeld;
 
     // Input System actions
-    private InputActionMap actionMap;
     private InputAction moveAction;
     private InputAction jumpAction;
     private bool jumpPressedFlag;
@@ -77,6 +75,11 @@ public class PlayerControllerM : MonoBehaviour
 
     // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
     private bool _gameplayInputSuspended;
+
+    // Cached for DoGroundCheck (avoids per-step allocation)
+    private Collider2D[] _ourColliders;
+    private Collider2D[] _groundCheckBuffer;
+    const int GroundCheckBufferSize = 16;
 
     // Read-only access for network visual sync
     public float MoveInputX => moveInput;
@@ -146,11 +149,6 @@ public class PlayerControllerM : MonoBehaviour
             activeMap.Disable();
             activeMap = null;
         }
-        if (actionMap != null)
-        {
-            actionMap.Disable();
-            actionMap = null;
-        }
         moveAction = null;
         jumpAction = null;
     }
@@ -164,7 +162,6 @@ public class PlayerControllerM : MonoBehaviour
         if (settings != null)
         {
             rb.gravityScale = settings.normalGravityScale;
-            jumpsRemaining = settings.maxJumps;
 
             if (groundChecker != null)
             {
@@ -174,8 +171,10 @@ public class PlayerControllerM : MonoBehaviour
         else
         {
             rb.gravityScale = 3f;
-            jumpsRemaining = 1;
         }
+
+        _ourColliders = GetComponentsInChildren<Collider2D>();
+        _groundCheckBuffer = new Collider2D[GroundCheckBufferSize];
     }
 
     void Update()
@@ -356,11 +355,12 @@ public class PlayerControllerM : MonoBehaviour
         // Sprite swapping: choose sprite based on state (glide, walk, idle)
         if (spriteRenderer != null)
         {
-            if (!CheckGround() && isGliding)
+            bool grounded = _isGroundedFixed;
+            if (!grounded && isGliding)
             {
                 if (glideSprite != null) spriteRenderer.sprite = glideSprite;
             }
-            else if (CheckGround() && Mathf.Abs(moveInput) > 0.1f)
+            else if (grounded && Mathf.Abs(moveInput) > 0.1f)
             {
                 // walking: simple frame cycle
                 if (walkSprites != null && walkSprites.Length > 0)
@@ -414,7 +414,7 @@ public class PlayerControllerM : MonoBehaviour
             goals.Add(goal);
         }
 
-        print($"PlayerController: Added goal {goal.name}");
+        Debug.Log($"PlayerController: Added goal {goal.name}");
     }
 
     /// <summary>Remove a goal from the player's list.</summary>
@@ -489,17 +489,13 @@ public class PlayerControllerM : MonoBehaviour
         transform.position = spawnPosition;
         rb.linearVelocity = Vector2.zero;
 
+        goalReached = false;
+
         // reset movement related state
         if (settings != null)
-        {
-            jumpsRemaining = settings.maxJumps;
             rb.gravityScale = settings.normalGravityScale;
-        }
         else
-        {
-            jumpsRemaining = 1;
             rb.gravityScale = 3f;
-        }
 
         isOnLadder = false;
         isGliding = false;
@@ -516,29 +512,23 @@ public class PlayerControllerM : MonoBehaviour
         return Time.fixedDeltaTime;
     }
 
-    private bool CheckGround()
-    {
-        return _isGroundedFixed;
-    }
-
     /// <summary>Ground check used in FixedUpdate: overlap circle at feet. Uses settings.groundCheckOffset, groundCheckRadius, groundTag.</summary>
     private bool DoGroundCheck()
     {
-        if (settings == null || rb == null) return false;
+        if (settings == null || rb == null || _groundCheckBuffer == null || _ourColliders == null) return false;
         Vector2 origin = (Vector2)transform.position + settings.groundCheckOffset;
         float radius = settings.groundCheckRadius;
         string tagToMatch = settings.groundTag;
-        var ourColliders = GetComponentsInChildren<Collider2D>();
 
-        var hits = Physics2D.OverlapCircleAll(origin, radius);
-        for (int i = 0; i < hits.Length; i++)
+        int hitCount = Physics2D.OverlapCircleNonAlloc(origin, radius, _groundCheckBuffer);
+        for (int i = 0; i < hitCount; i++)
         {
-            var c = hits[i];
+            var c = _groundCheckBuffer[i];
             if (c == null) continue;
             bool isOurs = false;
-            for (int j = 0; j < ourColliders.Length; j++)
+            for (int j = 0; j < _ourColliders.Length; j++)
             {
-                if (ourColliders[j] == c) { isOurs = true; break; }
+                if (_ourColliders[j] == c) { isOurs = true; break; }
             }
             if (isOurs) continue;
             if (c.CompareTag(tagToMatch))
