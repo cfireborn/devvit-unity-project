@@ -76,10 +76,6 @@ public class PlayerControllerM : MonoBehaviour
     // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
     private bool _gameplayInputSuspended;
 
-    // Cached for DoGroundCheck (avoids per-step allocation)
-    private Collider2D[] _ourColliders;
-    private Collider2D[] _groundCheckBuffer;
-    const int GroundCheckBufferSize = 16;
 
     // Read-only access for network visual sync
     public float MoveInputX => moveInput;
@@ -166,6 +162,8 @@ public class PlayerControllerM : MonoBehaviour
             if (groundChecker != null)
             {
                 groundChecker.platformTag = settings.groundTag;
+                groundChecker.groundCheckOffset = settings.groundCheckOffset;
+                groundChecker.groundCheckRadius = settings.groundCheckRadius;
             }
         }
         else
@@ -173,8 +171,6 @@ public class PlayerControllerM : MonoBehaviour
             rb.gravityScale = 3f;
         }
 
-        _ourColliders = GetComponentsInChildren<Collider2D>();
-        _groundCheckBuffer = new Collider2D[GroundCheckBufferSize];
     }
 
     void Update()
@@ -278,10 +274,14 @@ public class PlayerControllerM : MonoBehaviour
             return;
         }
 
-        // Authoritative ground check in FixedUpdate (overlap at feet)
-        _isGroundedFixed = DoGroundCheck();
+        // Use GroundChecker for ground state (player sets platformTag from PlayerSettings)
         if (groundChecker != null)
-            groundChecker.isGrounded = _isGroundedFixed;
+        {
+            groundChecker.RefreshCheck();
+            _isGroundedFixed = groundChecker.isGrounded;
+        }
+        else
+            _isGroundedFixed = false;
 
         // Coyote time: extend "can jump" briefly after leaving ground
         if (_isGroundedFixed)
@@ -388,11 +388,6 @@ public class PlayerControllerM : MonoBehaviour
 
     void OnDrawGizmosSelected()
     {
-        if (settings != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere((Vector2)transform.position + settings.groundCheckOffset, settings.groundCheckRadius);
-        }
         if (gameState != null)
         {
             Gizmos.color = Color.green;
@@ -510,31 +505,6 @@ public class PlayerControllerM : MonoBehaviour
         if (InstanceFinder.NetworkManager != null)
             return (float)InstanceFinder.TimeManager.TickDelta;
         return Time.fixedDeltaTime;
-    }
-
-    /// <summary>Ground check used in FixedUpdate: overlap circle at feet. Uses settings.groundCheckOffset, groundCheckRadius, groundTag.</summary>
-    private bool DoGroundCheck()
-    {
-        if (settings == null || rb == null || _groundCheckBuffer == null || _ourColliders == null) return false;
-        Vector2 origin = (Vector2)transform.position + settings.groundCheckOffset;
-        float radius = settings.groundCheckRadius;
-        string tagToMatch = settings.groundTag;
-
-        int hitCount = Physics2D.OverlapCircleNonAlloc(origin, radius, _groundCheckBuffer);
-        for (int i = 0; i < hitCount; i++)
-        {
-            var c = _groundCheckBuffer[i];
-            if (c == null) continue;
-            bool isOurs = false;
-            for (int j = 0; j < _ourColliders.Length; j++)
-            {
-                if (_ourColliders[j] == c) { isOurs = true; break; }
-            }
-            if (isOurs) continue;
-            if (c.CompareTag(tagToMatch))
-                return true;
-        }
-        return false;
     }
 
     private void OnTriggerEnter2D(Collider2D other)

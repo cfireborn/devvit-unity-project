@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96717fe2c7954244aa7c1afc5b48f31f, type: 3}
   m_Name: CloudManagerSettings_Basic
   m_EditorClassIdentifier: Assembly-CSharp::CloudManagerSettings
-  laneSpacing: 0.5
+  laneSpacing: 1
   laneCount: 40
   laneActivationDistance: 10
   laneHeightVariation: 0
   minCloudSpacing: 0.8
-  maxCloudSpacing: 4
+  maxCloudSpacing: 8
   speedRange: {x: 0.25, y: 1.5}
   scaleRange: {x: 0.2, y: 0.8}
   activeWindowHalfWidth: 10
