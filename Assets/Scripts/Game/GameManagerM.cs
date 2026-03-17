@@ -37,6 +37,7 @@ public class GameManagerM : MonoBehaviour
         }
 
         var boundary = cloudManager != null ? cloudManager.boundaryManager : null;
+        if (boundary == null) boundary = FindFirstObjectByType<BoundaryManager>();
         if (boundary != null)
             boundary.onPlayerExitedBoundary.AddListener(HandleResetTriggered);
 
@@ -58,6 +59,9 @@ public class GameManagerM : MonoBehaviour
 
         if (playerSettings != null) playerInstance.settings = playerSettings;
         if (gameState != null) playerInstance.gameState = gameState;
+
+        if (cloudManager != null) cloudManager.RegisterPlayer(player.transform);
+        if (cloudManager != null) cloudManager.RequestViewportFill();
 
         // Subscribe goal trigger now that we have a real player reference.
         if (goalTrigger != null)
@@ -178,6 +182,7 @@ public class GameManagerM : MonoBehaviour
             player.ResetForRespawn(spawnPos);
             if (playerSettings != null) player.settings = playerSettings;
             if (gameState != null) player.gameState = gameState;
+            if (cloudManager != null) cloudManager.RequestViewportFill();
         }
         else
         {
@@ -190,8 +195,10 @@ public class GameManagerM : MonoBehaviour
         if (gameServices != null)
             gameServices.onPlayerRegistered -= OnPlayerRegistered;
 
-        if (cloudManager != null && cloudManager.boundaryManager != null)
-            cloudManager.boundaryManager.onPlayerExitedBoundary.RemoveListener(HandleResetTriggered);
+        var boundary = cloudManager != null ? cloudManager.boundaryManager : null;
+        if (boundary == null) boundary = FindFirstObjectByType<BoundaryManager>();
+        if (boundary != null)
+            boundary.onPlayerExitedBoundary.RemoveListener(HandleResetTriggered);
 
         if (goalTrigger != null)
             goalTrigger.onInteract.RemoveListener(HandleGoalTriggered);

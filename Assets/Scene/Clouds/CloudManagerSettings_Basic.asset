@@ -16,12 +16,14 @@ MonoBehaviour:
   laneYOffset: -0.26
   laneActivationDistance: 10
   laneHeightVariation: 0
-  minCloudSpacing: 0.8
-  maxCloudSpacing: 8
+  viewportHalfWidth: 15
+  spawnMargin: 2
+  minCloudSpacing: 1.55
+  maxCloudSpacing: 5.02
+  spacingVariation: 0
+  minCloudRadius: 0.1
+  maxCloudRadius: 0.5
+  radiusVariation: 0
   speedRange: {x: 0.25, y: 1.5}
-  scaleRange: {x: 0.2, y: 0.8}
-  activeWindowHalfWidth: 10
-  recycleMargin: 2
-  recycleReentryMaxGap: 2
   maxDynamicClouds: 100
   maxSpawnRetries: 10

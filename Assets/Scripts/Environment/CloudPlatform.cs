@@ -93,6 +93,8 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     /// <summary>True when the player is in contact with this cloud. Used by CloudManager for boundary stop vs despawn.</summary>
     public bool IsPlayerOnCloud => _playerOnCloud;
+    /// <summary>True while the cloud is playing the despawn animation. Used by CloudLadderController for keep-active logic.</summary>
+    public bool IsDespawning => _isDespawning;
 
     /// <summary>Trigger the same behavior as entering a CloudNoSpawnZone with blockEntry (e.g. when cloud is outside respawn boundary). Stops the cloud; despawns if player is not on it.</summary>
     public void TriggerBlockEntryFromBoundary()

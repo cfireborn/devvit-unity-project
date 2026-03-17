@@ -44,6 +44,9 @@ public class CloudLadderController : MonoBehaviour
     public float maxVerticalGap = 8f;
     [Tooltip("Maximum number of ladders that can be active. Pool prevents spawning beyond this.")]
     public int maxLadders = 10;
+    [Tooltip("Distance (world units) the ladder extends inside each cloud from the polygon edge. 0 = use AABB edge.")]
+    [Min(0f)]
+    public float ladderInsetIntoCloud = 0.2f;
 
     // Injected by NetworkCloudLadderController before CloudLadderController is enabled.
     internal Action<GameObject, CloudPlatform, CloudPlatform> _onLadderActivated;
@@ -52,7 +55,8 @@ public class CloudLadderController : MonoBehaviour
 
     readonly List<CloudPlatform> _cachedPlatformList = new List<CloudPlatform>();
     readonly HashSet<(CloudPlatform, CloudPlatform)> _validPairsScratch = new HashSet<(CloudPlatform, CloudPlatform)>();
-    readonly HashSet<CloudPlatform> _usedCloudsScratch = new HashSet<CloudPlatform>();
+    readonly HashSet<CloudPlatform> _hasLadderAboveScratch = new HashSet<CloudPlatform>();
+    readonly HashSet<CloudPlatform> _hasLadderBelowScratch = new HashSet<CloudPlatform>();
     readonly HashSet<GameObject> _activeSetScratch = new HashSet<GameObject>();
     readonly List<(CloudPlatform, CloudPlatform)> _toRemoveScratch = new List<(CloudPlatform, CloudPlatform)>();
 
@@ -97,15 +101,14 @@ public class CloudLadderController : MonoBehaviour
     HashSet<(CloudPlatform, CloudPlatform)> ComputeValidPairs(List<CloudPlatform> platformList)
     {
         _validPairsScratch.Clear();
-        _usedCloudsScratch.Clear();
+        _hasLadderAboveScratch.Clear();
+        _hasLadderBelowScratch.Clear();
 
         foreach (var kvp in _ladders)
         {
-            if (!_forcedPairs.Contains(kvp.Key))
-            {
-                _usedCloudsScratch.Add(kvp.Key.Item1);
-                _usedCloudsScratch.Add(kvp.Key.Item2);
-            }
+            var (lower, upper) = kvp.Key;
+            if (lower != null) _hasLadderAboveScratch.Add(lower);
+            if (upper != null) _hasLadderBelowScratch.Add(upper);
         }
 
         for (int i = 0; i < platformList.Count; i++)
@@ -114,16 +117,19 @@ public class CloudLadderController : MonoBehaviour
             {
                 var a = platformList[i];
                 var b = platformList[j];
-                if (_usedCloudsScratch.Contains(a) || _usedCloudsScratch.Contains(b) || !a.canBuildLadder || !b.canBuildLadder)
+                if (!a.canBuildLadder || !b.canBuildLadder) continue;
+                var pair = OrderPair(a, b);
+                var lower = pair.Item1;
+                var upper = pair.Item2;
+                if (_hasLadderAboveScratch.Contains(lower) || _hasLadderBelowScratch.Contains(upper))
                     continue;
                 if (ShouldHaveLadder(a, b))
                 {
-                    var pair = OrderPair(a, b);
                     _validPairsScratch.Add(pair);
-                    _usedCloudsScratch.Add(pair.Item1);
-                    _usedCloudsScratch.Add(pair.Item2);
+                    _hasLadderAboveScratch.Add(lower);
+                    _hasLadderBelowScratch.Add(upper);
                     if (!_ladders.ContainsKey(pair) && _ladders.Count < maxLadders)
-                        CreateLadder(pair.Item1, pair.Item2);
+                        CreateLadder(lower, upper);
                 }
             }
         }
@@ -181,6 +187,49 @@ public class CloudLadderController : MonoBehaviour
         }
     }
 
+    /// <summary>True if cloud has a ladder and some partner is still in viewport and neither cloud nor that partner is despawning.</summary>
+    public bool ShouldKeepCloudActiveForLadders(GameObject cloud, float viewportLeft, float viewportRight)
+    {
+        if (cloud == null) return false;
+        var platform = cloud.GetComponent<CloudPlatform>();
+        if (platform == null) return false;
+
+        foreach (var kvp in _ladders)
+        {
+            var (lower, upper) = kvp.Key;
+            if (lower == null || upper == null) continue;
+            CloudPlatform other = null;
+            if (lower == platform) other = upper;
+            else if (upper == platform) other = lower;
+            if (other == null) continue;
+
+            if (platform.IsDespawning || other.IsDespawning) continue;
+            Bounds ob = other.GetMainBounds();
+            if (ob.max.x < viewportLeft || ob.min.x > viewportRight) continue;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>True if the player is on any cloud connected to this cloud by a ladder.</summary>
+    public bool IsPlayerOnAnyLadderPartner(GameObject cloud)
+    {
+        if (cloud == null) return false;
+        var platform = cloud.GetComponent<CloudPlatform>();
+        if (platform == null) return false;
+
+        foreach (var kvp in _ladders)
+        {
+            var (lower, upper) = kvp.Key;
+            if (lower == null || upper == null) continue;
+            CloudPlatform other = null;
+            if (lower == platform) other = upper;
+            else if (upper == platform) other = lower;
+            if (other != null && other.IsPlayerOnCloud) return true;
+        }
+        return false;
+    }
+
     /// <summary>Returns (lower, upper) by vertical position. Used by NetworkCloudLadderController for client ladder rebuild.</summary>
     public static (CloudPlatform, CloudPlatform) OrderPair(CloudPlatform a, CloudPlatform b)
     {
@@ -214,8 +263,8 @@ public class CloudLadderController : MonoBehaviour
     }
 
     /// <summary>
-    /// Forcibly try to build a ladder between two clouds. Bypasses the one-ladder-per-cloud rule.
-    /// Returns true if a ladder exists or was created; false if invalid (same cloud, null, over max, or geometry not valid).
+    /// Forcibly try to build a ladder between two clouds. Still respects at most two ladders per cloud (one up, one down).
+    /// Returns true if a ladder exists or was created; false if invalid (same cloud, null, over max, geometry not valid, or cloud already has ladder in that direction).
     /// </summary>
     public bool TryBuildLadder(CloudPlatform a, CloudPlatform b)
     {
@@ -225,6 +274,14 @@ public class CloudLadderController : MonoBehaviour
         var pair = OrderPair(a, b);
         if (_ladders.ContainsKey(pair)) return true;
         if (!ShouldHaveLadder(a, b)) return false;
+
+        bool lowerHasAbove = false, upperHasBelow = false;
+        foreach (var kvp in _ladders)
+        {
+            if (kvp.Key.Item1 == pair.Item1) lowerHasAbove = true;
+            if (kvp.Key.Item2 == pair.Item2) upperHasBelow = true;
+        }
+        if (lowerHasAbove || upperHasBelow) return false;
 
         _forcedPairs.Add(pair);
         CreateLadder(pair.Item1, pair.Item2);
@@ -314,6 +371,39 @@ public class CloudLadderController : MonoBehaviour
         _onLadderActivated?.Invoke(ladder, lower, upper);
     }
 
+    /// <summary>Top or bottom Y of the polygon at world X. Uses polygon edge if mainCollider is PolygonCollider2D; else AABB.</summary>
+    static float GetEdgeYAtX(CloudPlatform platform, float worldX, bool top)
+    {
+        Bounds b = platform.GetMainBounds();
+        var col = platform.mainCollider;
+        if (col is PolygonCollider2D poly)
+        {
+            var path = poly.GetPath(0);
+            if (path != null && path.Length >= 2)
+            {
+                var t = col.transform;
+                float bestY = top ? float.MinValue : float.MaxValue;
+                for (int i = 0; i < path.Length; i++)
+                {
+                    int j = (i + 1) % path.Length;
+                    Vector2 p0 = t.TransformPoint(path[i]);
+                    Vector2 p1 = t.TransformPoint(path[j]);
+                    float x0 = p0.x, x1 = p1.x;
+                    if ((x0 <= worldX && worldX <= x1) || (x1 <= worldX && worldX <= x0))
+                    {
+                        if (Mathf.Abs(x1 - x0) < 0.0001f) { bestY = top ? Mathf.Max(bestY, p0.y) : Mathf.Min(bestY, p0.y); continue; }
+                        float tSeg = (worldX - x0) / (x1 - x0);
+                        float y = Mathf.Lerp(p0.y, p1.y, tSeg);
+                        bestY = top ? Mathf.Max(bestY, y) : Mathf.Min(bestY, y);
+                    }
+                }
+                if (top && bestY > float.MinValue) return bestY;
+                if (!top && bestY < float.MaxValue) return bestY;
+            }
+        }
+        return top ? b.max.y : b.min.y;
+    }
+
     /// <summary>Rebuilds ladder visuals and collider between two cloud platforms.
     /// Public so NetworkCloudLadderController can call it on clients.</summary>
     public void UpdateLadderPosition(CloudPlatform lower, CloudPlatform upper, GameObject ladder)
@@ -322,8 +412,19 @@ public class CloudLadderController : MonoBehaviour
         Bounds bu = upper.GetMainBounds();
 
         float x = (bl.center.x + bu.center.x) * 0.5f;
-        float yMin = bl.max.y;
-        float yMax = bu.min.y;
+        float yMin, yMax;
+        if (ladderInsetIntoCloud > 0f)
+        {
+            float lowerTopY = GetEdgeYAtX(lower, x, true);
+            float upperBottomY = GetEdgeYAtX(upper, x, false);
+            yMin = lowerTopY - ladderInsetIntoCloud;
+            yMax = upperBottomY + ladderInsetIntoCloud;
+        }
+        else
+        {
+            yMin = bl.max.y;
+            yMax = bu.min.y;
+        }
         float height = Mathf.Max(0.1f, yMax - yMin);
         float y = (yMin + yMax) * 0.5f;
 

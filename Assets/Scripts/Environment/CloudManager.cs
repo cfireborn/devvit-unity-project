@@ -15,9 +15,8 @@ using Random = UnityEngine.Random;
 ///   - On activation, each lane gets a fresh random prefab, speed (magnitude + direction),
 ///     and cloud density (spacing). All clouds in the lane share these properties.
 ///   - On deactivation, all lane clouds are returned to the pool and lane state is reset.
-///   - Active clouds that drift past activeWindowHalfWidth + recycleMargin from every player
-///     are teleported back to the offscreen entry side of their lane (not despawned), so they
-///     recirculate and maintain density without needing new spawns.
+///   - Viewport = union of (player.x ± viewportHalfWidth). Clouds outside viewport are pooled.
+///   New clouds spawn at viewport edge ± spawnMargin so they travel in from off-screen.
 ///
 /// Networking: In a networked server context, clouds are spawned as NetworkObjects via
 /// ServerManager.Spawn() so FishNet replicates them to all clients automatically.
@@ -45,6 +44,8 @@ public class CloudManager : MonoBehaviour
     [Header("Editor")]
     [Tooltip("Horizontal half-width of lane lines drawn in Scene view (world units).")]
     [SerializeField] float _gizmoLaneHalfWidth = 50f;
+    [Tooltip("When enabled, draw min/max cloud radius circles and average spacing markers on lane gizmos.")]
+    [SerializeField] bool _gizmoShowCloudSizeAndSpacing;
 #endif
 
     // Injected by NetworkCloudManager before CloudManager is enabled.
@@ -63,9 +64,10 @@ public class CloudManager : MonoBehaviour
         public readonly int index;
         public readonly float worldY;
         public bool isActive;
-        public GameObject prefab;        // randomised on every activation
-        public float speed;              // randomised on every activation (sign = direction)
-        public float scale;              // randomised on every activation (uniform for all clouds in lane)
+        public GameObject prefab;
+        public float speed;              // sign = direction, same for all clouds in lane
+        public float radius;             // world units; scale derived so Y bounds fit in 2*radius
+        public float baseSpacing;       // edge-to-edge gap (world units)
         public readonly List<GameObject> clouds = new List<GameObject>();
 
         public LaneState(int index, float worldY)
@@ -79,7 +81,8 @@ public class CloudManager : MonoBehaviour
             isActive = false;
             prefab = null;
             speed = 0f;
-            scale = 1f;
+            radius = 0f;
+            baseSpacing = 0f;
             clouds.Clear();
         }
     }
@@ -103,7 +106,9 @@ public class CloudManager : MonoBehaviour
 
     Transform _poolParent;
     bool _forceUpdate;
+    bool _forceFill;
     readonly List<Bounds> _boundsInWindow = new List<Bounds>();
+    readonly Dictionary<GameObject, float> _prefabNativeHeightY = new Dictionary<GameObject, float>();
 
     // ── Unity lifecycle ──────────────────────────────────────────────────────
 
@@ -174,7 +179,8 @@ public class CloudManager : MonoBehaviour
             }
         }
 
-        _forceUpdate = true; // ensure lane activation runs on first Update, even if players start in same lane
+        _forceUpdate = true;
+        _forceFill = true;
     }
 
     void Update()
@@ -209,32 +215,28 @@ public class CloudManager : MonoBehaviour
         }
         _forceUpdate = false;
 
-        // ── 2. Per-frame cloud maintenance ────────────────────────────────────
+        // ── 2. Viewport and cloud maintenance ─────────────────────────────────
 
-        // Compute the union active X window across all players
-        float minPlayerX = float.MaxValue;
-        float maxPlayerX = float.MinValue;
+        float minPlayerX = float.MaxValue, maxPlayerX = float.MinValue;
         foreach (var pt in _players)
         {
             if (pt == null) continue;
             if (pt.position.x < minPlayerX) minPlayerX = pt.position.x;
             if (pt.position.x > maxPlayerX) maxPlayerX = pt.position.x;
         }
-
-        float windowLeft  = minPlayerX - settings.activeWindowHalfWidth;
-        float windowRight = maxPlayerX + settings.activeWindowHalfWidth;
+        float viewportLeft = minPlayerX - settings.viewportHalfWidth;
+        float viewportRight = maxPlayerX + settings.viewportHalfWidth;
 
         Bounds? extendedBounds = boundaryManager != null ? boundaryManager.GetExtendedBounds() : (Bounds?)null;
         Bounds? innerBounds = boundaryManager != null ? boundaryManager.GetInnerBounds() : (Bounds?)null;
-
         if (extendedBounds.HasValue)
         {
-            windowLeft = Mathf.Max(windowLeft, extendedBounds.Value.min.x);
-            windowRight = Mathf.Min(windowRight, extendedBounds.Value.max.x);
+            viewportLeft = Mathf.Max(viewportLeft, extendedBounds.Value.min.x);
+            viewportRight = Mathf.Min(viewportRight, extendedBounds.Value.max.x);
         }
 
-        float recycleLeft  = windowLeft  - settings.recycleMargin;
-        float recycleRight = windowRight + settings.recycleMargin;
+        int fillIterations = _forceFill ? 10 : 1;
+        _forceFill = false;
 
         foreach (var lane in _lanes)
         {
@@ -244,29 +246,25 @@ public class CloudManager : MonoBehaviour
             {
                 var cloud = lane.clouds[c];
                 if (cloud == null) continue;
-                Vector2 cpos = cloud.transform.position;
-                float cx = cpos.x;
+                var platform = cloud.GetComponent<CloudPlatform>();
+                Bounds b = platform != null ? platform.GetMainBounds() : new Bounds(cloud.transform.position, Vector3.zero);
 
-                if (innerBounds.HasValue && !innerBounds.Value.Contains(new Vector3(cpos.x, cpos.y, 0f)))
+                if (innerBounds.HasValue && !innerBounds.Value.Contains(new Vector3(cloud.transform.position.x, cloud.transform.position.y, 0f)))
                 {
-                    var platform = cloud.GetComponent<CloudPlatform>();
-                    if (platform != null)
-                        platform.TriggerBlockEntryFromBoundary();
+                    if (platform != null) platform.TriggerBlockEntryFromBoundary();
                     continue;
                 }
-
-                bool beyondExit = lane.speed >= 0f ? cx > recycleRight : cx < recycleLeft;
-                if (beyondExit)
+                if (b.max.x < viewportLeft || b.min.x > viewportRight)
                 {
-                    if (extendedBounds.HasValue && (cx < extendedBounds.Value.min.x || cx > extendedBounds.Value.max.x))
-                        DeactivateCloud(cloud);
-                    else
-                        RecycleCloudToEntry(lane, cloud, windowLeft, windowRight);
+                    if (platform != null && platform.IsPlayerOnCloud) continue;
+                    if (cloudLadderController != null && cloudLadderController.IsPlayerOnAnyLadderPartner(cloud)) continue;
+                    if (cloudLadderController != null && cloudLadderController.ShouldKeepCloudActiveForLadders(cloud, viewportLeft, viewportRight)) continue;
+                    DeactivateCloud(cloud);
                 }
             }
 
-            if (IsLaneUnderpopulated(lane, windowLeft, windowRight))
-                SpawnCloudInLane(lane, windowLeft, windowRight);
+            for (int iter = 0; iter < fillIterations && IsLaneUnderpopulated(lane, viewportLeft, viewportRight); iter++)
+                SpawnCloudInLane(lane, viewportLeft, viewportRight);
         }
     }
 
@@ -295,8 +293,16 @@ public class CloudManager : MonoBehaviour
         if (playerTransform == null || _players.Contains(playerTransform)) return;
         _players.Add(playerTransform);
         int startLane = _lanes != null ? PlayerLaneIndex(playerTransform) : 0;
-        _lastLaneIndex.Add(startLane - 1); // force evaluation on first Update
+        _lastLaneIndex.Add(startLane - 1);
         _forceUpdate = true;
+        _forceFill = true;
+    }
+
+    /// <summary>Request that the next Update runs extra fill iterations so the viewport is populated (e.g. after game start or respawn).</summary>
+    public void RequestViewportFill()
+    {
+        _forceUpdate = true;
+        _forceFill = true;
     }
 
     // ── Lane helpers ─────────────────────────────────────────────────────────
@@ -331,12 +337,11 @@ public class CloudManager : MonoBehaviour
     void ActivateLane(LaneState lane)
     {
         lane.isActive = true;
-
-        // Assign fresh random settings for this activation
         lane.prefab = cloudPrefabs[Random.Range(0, cloudPrefabs.Length)];
         float magnitude = Random.Range(settings.speedRange.x, settings.speedRange.y);
         lane.speed = Random.value < 0.5f ? magnitude : -magnitude;
-        lane.scale = Random.Range(settings.scaleRange.x, settings.scaleRange.y);
+        lane.radius = Random.Range(settings.minCloudRadius, settings.maxCloudRadius);
+        lane.baseSpacing = Random.Range(settings.minCloudSpacing, settings.maxCloudSpacing);
     }
 
     void DeactivateLane(LaneState lane)
@@ -353,7 +358,7 @@ public class CloudManager : MonoBehaviour
 
     // ── Density check ────────────────────────────────────────────────────────
 
-    bool IsLaneUnderpopulated(LaneState lane, float windowLeft, float windowRight)
+    bool IsLaneUnderpopulated(LaneState lane, float viewportLeft, float viewportRight)
     {
         _boundsInWindow.Clear();
         foreach (var cloud in lane.clouds)
@@ -361,26 +366,23 @@ public class CloudManager : MonoBehaviour
             if (cloud == null) continue;
             var platform = cloud.GetComponent<CloudPlatform>();
             if (platform == null) continue;
-            Bounds b = platform.GetBounds();
-            if (b.max.x >= windowLeft && b.min.x <= windowRight)
+            Bounds b = platform.GetMainBounds();
+            if (b.max.x >= viewportLeft && b.min.x <= viewportRight)
                 _boundsInWindow.Add(b);
         }
 
         if (_boundsInWindow.Count == 0) return true;
 
         _boundsInWindow.Sort((a, b) => a.min.x.CompareTo(b.min.x));
+        // baseSpacing = edge-to-edge gap; underpopulated if any gap exceeds base + variation
+        float maxGap = lane.baseSpacing + settings.spacingVariation;
 
-        float gapBeforeFirst = _boundsInWindow[0].min.x - windowLeft;
-        if (gapBeforeFirst > settings.maxCloudSpacing) return true;
-
+        if (_boundsInWindow[0].min.x - viewportLeft > maxGap) return true;
         for (int i = 0; i < _boundsInWindow.Count - 1; i++)
         {
-            float gap = _boundsInWindow[i + 1].min.x - _boundsInWindow[i].max.x;
-            if (gap > settings.maxCloudSpacing) return true;
+            if (_boundsInWindow[i + 1].min.x - _boundsInWindow[i].max.x > maxGap) return true;
         }
-
-        float gapAfterLast = windowRight - _boundsInWindow[_boundsInWindow.Count - 1].max.x;
-        if (gapAfterLast > settings.maxCloudSpacing) return true;
+        if (viewportRight - _boundsInWindow[_boundsInWindow.Count - 1].max.x > maxGap) return true;
 
         return false;
     }
@@ -390,18 +392,32 @@ public class CloudManager : MonoBehaviour
     /// <summary>Number of dynamically spawned clouds currently active (excludes manually placed scene clouds).</summary>
     int DynamicCloudCount => _active.Count - _nonPooled.Count;
 
-    void SpawnCloudInLane(LaneState lane, float windowLeft, float windowRight)
+    float GetPrefabNativeHeightY(GameObject prefab)
+    {
+        if (_prefabNativeHeightY.TryGetValue(prefab, out float h)) return h;
+        var temp = Instantiate(prefab, _poolParent);
+        temp.transform.position = Vector3.zero;
+        temp.transform.localScale = Vector3.one;
+        var p = temp.GetComponent<CloudPlatform>();
+        if (p == null) p = temp.AddComponent<CloudPlatform>();
+        Bounds b = p.GetMainBounds(); // use main collider for consistent Y extent
+        Object.Destroy(temp);
+        h = b.size.y;
+        _prefabNativeHeightY[prefab] = h;
+        return h;
+    }
+
+    void SpawnCloudInLane(LaneState lane, float viewportLeft, float viewportRight)
     {
         if (lane.prefab == null) return;
-
-        // Respect the global dynamic cloud cap (0 = unlimited)
         if (settings.maxDynamicClouds > 0 && DynamicCloudCount >= settings.maxDynamicClouds) return;
 
-        float spawnY = lane.worldY + Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation);
-        var spawnPos = new Vector2(0f, spawnY); // X corrected after instantiation using actual bounds
-
-        // Respect block-spawn zones (check will be refined after bounds correction below)
-        int retries = 0;
+        float nativeH = GetPrefabNativeHeightY(lane.prefab);
+        if (nativeH <= 0f) return;
+        float desiredRadius = settings.radiusVariation > 0
+            ? Random.Range(settings.minCloudRadius, settings.maxCloudRadius)
+            : lane.radius;
+        float scale = (2f * desiredRadius) / nativeH;
 
         GameObject cloud;
         if (_pool.Count > 0)
@@ -414,8 +430,7 @@ public class CloudManager : MonoBehaviour
             cloud = Instantiate(lane.prefab, _poolParent);
         }
 
-        cloud.transform.localScale = new Vector3(lane.scale, lane.scale, lane.scale);
-
+        cloud.transform.localScale = new Vector3(scale, scale, scale);
         var platform = cloud.GetComponent<CloudPlatform>();
         if (platform == null) platform = cloud.AddComponent<CloudPlatform>();
         platform.SetCloudManager(this);
@@ -423,27 +438,40 @@ public class CloudManager : MonoBehaviour
         platform.laneIndex = lane.index;
         platform.isPooled = true;
 
-        // Position the cloud so its leading edge (the face entering the window) sits at the
-        // entry boundary. We need the actual bounds half-width, so place at origin first.
+        float spawnY = lane.worldY + (settings.laneHeightVariation == 0 ? 0 : Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation));
         cloud.transform.position = new Vector3(0f, spawnY, 0f);
-        Bounds bounds = platform.GetBounds();
+        Bounds bounds = platform.GetMainBounds();
         float halfWidth = bounds.extents.x;
 
-        // Entry X: leading edge at the entry boundary, plus a random stagger gap behind it.
-        // Moving right (+speed): leading edge is the left (min.x) side → center = entryEdge + halfWidth
-        // Moving left  (-speed): leading edge is the right (max.x) side → center = entryEdge - halfWidth
-        float gap = Random.Range(0f, settings.recycleReentryMaxGap);
-        float centerX = lane.speed >= 0f
-            ? (windowLeft  - gap) + halfWidth
-            : (windowRight + gap) - halfWidth;
+        float entryEdge = lane.speed >= 0f ? viewportLeft - settings.spawnMargin : viewportRight + settings.spawnMargin;
+        float centerX = lane.speed >= 0f ? entryEdge + halfWidth : entryEdge - halfWidth;
 
-        spawnPos = new Vector2(centerX, spawnY);
+        // Edge-to-edge gap from nearest cloud on entry side = baseSpacing ± variation
+        _boundsInWindow.Clear();
+        foreach (var c in lane.clouds)
+        {
+            if (c == null) continue;
+            var pl = c.GetComponent<CloudPlatform>();
+            if (pl == null) continue;
+            Bounds cb = pl.GetMainBounds();
+            if (lane.speed >= 0f && cb.max.x < viewportRight) _boundsInWindow.Add(cb);
+            if (lane.speed < 0f && cb.min.x > viewportLeft) _boundsInWindow.Add(cb);
+        }
+        if (_boundsInWindow.Count > 0)
+        {
+            _boundsInWindow.Sort((a, b) => (lane.speed >= 0f ? a.min.x : -a.max.x).CompareTo(lane.speed >= 0f ? b.min.x : -b.max.x));
+            float refX = lane.speed >= 0f ? _boundsInWindow[0].min.x : _boundsInWindow[0].max.x;
+            float edgeGap = Mathf.Max(0f, lane.baseSpacing + Random.Range(-settings.spacingVariation, settings.spacingVariation));
+            centerX = lane.speed >= 0f ? refX - halfWidth - edgeGap : refX + halfWidth + edgeGap;
+        }
 
+        var spawnPos = new Vector2(centerX, spawnY);
+        int retries = 0;
         while (IsPositionInBlockSpawnZone(spawnPos) && retries < settings.maxSpawnRetries)
         {
             float nudge = Random.Range(0.5f, 2f) * (lane.speed >= 0f ? -1f : 1f);
             spawnPos.x += nudge;
-            spawnPos.y = lane.worldY + Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation);
+            spawnPos.y = lane.worldY + (settings.laneHeightVariation == 0 ? 0 : Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation));
             retries++;
         }
         if (retries >= settings.maxSpawnRetries)
@@ -454,7 +482,7 @@ public class CloudManager : MonoBehaviour
 
         cloud.transform.position = new Vector3(spawnPos.x, spawnPos.y, 0f);
 
-        _onCloudActivated?.Invoke(cloud, lane.scale);
+        _onCloudActivated?.Invoke(cloud, scale);
         _active.Add(cloud);
         lane.clouds.Add(cloud);
     }
@@ -497,21 +525,6 @@ public class CloudManager : MonoBehaviour
             Debug.LogWarning("Attempted to deactivate a cloud not managed by CloudManager: " + cloud.name);
 
         ReturnCloudToPool(cloud);
-    }
-
-    /// <summary>Teleport a cloud back to the offscreen entry side of its lane (recirculate).</summary>
-    void RecycleCloudToEntry(LaneState lane, GameObject cloud, float windowLeft, float windowRight)
-    {
-        var platform = cloud.GetComponent<CloudPlatform>();
-        float halfWidth = platform != null ? platform.GetBounds().extents.x : 0f;
-
-        float gap = Random.Range(0f, settings.recycleReentryMaxGap);
-        float centerX = lane.speed >= 0f
-            ? (windowLeft  - gap) + halfWidth
-            : (windowRight + gap) - halfWidth;
-
-        float newY = lane.worldY + Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation);
-        cloud.transform.position = new Vector3(centerX, newY, cloud.transform.position.z);
     }
 
     // ── Pool management ──────────────────────────────────────────────────────
@@ -605,6 +618,37 @@ public class CloudManager : MonoBehaviour
             Vector3 from = new Vector3(leftX, worldY, 0f);
             Vector3 to = new Vector3(rightX, worldY, 0f);
             Gizmos.DrawLine(from, to);
+        }
+
+        if (_gizmoShowCloudSizeAndSpacing)
+        {
+            for (int i = 0; i < laneCount; i++)
+            {
+                float worldY = baseY + i * settings.laneSpacing;
+                Vector3 center = new Vector3((leftX + rightX) * 0.5f, worldY, 0f);
+                Gizmos.color = new Color(1f, 0.5f, 0f, 0.5f);
+                DrawGizmoCircle(center, settings.minCloudRadius);
+                Gizmos.color = new Color(1f, 0.8f, 0f, 0.5f);
+                DrawGizmoCircle(center, settings.maxCloudRadius);
+                Gizmos.color = new Color(0f, 0.8f, 1f, 0.6f);
+                for (float x = leftX; x <= rightX; x += settings.minCloudSpacing)
+                    DrawGizmoCircle(new Vector3(x, worldY, 0f), 0.12f);
+                Gizmos.color = new Color(1f, 0.4f, 0.8f, 0.6f);
+                for (float x = leftX; x <= rightX; x += settings.maxCloudSpacing)
+                    DrawGizmoCircle(new Vector3(x, worldY, 0f), 0.18f);
+            }
+        }
+    }
+
+    static void DrawGizmoCircle(Vector3 center, float radius, int segments = 24)
+    {
+        float step = 360f / segments * Mathf.Deg2Rad;
+        for (int i = 0; i < segments; i++)
+        {
+            float a = i * step, b = (i + 1) * step;
+            Gizmos.DrawLine(
+                center + new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f),
+                center + new Vector3(Mathf.Cos(b) * radius, Mathf.Sin(b) * radius, 0f));
         }
     }
 #endif
