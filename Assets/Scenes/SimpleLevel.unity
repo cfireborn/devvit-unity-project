@@ -129,11 +129,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1738139335291449445, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 12.1
+      value: 0.95
       objectReference: {fileID: 0}
     - target: {fileID: 1738139335291449445, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 33.2
+      value: 5.75
       objectReference: {fileID: 0}
     - target: {fileID: 1738139335291449445, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_LocalPosition.z
@@ -276,7 +276,11 @@ PrefabInstance:
     - target: {fileID: 8310575160776078934, guid: e77c0cb5bd1bdc647a2be58071874d38, type: 3}
       propertyPath: cloudManager
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 1504431320}
+    - target: {fileID: 8310575160776078934, guid: e77c0cb5bd1bdc647a2be58071874d38, type: 3}
+      propertyPath: gameServices
+      value: 
+      objectReference: {fileID: 685484877}
     - target: {fileID: 8310575160776078934, guid: e77c0cb5bd1bdc647a2be58071874d38, type: 3}
       propertyPath: playerPrefab
       value: 
@@ -2015,7 +2019,7 @@ Camera:
   far clip plane: 1000
   field of view: 34
   orthographic: 1
-  orthographic size: 1.37
+  orthographic size: 2.5
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -2592,8 +2596,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 146617254}
   m_HandleRect: {fileID: 146617253}
   m_Direction: 0
-  m_Value: 1
-  m_Size: 0.9999998
+  m_Value: 0
+  m_Size: 0.99999994
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -2986,7 +2990,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1728924530}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.99999976
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -5178,6 +5182,91 @@ MonoBehaviour:
   _componentIndexCache: 255
   _addedNetworkObject: {fileID: 1504431315}
   _networkObjectCache: {fileID: 0}
+--- !u!114 &1504431320 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+  m_PrefabInstance: {fileID: 1864930203}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63bd85b5392842f4485c7474bcdc5308, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CloudManager
+--- !u!114 &1504431322
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aca1fb5f59d57194bb63b892780fcba3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BoundaryManager
+  margin: 5
+  onPlayerExitedBoundary:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 685484874}
+        m_TargetAssemblyTypeName: 
+        m_MethodName: 
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!61 &1504431323
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: -5, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 15, y: 15}
+  m_EdgeRadius: 0
 --- !u!1 &1537142654
 GameObject:
   m_ObjectHideFlags: 0
@@ -6487,12 +6576,20 @@ PrefabInstance:
       value: 4
       objectReference: {fileID: 0}
     - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      propertyPath: boundaryManager
+      value: 
+      objectReference: {fileID: 1504431322}
+    - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: distanceThresholdForUpdate
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: minDistanceFromOtherClouds
       value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      propertyPath: _gizmoShowCloudSizeAndSpacing
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 559509340474929923, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6555,6 +6652,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1504431318}
+    - targetCorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1504431323}
+    - targetCorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1504431322}
   m_SourcePrefab: {fileID: 100100000, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
 --- !u!1 &1919996195
 GameObject:
@@ -7770,11 +7873,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 4130264255439941166, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1.0098515
+      value: -4.46
       objectReference: {fileID: 0}
     - target: {fileID: 4130264255439941166, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 16.856949
+      value: 4.64
       objectReference: {fileID: 0}
     - target: {fileID: 4130264255439941166, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: m_LocalPosition.z
