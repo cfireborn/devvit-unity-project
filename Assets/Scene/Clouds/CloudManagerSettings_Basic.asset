@@ -16,7 +16,7 @@ MonoBehaviour:
   laneYOffset: -0.26
   laneActivationDistance: 10
   laneHeightVariation: 0
-  viewportHalfWidth: 15
+  viewportHalfWidth: 5
   spawnMargin: 2
   minCloudSpacing: 1.55
   maxCloudSpacing: 5.02

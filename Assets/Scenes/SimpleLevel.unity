@@ -127,6 +127,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1120405209}
     m_Modifications:
+    - target: {fileID: 158380014578975247, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
+      propertyPath: blockSpawn
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1738139335291449445, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.95
@@ -5905,6 +5909,10 @@ PrefabInstance:
     - target: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_ConstrainProportionsScale
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3565316231515950007, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
+      propertyPath: blockSpawn
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Size.x

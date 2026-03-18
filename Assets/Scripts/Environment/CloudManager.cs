@@ -196,6 +196,7 @@ public class CloudManager : MonoBehaviour
 
             int oldLane = _lastLaneIndex[p];
             _lastLaneIndex[p] = currentLane;
+            Debug.Log($"[CloudManager] Player {p} crossed lane {oldLane} → {currentLane}");
 
             GetLaneRange(oldLane, out int oldMin, out int oldMax);
             GetLaneRange(currentLane, out int newMin, out int newMax);
@@ -237,6 +238,7 @@ public class CloudManager : MonoBehaviour
 
         int fillIterations = _forceFill ? 10 : 1;
         _forceFill = false;
+        if (Time.frameCount % 60 == 0) Debug.Log($"[CloudManager] Fill tick — active clouds: {_active.Count}");
 
         foreach (var lane in _lanes)
         {
