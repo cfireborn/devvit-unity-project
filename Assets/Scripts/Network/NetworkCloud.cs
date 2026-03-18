@@ -32,7 +32,6 @@ public class NetworkCloud : NetworkBehaviour
         _platform = GetComponent<CloudPlatform>();
         _rb = GetComponent<Rigidbody2D>();
         _platformWasEnabledAtStart = _platform != null && _platform.enabled;
-        _platform.wasActiveAtStart = _platformWasEnabledAtStart;
     }
 
     public override void OnStartServer()

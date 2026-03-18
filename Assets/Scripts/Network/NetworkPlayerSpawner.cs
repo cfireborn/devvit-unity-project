@@ -44,7 +44,14 @@ public class NetworkPlayerSpawner : MonoBehaviour
     void OnRemoteConnectionState(NetworkConnection conn, RemoteConnectionStateArgs args)
     {
         if (args.ConnectionState == RemoteConnectionState.Started)
-            SpawnPlayer(conn);
+            conn.OnLoadedStartScenes += OnConnectionLoadedStartScenes;
+    }
+
+    void OnConnectionLoadedStartScenes(NetworkConnection conn, bool asServer)
+    {
+        if (!asServer) return; // ignore client-side notification; wait for server-side confirmation
+        conn.OnLoadedStartScenes -= OnConnectionLoadedStartScenes;
+        SpawnPlayer(conn);
     }
 
     public void ActivateOfflineMode()

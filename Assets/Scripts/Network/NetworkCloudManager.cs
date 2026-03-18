@@ -62,7 +62,8 @@ public class NetworkCloudManager : NetworkBehaviour
             var nob = go.GetComponent<NetworkObject>();
             if (nob != null)
             {
-                InstanceFinder.ServerManager.Spawn(nob);
+                if (!nob.IsSceneObject)
+                    InstanceFinder.ServerManager.Spawn(nob);
                 var nc = go.GetComponent<NetworkCloud>();
                 if (nc != null) nc.SyncScale(scale);
             }

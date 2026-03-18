@@ -51,6 +51,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void Awake()
     {
+        wasActiveAtStart = gameObject.activeSelf && enabled;
         _rb = GetComponent<Rigidbody2D>();
         if (_rb != null)
         {
