@@ -4338,7 +4338,7 @@ MonoBehaviour:
   edgegapTugboatAddress: b88db290f79d.pr.edgegap.net
   edgegapTugboatPort: 30473
   editorStartAsHost: 0
-  connectionTimeoutSeconds: 0.1
+  connectionTimeoutSeconds: 5
   joystick: {fileID: 1564902180}
 --- !u!114 &1319779693
 MonoBehaviour:
@@ -4983,9 +4983,9 @@ Transform:
   m_GameObject: {fileID: 1448116177}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
-  m_LocalPosition: {x: 1.4, y: -0.9, z: 0}
-  m_LocalScale: {x: 1.6100001, y: -1.6100001, z: 1.6100001}
-  m_ConstrainProportionsScale: 1
+  m_LocalPosition: {x: 6.3, y: -0.9, z: 0}
+  m_LocalScale: {x: 10.07, y: -12.12, z: 9.787358}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1120405209}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: -90}
@@ -7997,11 +7997,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 4130264255439941166, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -4.46
+      value: 8.992
       objectReference: {fileID: 0}
     - target: {fileID: 4130264255439941166, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 4.64
+      value: 17.336
       objectReference: {fileID: 0}
     - target: {fileID: 4130264255439941166, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: m_LocalPosition.z
