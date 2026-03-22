@@ -49,6 +49,14 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     [HideInInspector]
     public float pooledWorldY;
 
+    /// <summary>Prefab asset this instance was built from (pool key). Set by CloudManager for pooled clouds.</summary>
+    [HideInInspector]
+    public GameObject pooledSourcePrefab;
+
+    /// <summary>Last FixedUpdate: cloud main bounds overlapped a blockEntry-only zone (blockSpawn false). Used to detect entry vs travel inside.</summary>
+    [HideInInspector]
+    public bool pooledPrevOverlapEntryOnly;
+
     CloudManager _cloudManager;
     bool _playerOnCloud;
     bool _isInBlockEntryZone;

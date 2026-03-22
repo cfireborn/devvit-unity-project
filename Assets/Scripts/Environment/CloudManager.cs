@@ -91,8 +91,9 @@ public class CloudManager : MonoBehaviour
 
     readonly List<Transform> _players = new List<Transform>();
 
-    readonly Queue<GameObject> _pool = new Queue<GameObject>();
-    readonly List<CloudNoSpawnZone> _blockSpawnZones = new List<CloudNoSpawnZone>();
+    readonly Dictionary<GameObject, Queue<GameObject>> _poolByPrefab = new Dictionary<GameObject, Queue<GameObject>>();
+    readonly HashSet<GameObject> _queuedInPool = new HashSet<GameObject>();
+    readonly List<CloudNoSpawnZone> _noSpawnZones = new List<CloudNoSpawnZone>();
     readonly List<GameObject> _nonPooled = new List<GameObject>();
     readonly List<GameObject> _active = new List<GameObject>();
 
@@ -149,6 +150,10 @@ public class CloudManager : MonoBehaviour
                 _onCloudActivated?.Invoke(cloud, cloud.transform.localScale.x);
             }
         }
+
+        var sceneZones = Object.FindObjectsByType<CloudNoSpawnZone>(FindObjectsSortMode.None);
+        for (int z = 0; z < sceneZones.Length; z++)
+            RegisterNoSpawnZone(sceneZones[z]);
     }
 
     void Update()
@@ -197,9 +202,20 @@ public class CloudManager : MonoBehaviour
                 if (platform.IsDespawning || platform.IsBoundaryStopped)
                     continue;
 
+                Vector2 natLane = GetPrefabNativeMainSize(lane.prefab);
+                float scaleX = cloud.transform.localScale.x;
+                Bounds mainAtTarget = MainBoundsWorld(targetX, platform.pooledWorldY, natLane, scaleX);
+                GetBlockEntryOverlapParts(mainAtTarget, out bool overlapStrictEntry, out bool overlapEntryOnly);
+                bool crossedIntoEntryOnly = overlapEntryOnly && !platform.pooledPrevOverlapEntryOnly;
+                platform.pooledPrevOverlapEntryOnly = overlapEntryOnly;
+                if (overlapStrictEntry || crossedIntoEntryOnly)
+                {
+                    platform.TriggerBlockEntryFromBoundary();
+                    continue;
+                }
+
                 // Only despawn pooled lane clouds when they reach the travel-direction exit boundary (see ShouldExitDespawnForTarget).
-                Vector2 natDespawn = GetPrefabNativeMainSize(lane.prefab);
-                float cloudHalfW = natDespawn.x * cloud.transform.localScale.x * 0.5f;
+                float cloudHalfW = natLane.x * scaleX * 0.5f;
                 if (ShouldExitDespawnForTarget(lane, left, right, targetX, cloudHalfW))
                 {
                     platform.TriggerBlockEntryFromBoundary();
@@ -507,11 +523,14 @@ public class CloudManager : MonoBehaviour
         float hw = nat.x * scale * 0.5f;
         if (!SlotIsSafeForNewSpawn(lane, left, right, targetX, hw)) return;
 
+        float spawnY = SampleSpawnY(lane, true);
+        if (IntersectsAnyBlockSpawn(MainBoundsWorld(targetX, spawnY, nat, scale)))
+            return;
+
         AcquireCloudFromPool(lane, scale, out GameObject cloud, out CloudPlatform platform);
-        float y = SampleSpawnY(lane, true);
-        platform.pooledWorldY = y;
+        platform.pooledWorldY = spawnY;
         platform.slotIndex = slotIndex;
-        cloud.transform.position = new Vector3(targetX, y, 0f);
+        cloud.transform.position = new Vector3(targetX, spawnY, 0f);
 
         _onCloudActivated?.Invoke(cloud, scale);
         _active.Add(cloud);
@@ -546,31 +565,90 @@ public class CloudManager : MonoBehaviour
         sMax = Mathf.Min(settings.maxCloudMainBoundsWidth / native.x, settings.maxCloudMainBoundsHeight / native.y);
     }
 
+    static Bounds MainBoundsWorld(float centerX, float centerY, Vector2 nativeSize, float uniformScale)
+    {
+        Vector3 size = new Vector3(nativeSize.x * uniformScale, nativeSize.y * uniformScale, 0f);
+        return new Bounds(new Vector3(centerX, centerY, 0f), size);
+    }
+
+    bool IntersectsAnyBlockSpawn(Bounds cloudMainBounds)
+    {
+        int n = _noSpawnZones.Count;
+        if (n == 0) return false;
+        for (int i = 0; i < n; i++)
+        {
+            CloudNoSpawnZone z = _noSpawnZones[i];
+            if (!z.blockSpawn) continue;
+            if (!z.TryGetWorldBounds(out Bounds zb)) continue;
+            if (cloudMainBounds.Intersects(zb)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// blockSpawn + blockEntry: overlap stops immediately (cannot spawn inside these zones).
+    /// blockEntry only: overlap tracked via <paramref name="overlapEntryOnly"/> for transition detection (spawn inside allowed).
+    /// </summary>
+    void GetBlockEntryOverlapParts(Bounds cloudMainBounds, out bool overlapStrictEntry, out bool overlapEntryOnly)
+    {
+        overlapStrictEntry = false;
+        overlapEntryOnly = false;
+        int n = _noSpawnZones.Count;
+        for (int i = 0; i < n; i++)
+        {
+            CloudNoSpawnZone z = _noSpawnZones[i];
+            if (!z.blockEntry) continue;
+            if (!z.TryGetWorldBounds(out Bounds zb)) continue;
+            if (!cloudMainBounds.Intersects(zb)) continue;
+            if (z.blockSpawn) overlapStrictEntry = true;
+            else overlapEntryOnly = true;
+        }
+    }
+
     #endregion
 
     #region Pooling & cloud lifecycle
 
     void AcquireCloudFromPool(LaneState lane, float scale, out GameObject cloud, out CloudPlatform platform)
     {
-        if (_pool.Count > 0)
-        {
-            cloud = _pool.Dequeue();
+        GameObject prefab = lane.prefab;
+        if (prefab != null && TryDequeueFromPrefabPool(prefab, out cloud))
             cloud.SetActive(true);
-        }
         else
-        {
-            cloud = Instantiate(lane.prefab, _poolParent);
-        }
+            cloud = Instantiate(prefab, _poolParent);
 
         cloud.transform.localScale = new Vector3(scale, scale, scale);
         platform = cloud.GetComponent<CloudPlatform>();
         if (platform == null) platform = cloud.AddComponent<CloudPlatform>();
+        platform.pooledSourcePrefab = prefab;
         platform.SetCloudManager(this);
         platform.SetMovementSpeed(lane.speed);
         platform.laneIndex = lane.index;
         platform.isPooled = true;
         platform.isMoving = false;
         platform.ignoreNoSpawnZones = true;
+    }
+
+    bool TryDequeueFromPrefabPool(GameObject prefab, out GameObject cloud)
+    {
+        cloud = null;
+        if (prefab == null || !_poolByPrefab.TryGetValue(prefab, out Queue<GameObject> q) || q.Count == 0)
+            return false;
+        cloud = q.Dequeue();
+        _queuedInPool.Remove(cloud);
+        return true;
+    }
+
+    void EnqueueToPrefabPool(GameObject cloud, GameObject prefabKey)
+    {
+        if (cloud == null || prefabKey == null) return;
+        if (!_poolByPrefab.TryGetValue(prefabKey, out Queue<GameObject> q))
+        {
+            q = new Queue<GameObject>();
+            _poolByPrefab[prefabKey] = q;
+        }
+        q.Enqueue(cloud);
+        _queuedInPool.Add(cloud);
     }
 
     /// <summary>Clears this instance from any lane slot list (fallback when laneIndex/slotIndex are missing).</summary>
@@ -593,7 +671,7 @@ public class CloudManager : MonoBehaviour
     public bool ActivateNonPooledCloud(GameObject cloud)
     {
         if (cloud == null) return false;
-        if (_pool.Contains(cloud)) return false;
+        if (_queuedInPool.Contains(cloud)) return false;
 
         if (!_nonPooled.Contains(cloud))
             _nonPooled.Add(cloud);
@@ -656,18 +734,24 @@ public class CloudManager : MonoBehaviour
 
         cloud.SetActive(false);
         cloud.transform.SetParent(_poolParent);
-        _pool.Enqueue(cloud);
+        GameObject prefabKey = platform != null ? platform.pooledSourcePrefab : null;
+        if (prefabKey == null)
+            Object.Destroy(cloud);
+        else
+            EnqueueToPrefabPool(cloud, prefabKey);
     }
 
     #endregion
 
     #region Public API
 
-    public void RegisterBlockSpawnZone(CloudNoSpawnZone zone)
+    public void RegisterNoSpawnZone(CloudNoSpawnZone zone)
     {
-        if (zone != null && zone.blockSpawn && !_blockSpawnZones.Contains(zone))
-            _blockSpawnZones.Add(zone);
+        if (zone != null && !_noSpawnZones.Contains(zone))
+            _noSpawnZones.Add(zone);
     }
+
+    public void RegisterBlockSpawnZone(CloudNoSpawnZone zone) => RegisterNoSpawnZone(zone);
 
     public IReadOnlyList<GameObject> GetActiveClouds() => _active;
 

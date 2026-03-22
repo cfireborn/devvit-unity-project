@@ -7,10 +7,17 @@ using UnityEngine;
 public class CloudNoSpawnZone : MonoBehaviour
 {
     [Header("Zone Flags")]
-    [Tooltip("CloudManager will not spawn clouds inside this zone.")]
+    [Tooltip("If true, CloudManager will not spawn lane clouds whose main bounds overlap this zone. If false, spawns may overlap; use with blockEntry for travel-within vs enter-from-outside behavior.")]
     public bool blockSpawn;
-    [Tooltip("CloudPlatform will stop when entering; clouds without player will despawn.")]
+    [Tooltip("If true, pooled lane clouds stop at this zone (despawn if no player). With blockSpawn, overlap stops immediately. With blockSpawn off, only crossing in from outside stops; spawned or traveling inside does not.")]
     public bool blockEntry;
+
+    Collider2D _collider;
+
+    void Awake()
+    {
+        _collider = GetComponent<Collider2D>();
+    }
 
     void Reset()
     {
@@ -18,17 +25,25 @@ public class CloudNoSpawnZone : MonoBehaviour
         if (c != null) c.isTrigger = true;
     }
 
+    /// <summary>World-space AABB for overlap tests (same as Unity uses for 2D colliders).</summary>
+    public bool TryGetWorldBounds(out Bounds bounds)
+    {
+        if (_collider == null) _collider = GetComponent<Collider2D>();
+        if (_collider == null)
+        {
+            bounds = default;
+            return false;
+        }
+        bounds = _collider.bounds;
+        return true;
+    }
+
     void Start()
     {
-        if (blockSpawn)
-        {
-            var gameServices = FindFirstObjectByType<GameServices>();
-            var cloudManager = gameServices != null ? gameServices.GetCloudManager() : null;
-            if (cloudManager != null)
-            {
-                cloudManager.RegisterBlockSpawnZone(this);
-            }
-        }
+        if (!blockSpawn && !blockEntry) return;
+        var gameServices = FindFirstObjectByType<GameServices>();
+        var cloudManager = gameServices != null ? gameServices.GetCloudManager() : null;
+        cloudManager?.RegisterNoSpawnZone(this);
     }
 
     void OnDrawGizmosSelected()
