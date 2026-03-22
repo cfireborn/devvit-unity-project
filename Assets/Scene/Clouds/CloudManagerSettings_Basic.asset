@@ -16,14 +16,14 @@ MonoBehaviour:
   laneYOffset: -0.38
   laneHeightVariation: 0
   cloudHeightVariation: 0
-  viewportMargin: 10
+  viewportMargin: 5
   fallbackViewportHalfWidth: 5
   fallbackViewportHalfHeight: 5
   minCloudSpacing: 0.97
   maxCloudSpacing: 5.02
-  minCloudMainBoundsWidth: 0.82
-  maxCloudMainBoundsWidth: 4.12
-  minCloudMainBoundsHeight: 0.4
-  maxCloudMainBoundsHeight: 2.31
+  minCloudMainBoundsWidth: 1.52
+  maxCloudMainBoundsWidth: 5.33
+  minCloudMainBoundsHeight: 0.55
+  maxCloudMainBoundsHeight: 2.73
   speedRange: {x: 0.25, y: 1.5}
   maxDynamicClouds: 500
