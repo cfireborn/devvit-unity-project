@@ -11,19 +11,19 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 96717fe2c7954244aa7c1afc5b48f31f, type: 3}
   m_Name: CloudManagerSettings_Basic
-  m_EditorClassIdentifier: Assembly-CSharp::CloudManagerSettings
+  m_EditorClassIdentifier: Assembly-CSharp::CloudBehaviorSettings
   laneSpacing: 2.5
-  laneYOffset: -0.26
-  laneActivationDistance: 10
+  laneYOffset: -0.38
   laneHeightVariation: 0
-  viewportHalfWidth: 5
-  spawnMargin: 2
-  minCloudSpacing: 1.55
+  cloudHeightVariation: 0
+  viewportMargin: 10
+  fallbackViewportHalfWidth: 5
+  fallbackViewportHalfHeight: 5
+  minCloudSpacing: 0.97
   maxCloudSpacing: 5.02
-  spacingVariation: 0
-  minCloudRadius: 0.1
-  maxCloudRadius: 0.5
-  radiusVariation: 0
+  minCloudMainBoundsWidth: 0.82
+  maxCloudMainBoundsWidth: 4.12
+  minCloudMainBoundsHeight: 0.4
+  maxCloudMainBoundsHeight: 2.31
   speedRange: {x: 0.25, y: 1.5}
-  maxDynamicClouds: 100
-  maxSpawnRetries: 10
+  maxDynamicClouds: 500

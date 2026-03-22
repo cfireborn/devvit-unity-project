@@ -4,13 +4,11 @@ using UnityEngine;
 /// <summary>
 /// Attach to every cloud prefab alongside NetworkObject + NetworkTransform.
 ///
-/// - Server: CloudPlatform runs normally, moves the cloud via MovePosition.
-///           NetworkTransform broadcasts the resulting position to all clients.
-///           Scene clouds that were active at load are re-enabled in OnStartServer
-///           so they begin moving once the network is up.
-/// - Clients: CloudPlatform is disabled (NetworkTransform drives position).
-///            Only clouds that were originally enabled have their CloudPlatform
-///            suppressed — designer-disabled clouds are left untouched.
+/// - Server / host: Pooled clouds are moved by CloudManager.FixedUpdate (Rigidbody2D.MovePosition).
+///   FishNet NetworkTransform (on the prefab) replicates transform/Rigidbody state to clients.
+///   Non-pooled scene clouds may still move via CloudPlatform.FixedUpdate when isPooled is false.
+///   Scene clouds that were active at load are re-enabled in OnStartServer so they behave once the network is up.
+/// - Clients: CloudPlatform is disabled so local physics does not fight replication; NetworkTransform applies positions.
 ///
 /// Scale is synced via a BufferLast ObserversRpc so clients get the correct random
 /// scale on spawn, and late-joining clients receive the last-sent value automatically.

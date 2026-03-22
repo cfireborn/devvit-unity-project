@@ -1,8 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// Moves a cloud horizontally. CloudManager sets the speed on spawn.
-/// Stops and despawns when entering CloudNoSpawnZone with blockEntry.
+/// Pooled clouds: CloudManager drives Rigidbody2D.MovePosition in FixedUpdate (isPooled, isMoving false).
+/// Non-pooled scene clouds move themselves here when isMoving.
+/// Stops and despawns when entering CloudNoSpawnZone with blockEntry (non-pooled or when zones enabled).
 ///
 /// The Rigidbody2D must be set to Kinematic. Movement is applied via
 /// Rigidbody2D.MovePosition so that players (Dynamic rigidbodies) standing
@@ -40,6 +41,14 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     [HideInInspector]
     public int laneIndex = -1;
 
+    /// <summary>Slot along the lane loop. Set by CloudManager for pooled clouds. -1 = n/a.</summary>
+    [HideInInspector]
+    public int slotIndex = -1;
+
+    /// <summary>Pooled: Y position CloudManager uses when driving the cloud (set once at spawn).</summary>
+    [HideInInspector]
+    public float pooledWorldY;
+
     CloudManager _cloudManager;
     bool _playerOnCloud;
     bool _isInBlockEntryZone;
@@ -66,6 +75,11 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         _isInBlockEntryZone = false;
         _isDespawning = false;
         _despawnTimer = 0f;
+        if (isPooled)
+        {
+            slotIndex = -1;
+            pooledWorldY = 0f;
+        }
     }
 
     void Update()
@@ -85,6 +99,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     void FixedUpdate()
     {
         if (_rb == null) return;
+        if (isPooled) return;
         if (_isInBlockEntryZone || _isDespawning || !isMoving) return;
 
         // MovePosition on a Kinematic body is processed by the physics solver so
@@ -97,10 +112,12 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     /// <summary>True while the cloud is playing the despawn animation. Used by CloudLadderController for keep-active logic.</summary>
     public bool IsDespawning => _isDespawning;
 
-    /// <summary>Trigger the same behavior as entering a CloudNoSpawnZone with blockEntry (e.g. when cloud is outside respawn boundary). Stops the cloud; despawns if player is not on it.</summary>
+    /// <summary>True after boundary/exit stop (CloudManager skips driving pooled motion).</summary>
+    public bool IsBoundaryStopped => _isInBlockEntryZone;
+
+    /// <summary>Boundary exit / despawn handoff (always applies). CloudNoSpawnZone volumes still respect ignoreNoSpawnZones.</summary>
     public void TriggerBlockEntryFromBoundary()
     {
-        if (ignoreNoSpawnZones) return;
         EnterBlockEntryZone();
     }
 

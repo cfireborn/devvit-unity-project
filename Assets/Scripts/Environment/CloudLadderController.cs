@@ -187,10 +187,10 @@ public class CloudLadderController : MonoBehaviour
         }
     }
 
-    /// <summary>True if cloud has a ladder and some partner is still in viewport and neither cloud nor that partner is despawning.</summary>
-    public bool ShouldKeepCloudActiveForLadders(GameObject cloud, float viewportLeft, float viewportRight)
+    /// <summary>True if cloud has a ladder and some partner overlaps any merged horizontal viewport interval (neither despawning).</summary>
+    public bool ShouldKeepCloudActiveForLadders(GameObject cloud, List<(float left, float right)> mergedHorizontalIntervals)
     {
-        if (cloud == null) return false;
+        if (cloud == null || mergedHorizontalIntervals == null || mergedHorizontalIntervals.Count == 0) return false;
         var platform = cloud.GetComponent<CloudPlatform>();
         if (platform == null) return false;
 
@@ -205,7 +205,12 @@ public class CloudLadderController : MonoBehaviour
 
             if (platform.IsDespawning || other.IsDespawning) continue;
             Bounds ob = other.GetMainBounds();
-            if (ob.max.x < viewportLeft || ob.min.x > viewportRight) continue;
+            bool inAny = false;
+            foreach (var (left, right) in mergedHorizontalIntervals)
+            {
+                if (ob.max.x >= left && ob.min.x <= right) { inAny = true; break; }
+            }
+            if (!inAny) continue;
             return true;
         }
         return false;

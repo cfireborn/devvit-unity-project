@@ -14,6 +14,8 @@ public class GameServices : MonoBehaviour
 
     public event System.Action onCameraManagerRegistered;
     public event System.Action onPlayerRegistered;
+    /// <summary>Fired when the registered player is cleared (destroy, despawn, etc.). Argument is the player that was registered.</summary>
+    public event System.Action<PlayerControllerM> onPlayerDeregistered;
 
     public void RegisterCameraManager(CameraManager cm)
     {
@@ -25,6 +27,14 @@ public class GameServices : MonoBehaviour
     {
         _player = player;
         onPlayerRegistered?.Invoke();
+    }
+
+    /// <summary>Clears the registered player if it matches. Invokes <see cref="onPlayerDeregistered"/> once.</summary>
+    public void DeregisterPlayer(PlayerControllerM player)
+    {
+        if (player == null || _player != player) return;
+        _player = null;
+        onPlayerDeregistered?.Invoke(player);
     }
 
     public void RegisterCloudManager(CloudManager cm)

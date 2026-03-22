@@ -9,8 +9,11 @@ using UnityEngine.Events;
 [RequireComponent(typeof(BoxCollider2D))]
 public class BoundaryManager : MonoBehaviour
 {
-    [Tooltip("World units to extend the boundary in all directions for lane/cloud extent. Lanes fill boundary + this margin.")]
-    public float margin = 5f;
+    [Tooltip("World units to extend the boundary left/right on each side for lane/cloud extent .")]
+    public float marginX = 5f;
+
+    [Tooltip("World units to extend the boundary up/down on each side for lane/cloud extent.")]
+    public float marginY = 5f;
 
     [Header("Events")]
     [Tooltip("Fired when a collider tagged 'Player' exits the boundary trigger (e.g. GameManager resets the level).")]
@@ -36,7 +39,7 @@ public class BoundaryManager : MonoBehaviour
     public Bounds GetExtendedBounds()
     {
         Bounds inner = GetInnerBounds();
-        Vector3 size = inner.size + new Vector3(2f * margin, 2f * margin, 0f);
+        Vector3 size = new Vector3(inner.size.x + 2f * marginX, inner.size.y + 2f * marginY, 0f);
         Vector3 center = inner.center;
         return new Bounds(center, size);
     }
@@ -58,7 +61,7 @@ public class BoundaryManager : MonoBehaviour
         Gizmos.DrawCube(inner.center, inner.size);
         Gizmos.color = Color.green;
         Gizmos.DrawWireCube(inner.center, inner.size);
-        Bounds extended = new Bounds(inner.center, inner.size + new Vector3(2f * margin, 2f * margin, 0f));
+        Bounds extended = new Bounds(inner.center, inner.size + new Vector3(2f * marginX, 2f * marginY, 0f));
         Gizmos.color = new Color(1f, 1f, 0f, 0.15f);
         Gizmos.DrawWireCube(extended.center, extended.size);
     }

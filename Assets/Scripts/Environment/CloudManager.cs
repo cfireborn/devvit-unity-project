@@ -1,34 +1,16 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
 /// <summary>
-/// Spawns and recycles cloud platforms in horizontal world-absolute lanes.
-///
-/// Lane system:
-///   - Lanes sit at fixed Y positions: laneIndex * settings.laneSpacing.
-///   - A lane activates when any registered player is within settings.laneActivationDistance
-///     vertically of the lane center.
-///   - Lane activation is only re-evaluated when a player crosses a lane boundary.
-///   - On activation, each lane gets a fresh random prefab, speed (magnitude + direction),
-///     and cloud density (spacing). All clouds in the lane share these properties.
-///   - On deactivation, all lane clouds are returned to the pool and lane state is reset.
-///   - Viewport = union of (player.x ± viewportHalfWidth). Clouds outside viewport are pooled.
-///   New clouds spawn at viewport edge ± spawnMargin so they travel in from off-screen.
-///
-/// Networking: In a networked server context, clouds are spawned as NetworkObjects via
-/// ServerManager.Spawn() so FishNet replicates them to all clients automatically.
-/// NetworkTransform on each cloud GO syncs position at ~20Hz.
-/// In offline mode, clouds use a simple GameObject pool.
-///
-/// INSPECTOR SETUP REQUIRED:
-/// - Add NetworkObject + NetworkTransform + NetworkCloud components to each cloud prefab.
-/// - Register each cloud prefab in the NetworkManager's Spawnable Prefabs list.
+/// Server/offline: activates horizontal lanes by player viewport, runs a fixed-spacing loop per lane,
+/// drives pooled clouds via Rigidbody2D.MovePosition in FixedUpdate. Clients receive NetworkObjects from FishNet.
 /// </summary>
 public class CloudManager : MonoBehaviour
 {
+    #region Serialized & constants
+
     [Header("References")]
     public CloudLadderController cloudLadderController;
     [Tooltip("When set, lanes and cloud extent are derived from this boundary. When null, defaults to 50 lanes centered at this transform.")]
@@ -39,35 +21,44 @@ public class CloudManager : MonoBehaviour
     public CloudBehaviorSettings settings;
 
     const int FallbackLaneCount = 50;
+    const float ExitBoundaryEpsilon = 0.05f;
 
 #if UNITY_EDITOR
     [Header("Editor")]
     [Tooltip("Horizontal half-width of lane lines drawn in Scene view (world units).")]
     [SerializeField] float _gizmoLaneHalfWidth = 50f;
-    [Tooltip("When enabled, draw min/max cloud radius circles and average spacing markers on lane gizmos.")]
+    [Tooltip("Odd-index lanes: min main-bounds size, min spacing. Even-index lanes: max size, max spacing. Each marker draws primary + secondary wire box (min vs max bounds).")]
     [SerializeField] bool _gizmoShowCloudSizeAndSpacing;
 #endif
 
-    // Injected by NetworkCloudManager before CloudManager is enabled.
-    // Server: reparent to root + ServerManager.Spawn + SyncScale.
-    // Offline first-creation: strip FishNet components.
-    // Offline pool-reuse: no-op (already stripped).
-    internal Action<GameObject, float> _onCloudActivated;
-    // null = offline pool path. Server: FishNet Despawn or Destroy.
-    internal Action<GameObject> _onCloudDeactivated;
+    #endregion
 
-    // ── Lane state ───────────────────────────────────────────────────────────
+    #region Callbacks & nested types
 
-    /// <summary>Per-lane runtime data. Created once in Start(), reset on each deactivation.</summary>
+    internal System.Action<GameObject, float> _onCloudActivated;
+    internal System.Action<GameObject> _onCloudDeactivated;
+
+    struct PlayerViewRect
+    {
+        public float minX, maxX, minY, maxY;
+    }
+
     class LaneState
     {
         public readonly int index;
         public readonly float worldY;
         public bool isActive;
         public GameObject prefab;
-        public float speed;              // sign = direction, same for all clouds in lane
-        public float radius;             // world units; scale derived so Y bounds fit in 2*radius
-        public float baseSpacing;       // edge-to-edge gap (world units)
+        public float speed;
+        public float laneFixedYOffset;
+        public float baseSpacing;
+        public float laneScale;
+        /// <summary>Normalized position along the lane loop in [0,1). 0 = loop start, advances by speed via CloudManager.</summary>
+        public float loopPhase;
+        public int slotCount;
+        public float halfWidthCached;
+        public float step;
+        /// <summary>One entry per slot; null = empty. Index matches loop slot index.</summary>
         public readonly List<GameObject> clouds = new List<GameObject>();
 
         public LaneState(int index, float worldY)
@@ -81,43 +72,38 @@ public class CloudManager : MonoBehaviour
             isActive = false;
             prefab = null;
             speed = 0f;
-            radius = 0f;
+            laneFixedYOffset = 0f;
             baseSpacing = 0f;
+            laneScale = 0f;
+            loopPhase = 0f;
+            slotCount = 0;
+            halfWidthCached = 0f;
+            step = 0f;
             clouds.Clear();
         }
     }
 
+    #endregion
+
+    #region Fields
+
     LaneState[] _lanes;
 
-    // ── Player tracking ──────────────────────────────────────────────────────
-
     readonly List<Transform> _players = new List<Transform>();
-    // Per-player last lane index used for lane-crossing detection
-    readonly List<int> _lastLaneIndex = new List<int>();
-
-    // ── Pools & scene clouds ─────────────────────────────────────────────────
 
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
     readonly List<CloudNoSpawnZone> _blockSpawnZones = new List<CloudNoSpawnZone>();
-    // Pre-placed scene clouds — never returned to pool
     readonly List<GameObject> _nonPooled = new List<GameObject>();
-    // Flat list of all active clouds (pooled + non-pooled). Consumed by CloudLadderController.
     readonly List<GameObject> _active = new List<GameObject>();
 
+    readonly Dictionary<GameObject, Vector2> _prefabNativeMainSize = new Dictionary<GameObject, Vector2>();
+
     Transform _poolParent;
-    bool _forceUpdate;
-    bool _forceFill;
-    readonly List<Bounds> _boundsInWindow = new List<Bounds>();
-    readonly Dictionary<GameObject, float> _prefabNativeHeightY = new Dictionary<GameObject, float>();
 
-    // ── Unity lifecycle ──────────────────────────────────────────────────────
+    #endregion
 
-    /// <summary>
-    /// Registers all CloudPlatform instances already present in the scene as non-pooled clouds.
-    /// Must be called before CloudManager is disabled (e.g. by NetworkCloudManager) so that
-    /// ReturnCloudToPool's guard is in place before any FishNet lifecycle callbacks run.
-    /// Safe to call multiple times — Contains guards prevent duplicates.
-    /// </summary>
+    #region Lifecycle
+
     public void CollectSceneClouds()
     {
         CloudPlatform[] sceneClouds = Object.FindObjectsByType<CloudPlatform>(FindObjectsSortMode.None);
@@ -127,48 +113,33 @@ public class CloudManager : MonoBehaviour
                 _nonPooled.Add(cloud.gameObject);
 
             if (cloud.wasActiveAtStart && !_active.Contains(cloud.gameObject))
-            {
                 _active.Add(cloud.gameObject);
-            }
         }
     }
 
     void Start()
     {
         _poolParent = new GameObject("CloudPool").transform;
-        _poolParent.SetParent(transform); // Keep pooled clouds under CloudManager for scene organization
+        _poolParent.SetParent(transform);
 
-        // Build lane array from boundary or fallback (50 lanes centered at CloudManager)
         if (settings != null)
         {
-            float baseY;
-            int laneCount;
-            if (boundaryManager != null)
-            {
-                Bounds extended = boundaryManager.GetExtendedBounds();
-                laneCount = Mathf.Max(1, Mathf.CeilToInt(extended.size.y / settings.laneSpacing));
-                baseY = extended.min.y + settings.laneYOffset;
-            }
-            else
-            {
-                laneCount = FallbackLaneCount;
-                float centerY = transform.position.y;
-                baseY = centerY - (laneCount - 1) * 0.5f * settings.laneSpacing + settings.laneYOffset;
-            }
+            GetLaneCountAndBaseY(out int laneCount, out float baseY);
             _lanes = new LaneState[laneCount];
             for (int i = 0; i < laneCount; i++)
                 _lanes[i] = new LaneState(i, baseY + i * settings.laneSpacing);
         }
 
-        // Register self and ladder controller with GameServices
         var gameServices = FindFirstObjectByType<GameServices>();
         if (gameServices != null && cloudLadderController != null)
             gameServices.RegisterCloudLadderController(cloudLadderController);
 
-        // Register primary player (may not be available yet in networked startup)
         TryRegisterPlayer();
-        if (_players.Count == 0 && gameServices != null)
+        if (gameServices != null)
+        {
             gameServices.onPlayerRegistered += TryRegisterPlayer;
+            gameServices.onPlayerDeregistered += OnPlayerDeregisteredFromServices;
+        }
 
         foreach (var cloud in _active)
         {
@@ -178,95 +149,65 @@ public class CloudManager : MonoBehaviour
                 _onCloudActivated?.Invoke(cloud, cloud.transform.localScale.x);
             }
         }
-
-        _forceUpdate = true;
-        _forceFill = true;
     }
 
     void Update()
     {
         if (settings == null || cloudPrefabs == null || cloudPrefabs.Length == 0) return;
-        if (_players.Count == 0 || _lanes == null) return;
+        if (_lanes == null) return;
 
-        for (int p = 0; p < _players.Count; p++)
-        {
-            if (_players[p] == null) continue;
-            int currentLane = PlayerLaneIndex(_players[p]);
-            if (currentLane == _lastLaneIndex[p] && !_forceUpdate) continue;
+        List<PlayerViewRect> playerRects = BuildPlayerViewRects();
+        if (playerRects.Count == 0) return;
 
-            int oldLane = _lastLaneIndex[p];
-            _lastLaneIndex[p] = currentLane;
-            Debug.Log($"[CloudManager] Player {p} crossed lane {oldLane} → {currentLane}");
+        UpdateLaneActivation(playerRects);
+    }
 
-            GetLaneRange(oldLane, out int oldMin, out int oldMax);
-            GetLaneRange(currentLane, out int newMin, out int newMax);
-
-            for (int li = newMin; li <= newMax; li++)
-            {
-                if (!_lanes[li].isActive)
-                    ActivateLane(_lanes[li]);
-            }
-
-            for (int li = oldMin; li <= oldMax; li++)
-            {
-                if (li >= newMin && li <= newMax) continue;
-                if (_lanes[li].isActive && !AnyPlayerActivatesLane(li))
-                    DeactivateLane(_lanes[li]);
-            }
-        }
-        _forceUpdate = false;
-
-        // ── 2. Viewport and cloud maintenance ─────────────────────────────────
-
-        float minPlayerX = float.MaxValue, maxPlayerX = float.MinValue;
-        foreach (var pt in _players)
-        {
-            if (pt == null) continue;
-            if (pt.position.x < minPlayerX) minPlayerX = pt.position.x;
-            if (pt.position.x > maxPlayerX) maxPlayerX = pt.position.x;
-        }
-        float viewportLeft = minPlayerX - settings.viewportHalfWidth;
-        float viewportRight = maxPlayerX + settings.viewportHalfWidth;
-
-        Bounds? extendedBounds = boundaryManager != null ? boundaryManager.GetExtendedBounds() : (Bounds?)null;
-        Bounds? innerBounds = boundaryManager != null ? boundaryManager.GetInnerBounds() : (Bounds?)null;
-        if (extendedBounds.HasValue)
-        {
-            viewportLeft = Mathf.Max(viewportLeft, extendedBounds.Value.min.x);
-            viewportRight = Mathf.Min(viewportRight, extendedBounds.Value.max.x);
-        }
-
-        int fillIterations = _forceFill ? 10 : 1;
-        _forceFill = false;
-        if (Time.frameCount % 60 == 0) Debug.Log($"[CloudManager] Fill tick — active clouds: {_active.Count}");
+    void FixedUpdate()
+    {
+        if (settings == null || _lanes == null) return;
+        GetLaneHorizontalSpan(out float left, out float right);
+        float dt = Time.fixedDeltaTime;
 
         foreach (var lane in _lanes)
         {
-            if (!lane.isActive) continue;
+            if (!lane.isActive || lane.prefab == null || !LaneSlotLayoutValid(lane)) continue;
 
-            for (int c = lane.clouds.Count - 1; c >= 0; c--)
+            float loopLen = lane.slotCount * lane.step;
+            if (loopLen > 0f)
             {
-                var cloud = lane.clouds[c];
-                if (cloud == null) continue;
-                var platform = cloud.GetComponent<CloudPlatform>();
-                Bounds b = platform != null ? platform.GetMainBounds() : new Bounds(cloud.transform.position, Vector3.zero);
-
-                if (innerBounds.HasValue && !innerBounds.Value.Contains(new Vector3(cloud.transform.position.x, cloud.transform.position.y, 0f)))
-                {
-                    if (platform != null) platform.TriggerBlockEntryFromBoundary();
-                    continue;
-                }
-                if (b.max.x < viewportLeft || b.min.x > viewportRight)
-                {
-                    if (platform != null && platform.IsPlayerOnCloud) continue;
-                    if (cloudLadderController != null && cloudLadderController.IsPlayerOnAnyLadderPartner(cloud)) continue;
-                    if (cloudLadderController != null && cloudLadderController.ShouldKeepCloudActiveForLadders(cloud, viewportLeft, viewportRight)) continue;
-                    DeactivateCloud(cloud);
-                }
+                float delta = lane.speed * dt / loopLen;
+                lane.loopPhase = Mathf.Repeat(lane.loopPhase + delta, 1f);
             }
 
-            for (int iter = 0; iter < fillIterations && IsLaneUnderpopulated(lane, viewportLeft, viewportRight); iter++)
-                SpawnCloudInLane(lane, viewportLeft, viewportRight);
+            for (int i = 0; i < lane.clouds.Count; i++)
+            {
+                float targetX = SlotCenterX(lane, left, i);
+                GameObject cloud = lane.clouds[i];
+                if (cloud == null)
+                {
+                    TrySpawnSlot(lane, left, right, i, targetX);
+                    continue;
+                }
+
+                var platform = cloud.GetComponent<CloudPlatform>();
+                var rb = cloud.GetComponent<Rigidbody2D>();
+                if (platform == null || rb == null)
+                    continue;
+
+                if (platform.IsDespawning || platform.IsBoundaryStopped)
+                    continue;
+
+                // Only despawn pooled lane clouds when they reach the travel-direction exit boundary (see ShouldExitDespawnForTarget).
+                Vector2 natDespawn = GetPrefabNativeMainSize(lane.prefab);
+                float cloudHalfW = natDespawn.x * cloud.transform.localScale.x * 0.5f;
+                if (ShouldExitDespawnForTarget(lane, left, right, targetX, cloudHalfW))
+                {
+                    platform.TriggerBlockEntryFromBoundary();
+                    continue;
+                }
+
+                rb.MovePosition(new Vector2(targetX, platform.pooledWorldY));
+            }
         }
     }
 
@@ -274,10 +215,21 @@ public class CloudManager : MonoBehaviour
     {
         var gameServices = FindFirstObjectByType<GameServices>();
         if (gameServices != null)
+        {
             gameServices.onPlayerRegistered -= TryRegisterPlayer;
+            gameServices.onPlayerDeregistered -= OnPlayerDeregisteredFromServices;
+        }
     }
 
-    // ── Player registration ──────────────────────────────────────────────────
+    #endregion
+
+    #region GameServices & players
+
+    void OnPlayerDeregisteredFromServices(PlayerControllerM player)
+    {
+        if (player != null)
+            UnregisterPlayer(player.transform);
+    }
 
     void TryRegisterPlayer()
     {
@@ -288,52 +240,164 @@ public class CloudManager : MonoBehaviour
             RegisterPlayer(p.transform);
     }
 
-    /// <summary>Register a player Transform for lane-activation tracking.
-    /// Called by TryRegisterPlayer (via GameServices) or directly by multiplayer code.</summary>
     public void RegisterPlayer(Transform playerTransform)
     {
         if (playerTransform == null || _players.Contains(playerTransform)) return;
         _players.Add(playerTransform);
-        int startLane = _lanes != null ? PlayerLaneIndex(playerTransform) : 0;
-        _lastLaneIndex.Add(startLane - 1);
-        _forceUpdate = true;
-        _forceFill = true;
     }
 
-    /// <summary>Request that the next Update runs extra fill iterations so the viewport is populated (e.g. after game start or respawn).</summary>
+    public void UnregisterPlayer(Transform playerTransform)
+    {
+        if (playerTransform == null) return;
+        _players.Remove(playerTransform);
+    }
+
+    /// <summary>Called by GameManager when the scene or player context changes; lane fill is continuous so this is a no-op hook.</summary>
     public void RequestViewportFill()
     {
-        _forceUpdate = true;
-        _forceFill = true;
     }
 
-    // ── Lane helpers ─────────────────────────────────────────────────────────
-
-    int PlayerLaneIndex(Transform player)
+    /// <summary>Removes destroyed player transforms (e.g. if an object was destroyed without going through UnregisterPlayer).</summary>
+    void PruneDestroyedPlayers()
     {
-        if (settings == null || settings.laneSpacing <= 0f || _lanes == null || _lanes.Length == 0) return 0;
-        float firstLaneY = _lanes[0].worldY;
-        int idx = Mathf.RoundToInt((player.position.y - firstLaneY) / settings.laneSpacing);
-        return Mathf.Clamp(idx, 0, _lanes.Length - 1);
-    }
-
-    void GetLaneRange(int laneIndex, out int min, out int max)
-    {
-        int radius = Mathf.CeilToInt(settings.laneActivationDistance / settings.laneSpacing);
-        min = Mathf.Max(0, laneIndex - radius);
-        max = Mathf.Min(_lanes.Length - 1, laneIndex + radius);
-    }
-
-    bool AnyPlayerActivatesLane(int laneIndex)
-    {
-        GetLaneRange(laneIndex, out int min, out int max);
-        foreach (var pt in _players)
+        for (int i = _players.Count - 1; i >= 0; i--)
         {
-            if (pt == null) continue;
-            int pLane = PlayerLaneIndex(pt);
-            if (pLane >= min && pLane <= max) return true;
+            if (_players[i] == null)
+                _players.RemoveAt(i);
         }
-        return false;
+    }
+
+    List<PlayerViewRect> BuildPlayerViewRects()
+    {
+        PruneDestroyedPlayers();
+
+        var list = new List<PlayerViewRect>(_players.Count);
+        for (int i = 0; i < _players.Count; i++)
+        {
+            Transform t = _players[i];
+            if (t == null) continue;
+            GetPlayerViewRect(t, out PlayerViewRect r);
+            ClipRectToExtendedBounds(ref r);
+            if (r.minX < r.maxX && r.minY < r.maxY)
+                list.Add(r);
+        }
+        return list;
+    }
+
+    void GetPlayerViewRect(Transform t, out PlayerViewRect r)
+    {
+        Vector2 c = t.position;
+        GetHalfExtentsForPlayer(t, out float hw, out float hh);
+        float m = settings.viewportMargin;
+        r.minX = c.x - hw - m;
+        r.maxX = c.x + hw + m;
+        r.minY = c.y - hh - m;
+        r.maxY = c.y + hh + m;
+    }
+
+    void GetHalfExtentsForPlayer(Transform t, out float halfWidth, out float halfHeight)
+    {
+        var npc = t.GetComponent<NetworkPlayerController>();
+        if (npc != null)
+        {
+            npc.GetWorldCameraHalfExtents(out halfWidth, out halfHeight);
+            return;
+        }
+        var cam = Camera.main;
+        if (cam != null && cam.orthographic)
+        {
+            halfHeight = cam.orthographicSize;
+            halfWidth = halfHeight * cam.aspect;
+            return;
+        }
+        halfWidth = settings.fallbackViewportHalfWidth;
+        halfHeight = settings.fallbackViewportHalfHeight;
+    }
+
+    void ClipRectToExtendedBounds(ref PlayerViewRect r)
+    {
+        if (boundaryManager == null) return;
+        Bounds b = boundaryManager.GetExtendedBounds();
+        r.minX = Mathf.Max(r.minX, b.min.x);
+        r.maxX = Mathf.Min(r.maxX, b.max.x);
+        r.minY = Mathf.Max(r.minY, b.min.y);
+        r.maxY = Mathf.Min(r.maxY, b.max.y);
+    }
+
+    #endregion
+
+    #region Viewport & lane activation
+
+    void UpdateLaneActivation(List<PlayerViewRect> playerRects)
+    {
+        foreach (var lane in _lanes)
+        {
+            bool shouldBeActive = false;
+            foreach (var pr in playerRects)
+            {
+                float ly = LaneYForActivation(lane);
+                if (ly >= pr.minY && ly <= pr.maxY)
+                {
+                    shouldBeActive = true;
+                    break;
+                }
+            }
+            if (shouldBeActive && !lane.isActive)
+                ActivateLane(lane);
+            else if (!shouldBeActive && lane.isActive)
+                DeactivateLane(lane);
+        }
+    }
+
+    static float LaneYForActivation(LaneState lane)
+    {
+        return lane.isActive ? lane.worldY + lane.laneFixedYOffset : lane.worldY;
+    }
+
+    void GetLaneCountAndBaseY(out int laneCount, out float baseY)
+    {
+        if (boundaryManager != null)
+        {
+            Bounds extended = boundaryManager.GetExtendedBounds();
+            laneCount = Mathf.Max(1, Mathf.CeilToInt(extended.size.y / settings.laneSpacing));
+            baseY = extended.min.y + settings.laneYOffset;
+        }
+        else
+        {
+            laneCount = FallbackLaneCount;
+            float centerY = transform.position.y;
+            baseY = centerY - (laneCount - 1) * 0.5f * settings.laneSpacing + settings.laneYOffset;
+        }
+    }
+
+    #endregion
+
+    #region Boundary & horizontal span
+
+    void GetLaneHorizontalSpan(out float left, out float right)
+    {
+        if (boundaryManager != null)
+        {
+            Bounds e = boundaryManager.GetExtendedBounds();
+            left = e.min.x;
+            right = e.max.x;
+        }
+        else
+        {
+            float cx = transform.position.x;
+            float half = settings.fallbackViewportHalfWidth;
+            left = cx - half;
+            right = cx + half;
+        }
+    }
+
+    #endregion
+
+    #region Lane loop: phase, slots, movement
+
+    static bool LaneSlotLayoutValid(LaneState lane)
+    {
+        return lane.slotCount > 0 && lane.clouds.Count == lane.slotCount;
     }
 
     void ActivateLane(LaneState lane)
@@ -342,14 +406,38 @@ public class CloudManager : MonoBehaviour
         lane.prefab = cloudPrefabs[Random.Range(0, cloudPrefabs.Length)];
         float magnitude = Random.Range(settings.speedRange.x, settings.speedRange.y);
         lane.speed = Random.value < 0.5f ? magnitude : -magnitude;
-        lane.radius = Random.Range(settings.minCloudRadius, settings.maxCloudRadius);
+        lane.laneFixedYOffset = settings.laneHeightVariation <= 0f
+            ? 0f
+            : Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation);
         lane.baseSpacing = Random.Range(settings.minCloudSpacing, settings.maxCloudSpacing);
+        ComputeScaleBoundsForPrefab(lane.prefab, out float sMin, out float sMax);
+        if (sMin > sMax) lane.laneScale = sMin;
+        else lane.laneScale = Random.Range(sMin, sMax);
+
+        Vector2 nat = GetPrefabNativeMainSize(lane.prefab);
+        lane.halfWidthCached = nat.x * lane.laneScale * 0.5f;
+        lane.step = 2f * lane.halfWidthCached + lane.baseSpacing;
+
+        GetLaneHorizontalSpan(out float left, out float right);
+        float usable = right - left - 2f * lane.halfWidthCached;
+        if (usable < 0f) usable = 0f;
+
+        lane.slotCount = usable <= 0f ? 1 : Mathf.Max(1, Mathf.FloorToInt(usable / lane.step) + 1);
+        while (lane.slotCount > 1 && (lane.slotCount - 1) * lane.step > usable + 0.0001f)
+            lane.slotCount--;
+
+        lane.loopPhase = Random.Range(0f, 1f);
+        lane.clouds.Clear();
+        for (int i = 0; i < lane.slotCount; i++)
+            lane.clouds.Add(null);
+
+        for (int i = 0; i < lane.slotCount; i++)
+            TrySpawnSlot(lane, left, right, i, SlotCenterX(lane, left, i));
     }
 
     void DeactivateLane(LaneState lane)
     {
-        // Return all lane clouds to pool
-        for (int i = lane.clouds.Count - 1; i >= 0; i--)
+        for (int i = 0; i < lane.clouds.Count; i++)
         {
             var cloud = lane.clouds[i];
             if (cloud != null)
@@ -358,70 +446,112 @@ public class CloudManager : MonoBehaviour
         lane.Reset();
     }
 
-    // ── Density check ────────────────────────────────────────────────────────
-
-    bool IsLaneUnderpopulated(LaneState lane, float viewportLeft, float viewportRight)
+    float SlotCenterX(LaneState lane, float left, int slotIndex)
     {
-        _boundsInWindow.Clear();
-        foreach (var cloud in lane.clouds)
-        {
-            if (cloud == null) continue;
-            var platform = cloud.GetComponent<CloudPlatform>();
-            if (platform == null) continue;
-            Bounds b = platform.GetMainBounds();
-            if (b.max.x >= viewportLeft && b.min.x <= viewportRight)
-                _boundsInWindow.Add(b);
-        }
-
-        if (_boundsInWindow.Count == 0) return true;
-
-        _boundsInWindow.Sort((a, b) => a.min.x.CompareTo(b.min.x));
-        // baseSpacing = edge-to-edge gap; underpopulated if any gap exceeds base + variation
-        float maxGap = lane.baseSpacing + settings.spacingVariation;
-
-        if (_boundsInWindow[0].min.x - viewportLeft > maxGap) return true;
-        for (int i = 0; i < _boundsInWindow.Count - 1; i++)
-        {
-            if (_boundsInWindow[i + 1].min.x - _boundsInWindow[i].max.x > maxGap) return true;
-        }
-        if (viewportRight - _boundsInWindow[_boundsInWindow.Count - 1].max.x > maxGap) return true;
-
-        return false;
+        float loopLen = lane.slotCount * lane.step;
+        if (loopLen <= 0f)
+            return left + lane.halfWidthCached;
+        float distanceAlongLoop = lane.loopPhase * loopLen;
+        float raw = distanceAlongLoop + slotIndex * lane.step;
+        float wrapped = Mathf.Repeat(raw, loopLen);
+        return left + lane.halfWidthCached + wrapped;
     }
 
-    // ── Spawn & recycle ──────────────────────────────────────────────────────
+    bool ShouldExitDespawnForTarget(LaneState lane, float left, float right, float targetCenterX, float halfWidth)
+    {
+        if (lane.speed >= 0f)
+            return targetCenterX + halfWidth >= right - ExitBoundaryEpsilon;
+        return targetCenterX - halfWidth <= left + ExitBoundaryEpsilon;
+    }
 
-    /// <summary>Number of dynamically spawned clouds currently active (excludes manually placed scene clouds).</summary>
+    bool SlotIsSafeForNewSpawn(LaneState lane, float left, float right, float targetCenterX, float hw)
+    {
+        if (lane.speed >= 0f)
+            return targetCenterX + hw < right - ExitBoundaryEpsilon;
+        return targetCenterX - hw > left + ExitBoundaryEpsilon;
+    }
+
+    float EffectiveLaneSpawnY(LaneState lane)
+    {
+        return lane.worldY + lane.laneFixedYOffset;
+    }
+
+    float SampleSpawnY(LaneState lane, bool applyCloudHeightJitter)
+    {
+        float y = EffectiveLaneSpawnY(lane);
+        if (applyCloudHeightJitter && settings.cloudHeightVariation > 0f)
+            y += Random.Range(-settings.cloudHeightVariation, settings.cloudHeightVariation);
+        return y;
+    }
+
+    bool TryGetSpawnScale(LaneState lane, out float scale)
+    {
+        ComputeScaleBoundsForPrefab(lane.prefab, out float sMin, out float sMax);
+        if (sMin > sMax)
+        {
+            scale = 0f;
+            return false;
+        }
+        scale = Mathf.Clamp(lane.laneScale, sMin, sMax);
+        return true;
+    }
+
+    void TrySpawnSlot(LaneState lane, float left, float right, int slotIndex, float targetX)
+    {
+        if (slotIndex < 0 || slotIndex >= lane.clouds.Count) return;
+        if (lane.clouds[slotIndex] != null) return;
+        if (settings.maxDynamicClouds > 0 && DynamicCloudCount >= settings.maxDynamicClouds) return;
+        if (!TryGetSpawnScale(lane, out float scale)) return;
+
+        Vector2 nat = GetPrefabNativeMainSize(lane.prefab);
+        float hw = nat.x * scale * 0.5f;
+        if (!SlotIsSafeForNewSpawn(lane, left, right, targetX, hw)) return;
+
+        AcquireCloudFromPool(lane, scale, out GameObject cloud, out CloudPlatform platform);
+        float y = SampleSpawnY(lane, true);
+        platform.pooledWorldY = y;
+        platform.slotIndex = slotIndex;
+        cloud.transform.position = new Vector3(targetX, y, 0f);
+
+        _onCloudActivated?.Invoke(cloud, scale);
+        _active.Add(cloud);
+        lane.clouds[slotIndex] = cloud;
+    }
+
     int DynamicCloudCount => _active.Count - _nonPooled.Count;
 
-    float GetPrefabNativeHeightY(GameObject prefab)
+    #endregion
+
+    #region Prefab sizing
+
+    Vector2 GetPrefabNativeMainSize(GameObject prefab)
     {
-        if (_prefabNativeHeightY.TryGetValue(prefab, out float h)) return h;
+        if (_prefabNativeMainSize.TryGetValue(prefab, out Vector2 sz)) return sz;
         var temp = Instantiate(prefab, _poolParent);
         temp.transform.position = Vector3.zero;
         temp.transform.localScale = Vector3.one;
         var p = temp.GetComponent<CloudPlatform>();
         if (p == null) p = temp.AddComponent<CloudPlatform>();
-        Bounds b = p.GetMainBounds(); // use main collider for consistent Y extent
+        Bounds b = p.GetMainBounds();
         Object.Destroy(temp);
-        h = b.size.y;
-        _prefabNativeHeightY[prefab] = h;
-        return h;
+        sz = new Vector2(Mathf.Max(0.0001f, b.size.x), Mathf.Max(0.0001f, b.size.y));
+        _prefabNativeMainSize[prefab] = sz;
+        return sz;
     }
 
-    void SpawnCloudInLane(LaneState lane, float viewportLeft, float viewportRight)
+    void ComputeScaleBoundsForPrefab(GameObject prefab, out float sMin, out float sMax)
     {
-        if (lane.prefab == null) return;
-        if (settings.maxDynamicClouds > 0 && DynamicCloudCount >= settings.maxDynamicClouds) return;
+        Vector2 native = GetPrefabNativeMainSize(prefab);
+        sMin = Mathf.Max(settings.minCloudMainBoundsWidth / native.x, settings.minCloudMainBoundsHeight / native.y);
+        sMax = Mathf.Min(settings.maxCloudMainBoundsWidth / native.x, settings.maxCloudMainBoundsHeight / native.y);
+    }
 
-        float nativeH = GetPrefabNativeHeightY(lane.prefab);
-        if (nativeH <= 0f) return;
-        float desiredRadius = settings.radiusVariation > 0
-            ? Random.Range(settings.minCloudRadius, settings.maxCloudRadius)
-            : lane.radius;
-        float scale = (2f * desiredRadius) / nativeH;
+    #endregion
 
-        GameObject cloud;
+    #region Pooling & cloud lifecycle
+
+    void AcquireCloudFromPool(LaneState lane, float scale, out GameObject cloud, out CloudPlatform platform)
+    {
         if (_pool.Count > 0)
         {
             cloud = _pool.Dequeue();
@@ -433,82 +563,50 @@ public class CloudManager : MonoBehaviour
         }
 
         cloud.transform.localScale = new Vector3(scale, scale, scale);
-        var platform = cloud.GetComponent<CloudPlatform>();
+        platform = cloud.GetComponent<CloudPlatform>();
         if (platform == null) platform = cloud.AddComponent<CloudPlatform>();
         platform.SetCloudManager(this);
         platform.SetMovementSpeed(lane.speed);
         platform.laneIndex = lane.index;
         platform.isPooled = true;
+        platform.isMoving = false;
+        platform.ignoreNoSpawnZones = true;
+    }
 
-        float spawnY = lane.worldY + (settings.laneHeightVariation == 0 ? 0 : Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation));
-        cloud.transform.position = new Vector3(0f, spawnY, 0f);
-        Bounds bounds = platform.GetMainBounds();
-        float halfWidth = bounds.extents.x;
-
-        float entryEdge = lane.speed >= 0f ? viewportLeft - settings.spawnMargin : viewportRight + settings.spawnMargin;
-        float centerX = lane.speed >= 0f ? entryEdge + halfWidth : entryEdge - halfWidth;
-
-        // Edge-to-edge gap from nearest cloud on entry side = baseSpacing ± variation
-        _boundsInWindow.Clear();
-        foreach (var c in lane.clouds)
+    /// <summary>Clears this instance from any lane slot list (fallback when laneIndex/slotIndex are missing).</summary>
+    void RemoveCloudFromLaneSlots(GameObject cloud)
+    {
+        if (_lanes == null || cloud == null) return;
+        foreach (var lane in _lanes)
         {
-            if (c == null) continue;
-            var pl = c.GetComponent<CloudPlatform>();
-            if (pl == null) continue;
-            Bounds cb = pl.GetMainBounds();
-            if (lane.speed >= 0f && cb.max.x < viewportRight) _boundsInWindow.Add(cb);
-            if (lane.speed < 0f && cb.min.x > viewportLeft) _boundsInWindow.Add(cb);
+            for (int i = 0; i < lane.clouds.Count; i++)
+            {
+                if (lane.clouds[i] == cloud)
+                {
+                    lane.clouds[i] = null;
+                    return;
+                }
+            }
         }
-        if (_boundsInWindow.Count > 0)
-        {
-            _boundsInWindow.Sort((a, b) => (lane.speed >= 0f ? a.min.x : -a.max.x).CompareTo(lane.speed >= 0f ? b.min.x : -b.max.x));
-            float refX = lane.speed >= 0f ? _boundsInWindow[0].min.x : _boundsInWindow[0].max.x;
-            float edgeGap = Mathf.Max(0f, lane.baseSpacing + Random.Range(-settings.spacingVariation, settings.spacingVariation));
-            centerX = lane.speed >= 0f ? refX - halfWidth - edgeGap : refX + halfWidth + edgeGap;
-        }
-
-        var spawnPos = new Vector2(centerX, spawnY);
-        int retries = 0;
-        while (IsPositionInBlockSpawnZone(spawnPos) && retries < settings.maxSpawnRetries)
-        {
-            float nudge = Random.Range(0.5f, 2f) * (lane.speed >= 0f ? -1f : 1f);
-            spawnPos.x += nudge;
-            spawnPos.y = lane.worldY + (settings.laneHeightVariation == 0 ? 0 : Random.Range(-settings.laneHeightVariation, settings.laneHeightVariation));
-            retries++;
-        }
-        if (retries >= settings.maxSpawnRetries)
-        {
-            ReturnCloudToPool(cloud);
-            return;
-        }
-
-        cloud.transform.position = new Vector3(spawnPos.x, spawnPos.y, 0f);
-
-        _onCloudActivated?.Invoke(cloud, scale);
-        _active.Add(cloud);
-        lane.clouds.Add(cloud);
     }
 
     public bool ActivateNonPooledCloud(GameObject cloud)
     {
         if (cloud == null) return false;
-        if (_pool.Contains(cloud)) return false; // already pooled
+        if (_pool.Contains(cloud)) return false;
 
         if (!_nonPooled.Contains(cloud))
-        {
             _nonPooled.Add(cloud);
-        }
 
         cloud.SetActive(true);
         if (!_active.Contains(cloud))
         {
             _active.Add(cloud);
-            _onCloudActivated?.Invoke(cloud, cloud.transform.localScale.x); // assuming uniform scale
+            _onCloudActivated?.Invoke(cloud, cloud.transform.localScale.x);
         }
 
         return true;
     }
-
 
     public void DeactivateCloud(GameObject cloud)
     {
@@ -523,28 +621,26 @@ public class CloudManager : MonoBehaviour
             return;
         }
 
-        if (!_active.Contains(cloud) && !_pool.Contains(cloud))
-            Debug.LogWarning("Attempted to deactivate a cloud not managed by CloudManager: " + cloud.name);
-
         ReturnCloudToPool(cloud);
     }
 
-    // ── Pool management ──────────────────────────────────────────────────────
-
     public void ReturnCloudToPool(GameObject cloud)
     {
-        // Never pool or despawn manually placed scene clouds.
-        if (_nonPooled.Contains(cloud)) return;
+        if (cloud == null || _nonPooled.Contains(cloud)) return;
 
         _active.Remove(cloud);
 
-        // Remove from its lane's cloud list
-        if (_lanes != null)
+        var platform = cloud.GetComponent<CloudPlatform>();
+        if (_lanes != null && platform != null && platform.laneIndex >= 0 && platform.laneIndex < _lanes.Length)
         {
-            var platform = cloud.GetComponent<CloudPlatform>();
-            if (platform != null && platform.laneIndex >= 0 && platform.laneIndex < _lanes.Length)
-                _lanes[platform.laneIndex].clouds.Remove(cloud);
+            LaneState lane = _lanes[platform.laneIndex];
+            if (platform.slotIndex >= 0 && platform.slotIndex < lane.clouds.Count)
+                lane.clouds[platform.slotIndex] = null;
+            else
+                RemoveCloudFromLaneSlots(cloud);
         }
+        else
+            RemoveCloudFromLaneSlots(cloud);
 
         if (_onCloudDeactivated != null)
         {
@@ -552,13 +648,20 @@ public class CloudManager : MonoBehaviour
             return;
         }
 
-        // Offline: return to pool under CloudManager for scene organization
+        if (platform != null)
+        {
+            platform.slotIndex = -1;
+            platform.isMoving = false;
+        }
+
         cloud.SetActive(false);
         cloud.transform.SetParent(_poolParent);
         _pool.Enqueue(cloud);
     }
 
-    // ── Spawn zone helpers ───────────────────────────────────────────────────
+    #endregion
+
+    #region Public API
 
     public void RegisterBlockSpawnZone(CloudNoSpawnZone zone)
     {
@@ -566,92 +669,128 @@ public class CloudManager : MonoBehaviour
             _blockSpawnZones.Add(zone);
     }
 
-    bool IsPositionInBlockSpawnZone(Vector2 pos)
-    {
-        if (boundaryManager != null)
-        {
-            Bounds extended = boundaryManager.GetExtendedBounds();
-            if (pos.x < extended.min.x || pos.x > extended.max.x || pos.y < extended.min.y || pos.y > extended.max.y)
-                return true;
-        }
-        foreach (var zone in _blockSpawnZones)
-        {
-            if (zone == null) continue;
-            var col = zone.GetComponent<Collider2D>();
-            if (col != null && col.OverlapPoint(pos))
-                return true;
-        }
-        return false;
-    }
-
-    // ── Public API ───────────────────────────────────────────────────────────
-
-    /// <summary>Get all currently active clouds (pooled + non-pooled). Used by CloudLadderController.</summary>
     public IReadOnlyList<GameObject> GetActiveClouds() => _active;
 
+    #endregion
+
 #if UNITY_EDITOR
-    void OnDrawGizmos()
+    #region Editor gizmos
+
+    void GetGizmoLaneHorizontalSpan(out float leftX, out float rightX)
     {
-        if (settings == null) return;
-        int laneCount;
-        float baseY;
-        float leftX, rightX;
         if (boundaryManager != null)
         {
             Bounds extended = boundaryManager.GetExtendedBounds();
-            laneCount = Mathf.Max(1, Mathf.CeilToInt(extended.size.y / settings.laneSpacing));
-            baseY = extended.min.y + settings.laneYOffset;
             leftX = extended.min.x;
             rightX = extended.max.x;
         }
         else
         {
-            laneCount = FallbackLaneCount;
-            float centerY = transform.position.y;
-            baseY = centerY - (laneCount - 1) * 0.5f * settings.laneSpacing + settings.laneYOffset;
-            float halfWidth = _gizmoLaneHalfWidth;
-            leftX = -halfWidth;
-            rightX = halfWidth;
+            float h = _gizmoLaneHalfWidth;
+            leftX = -h;
+            rightX = h;
         }
-        Gizmos.color = new Color(0f, 0.8f, 1f, 0.6f);
+    }
+
+    void OnDrawGizmos()
+    {
+        if (settings == null) return;
+        GetLaneCountAndBaseY(out int laneCount, out float baseY);
+        GetGizmoLaneHorizontalSpan(out float leftX, out float rightX);
+
+        Color inactiveLaneLine = new Color(0f, 0.8f, 1f, 0.6f);
+        Color activeLaneLine = new Color(1f, 0.45f, 0.05f, 0.9f);
+
         for (int i = 0; i < laneCount; i++)
         {
             float worldY = baseY + i * settings.laneSpacing;
             Vector3 from = new Vector3(leftX, worldY, 0f);
             Vector3 to = new Vector3(rightX, worldY, 0f);
+            bool active = Application.isPlaying && LaneIsActiveForGizmo(i);
+            Gizmos.color = active ? activeLaneLine : inactiveLaneLine;
             Gizmos.DrawLine(from, to);
         }
 
         if (_gizmoShowCloudSizeAndSpacing)
         {
+            Color primaryOdd = new Color(1f, 0.55f, 0.1f, 0.85f);
+            Color secondaryOdd = new Color(1f, 0.85f, 0.2f, 0.55f);
+            Color primaryEven = new Color(0.35f, 0.75f, 1f, 0.85f);
+            Color secondaryEven = new Color(0.65f, 0.45f, 1f, 0.55f);
+            Color activePrimary = new Color(1f, 0.35f, 0f, 0.9f);
+            Color activeSecondary = new Color(1f, 0.65f, 0.2f, 0.55f);
+
             for (int i = 0; i < laneCount; i++)
             {
                 float worldY = baseY + i * settings.laneSpacing;
-                Vector3 center = new Vector3((leftX + rightX) * 0.5f, worldY, 0f);
-                Gizmos.color = new Color(1f, 0.5f, 0f, 0.5f);
-                DrawGizmoCircle(center, settings.minCloudRadius);
-                Gizmos.color = new Color(1f, 0.8f, 0f, 0.5f);
-                DrawGizmoCircle(center, settings.maxCloudRadius);
-                Gizmos.color = new Color(0f, 0.8f, 1f, 0.6f);
-                for (float x = leftX; x <= rightX; x += settings.minCloudSpacing)
-                    DrawGizmoCircle(new Vector3(x, worldY, 0f), 0.12f);
-                Gizmos.color = new Color(1f, 0.4f, 0.8f, 0.6f);
-                for (float x = leftX; x <= rightX; x += settings.maxCloudSpacing)
-                    DrawGizmoCircle(new Vector3(x, worldY, 0f), 0.18f);
+                bool oddLane = (i & 1) == 1;
+                bool laneActive = Application.isPlaying && LaneIsActiveForGizmo(i);
+                float pw, ph, spacing, sw, sh;
+                Color cPri, cSec;
+                if (oddLane)
+                {
+                    pw = settings.minCloudMainBoundsWidth;
+                    ph = settings.minCloudMainBoundsHeight;
+                    spacing = settings.minCloudSpacing;
+                    sw = settings.maxCloudMainBoundsWidth;
+                    sh = settings.maxCloudMainBoundsHeight;
+                    cPri = primaryOdd;
+                    cSec = secondaryOdd;
+                }
+                else
+                {
+                    pw = settings.maxCloudMainBoundsWidth;
+                    ph = settings.maxCloudMainBoundsHeight;
+                    spacing = settings.maxCloudSpacing;
+                    sw = settings.minCloudMainBoundsWidth;
+                    sh = settings.minCloudMainBoundsHeight;
+                    cPri = primaryEven;
+                    cSec = secondaryEven;
+                }
+
+                if (laneActive)
+                {
+                    cPri = activePrimary;
+                    cSec = activeSecondary;
+                }
+
+                float step = pw + spacing;
+                if (step <= 0.0001f) continue;
+
+                for (float x = leftX + pw * 0.5f; x <= rightX - pw * 0.5f + 0.0001f; x += step)
+                {
+                    Vector3 center = new Vector3(x, worldY, 0f);
+                    DrawGizmoCloudBoundsPair(center, pw, ph, sw, sh, cPri, cSec);
+                }
             }
         }
     }
 
-    static void DrawGizmoCircle(Vector3 center, float radius, int segments = 24)
+    bool LaneIsActiveForGizmo(int laneIndex)
     {
-        float step = 360f / segments * Mathf.Deg2Rad;
-        for (int i = 0; i < segments; i++)
+        return _lanes != null && laneIndex >= 0 && laneIndex < _lanes.Length && _lanes[laneIndex].isActive;
+    }
+
+    static void DrawGizmoCloudBoundsPair(Vector3 center, float primaryW, float primaryH, float secondaryW, float secondaryH, Color primaryColor, Color secondaryColor)
+    {
+        float aPri = primaryW * primaryH;
+        float aSec = secondaryW * secondaryH;
+        if (aPri >= aSec)
         {
-            float a = i * step, b = (i + 1) * step;
-            Gizmos.DrawLine(
-                center + new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f),
-                center + new Vector3(Mathf.Cos(b) * radius, Mathf.Sin(b) * radius, 0f));
+            Gizmos.color = primaryColor;
+            Gizmos.DrawWireCube(center, new Vector3(primaryW, primaryH, 0f));
+            Gizmos.color = secondaryColor;
+            Gizmos.DrawWireCube(center, new Vector3(secondaryW, secondaryH, 0f));
+        }
+        else
+        {
+            Gizmos.color = secondaryColor;
+            Gizmos.DrawWireCube(center, new Vector3(secondaryW, secondaryH, 0f));
+            Gizmos.color = primaryColor;
+            Gizmos.DrawWireCube(center, new Vector3(primaryW, primaryH, 0f));
         }
     }
+
+    #endregion
 #endif
 }

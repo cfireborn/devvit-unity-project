@@ -152,6 +152,13 @@ public class PlayerControllerM : MonoBehaviour
         jumpAction = null;
     }
 
+    void OnDestroy()
+    {
+        var gs = FindFirstObjectByType<GameServices>();
+        if (gs != null)
+            gs.DeregisterPlayer(this);
+    }
+
     void Start()
     {
         var gameServices = FindFirstObjectByType<GameServices>();

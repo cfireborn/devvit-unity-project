@@ -5,12 +5,20 @@ using UnityEngine;
 /// NetworkBehaviour wrapper for PlayerControllerM.
 /// - Owner: enables input + physics, syncs visual state to all other clients at 15Hz.
 /// - Remote: disables input + physics, applies received visual state to SpriteRenderer.
+/// - Owner: syncs camera orthographic size and aspect to server for CloudManager viewport.
 /// </summary>
 public class NetworkPlayerController : NetworkBehaviour
 {
     PlayerControllerM _controller;
     Rigidbody2D _rb;
     SpriteRenderer _spriteRenderer;
+
+    float _serverOrthoSize = 5f;
+    float _serverAspect = 16f / 9f;
+    int _lastScreenW;
+    int _lastScreenH;
+    float _lastSentOrtho;
+    float _lastSentAspect;
 
     // Visual sync state (owner writes, remotes read)
     float _syncedMoveDir;
@@ -47,14 +55,23 @@ public class NetworkPlayerController : NetworkBehaviour
         {
             if (_controller != null) _controller.enabled = true;
             if (_rb != null) _rb.simulated = true;
-            Debug.Log("NetworkPlayerController: Local player started.");
+            _lastScreenW = Screen.width;
+            _lastScreenH = Screen.height;
+            TrySendViewportToServer(true);
         }
         else
         {
             if (_controller != null) _controller.enabled = false;
             if (_rb != null) _rb.simulated = false;
-            Debug.Log($"NetworkPlayerController: Remote player started (conn {OwnerId}).");
         }
+    }
+
+    public override void OnStopServer()
+    {
+        base.OnStopServer();
+        var gs = FindFirstObjectByType<GameServices>();
+        if (gs != null && _controller != null)
+            gs.DeregisterPlayer(_controller);
     }
 
     public override void OnStopClient()
@@ -68,9 +85,51 @@ public class NetworkPlayerController : NetworkBehaviour
         if (!IsSpawned) return;
 
         if (IsOwner)
+        {
+            OwnerViewportSync();
             OwnerUpdate();
+        }
         else
             RemoteUpdate();
+    }
+
+    void OwnerViewportSync()
+    {
+        if (Screen.width != _lastScreenW || Screen.height != _lastScreenH)
+        {
+            _lastScreenW = Screen.width;
+            _lastScreenH = Screen.height;
+            TrySendViewportToServer(true);
+            return;
+        }
+        TrySendViewportToServer(false);
+    }
+
+    void TrySendViewportToServer(bool force)
+    {
+        var cam = Camera.main;
+        if (cam == null || !cam.orthographic) return;
+        float ortho = cam.orthographicSize;
+        float aspect = cam.aspect;
+        if (!force && Mathf.Approximately(ortho, _lastSentOrtho) && Mathf.Approximately(aspect, _lastSentAspect))
+            return;
+        _lastSentOrtho = ortho;
+        _lastSentAspect = aspect;
+        CmdSyncViewport(ortho, aspect);
+    }
+
+    [ServerRpc(RequireOwnership = true)]
+    void CmdSyncViewport(float orthographicSize, float aspect)
+    {
+        _serverOrthoSize = orthographicSize;
+        _serverAspect = Mathf.Max(0.1f, aspect);
+    }
+
+    /// <summary>Server-only: orthographic half-height and half-width in world units (for CloudManager).</summary>
+    public void GetWorldCameraHalfExtents(out float halfWidth, out float halfHeight)
+    {
+        halfHeight = _serverOrthoSize;
+        halfWidth = _serverOrthoSize * _serverAspect;
     }
 
     // ── Owner ─────────────────────────────────────────────────────────────────

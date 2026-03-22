@@ -2608,7 +2608,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 146617254}
   m_HandleRect: {fileID: 146617253}
   m_Direction: 0
-  m_Value: 0
+  m_Value: 1
   m_Size: 0.99999994
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -3002,7 +3002,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1728924530}
   m_Direction: 2
   m_Value: 1
-  m_Size: 1
+  m_Size: 0.99999994
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -5205,34 +5205,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63bd85b5392842f4485c7474bcdc5308, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CloudManager
---- !u!114 &1504431322
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1190467174}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aca1fb5f59d57194bb63b892780fcba3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BoundaryManager
-  margin: 5
-  onPlayerExitedBoundary:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 685484874}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!61 &1504431323
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -5277,8 +5249,24 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 15, y: 15}
+  m_Size: {x: 50, y: 50}
   m_EdgeRadius: 0
+--- !u!114 &1504431324
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aca1fb5f59d57194bb63b892780fcba3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BoundaryManager
+  margin: 6.5
+  onPlayerExitedBoundary:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &1537142654
 GameObject:
   m_ObjectHideFlags: 0
@@ -6594,7 +6582,7 @@ PrefabInstance:
     - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: boundaryManager
       value: 
-      objectReference: {fileID: 1504431322}
+      objectReference: {fileID: 1504431324}
     - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: distanceThresholdForUpdate
       value: 0.2
@@ -6673,7 +6661,7 @@ PrefabInstance:
       addedObject: {fileID: 1504431323}
     - targetCorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1504431322}
+      addedObject: {fileID: 1504431324}
   m_SourcePrefab: {fileID: 100100000, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
 --- !u!1 &1919996195
 GameObject:
