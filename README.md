@@ -58,9 +58,9 @@ Assets/Scripts/
     LadderTrigger.cs            ← Player interaction zone on ladder colliders
 Scenes/
   SimpleLevel.unity             ← The only shipped scene
-MULTIPLAYER_IMPLEMENTATION_PLAN.md   ← Living design doc; read before starting network work
-AGENTS.md                            ← Coding guidelines for AI assistants
-AGENTS-MOSTRECENT.md                 ← Full technical handoff for the next agent
+Docs/Agents/MULTIPLAYER_IMPLEMENTATION_PLAN.md   ← Living design doc; read before starting network work
+Docs/Agents/AGENTS.md                            ← Coding guidelines for AI assistants
+Docs/Agents/AGENTS-MOSTRECENT.md                 ← Full technical handoff for the next agent
 ```
 
 ---
@@ -239,7 +239,7 @@ The CloudManager and CloudLadderController GameObjects **must remain active** in
 
 ## Networking Quick Reference
 
-The full rules are in `AGENTS.md`. The ones most relevant to cloud work:
+The full rules are in `Docs/Agents/AGENTS.md`. The ones most relevant to cloud work:
 
 **Never call `IsServerStarted` or `IsClientStarted` in `Update` or `FixedUpdate`** on a NetworkBehaviour — they crash in offline mode because the NetworkObject's internal manager is null. Use cached bool flags instead:
 ```csharp

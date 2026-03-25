@@ -1,1 +1,1 @@
-Read AgentDocumentation/AGENTS.md before starting any task.
+Read Docs/Agents/AGENTS.md before starting any task.
