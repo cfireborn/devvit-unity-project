@@ -25,6 +25,7 @@ public class PlayerControllerM : MonoBehaviour
     private Item _carriedItem;
 
     private Rigidbody2D rb;
+    private Collider2D playerCollider;
     private bool isGliding;
     private bool goalReached;
     private bool _wasOnLadder;
@@ -79,6 +80,10 @@ public class PlayerControllerM : MonoBehaviour
     // Moving platform: apply platform/ladder delta so player moves with clouds and ladders
     private IMovingPlatform _lastMovingPlatform;
     private Vector2 _lastMovingPlatformPosition;
+    private Vector2 _currentPlatformVelocity;
+    private Vector2 _pendingPlatformVelocity;
+    private readonly ContactPoint2D[] _contactBuffer = new ContactPoint2D[8];
+    private ContactFilter2D _contactFilter;
 
     // Read-only access for network visual sync
     public float MoveInputX => moveInput;
@@ -87,8 +92,12 @@ public class PlayerControllerM : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        playerCollider = GetComponent<Collider2D>();
         if (rb != null)
             rb.constraints |= RigidbodyConstraints2D.FreezeRotation;
+        _contactFilter.useTriggers = false;
+        _contactFilter.useLayerMask = true;
+        _contactFilter.SetLayerMask(Physics2D.GetLayerCollisionMask(gameObject.layer));
     }
 
     void OnEnable()
@@ -313,7 +322,8 @@ public class PlayerControllerM : MonoBehaviour
         bool canJump = (_isGroundedFixed || _coyoteTimeRemaining > 0f) && (jumpPressed || _jumpBufferRemaining > 0f);
 
         // Horizontal movement (interpolate if in air); jump is independent of L/R input
-        float targetVx = moveInput * settings.moveSpeed;
+        float carryVx = _isGroundedFixed ? _currentPlatformVelocity.x : _pendingPlatformVelocity.x;
+        float targetVx = moveInput * settings.moveSpeed + carryVx;
         float lerpFactor = _isGroundedFixed ? 1f : settings.airControlMultiplier;
         float newVx = Mathf.Lerp(rb.linearVelocity.x, targetVx, lerpFactor);
         rb.linearVelocity = new Vector2(newVx, rb.linearVelocity.y);
@@ -340,6 +350,18 @@ public class PlayerControllerM : MonoBehaviour
         else
         {
             rb.gravityScale = settings.normalGravityScale;
+        }
+
+        ResolveSideContacts();
+
+        if (_isGroundedFixed)
+        {
+            _pendingPlatformVelocity = _currentPlatformVelocity;
+        }
+        else
+        {
+            float decay = 8f * TickOrFixedDelta();
+            _pendingPlatformVelocity = Vector2.MoveTowards(_pendingPlatformVelocity, Vector2.zero, decay);
         }
     }
 
@@ -530,6 +552,7 @@ public class PlayerControllerM : MonoBehaviour
         IMovingPlatform current = groundChecker.IsOnLadder ? groundChecker.CurrentLadder : groundChecker.CurrentPlatform;
         if (current == null)
         {
+            _currentPlatformVelocity = Vector2.zero;
             _lastMovingPlatform = null;
             return;
         }
@@ -545,20 +568,52 @@ public class PlayerControllerM : MonoBehaviour
         {
             _lastMovingPlatform = current;
             _lastMovingPlatformPosition = pos;
+            _pendingPlatformVelocity = Vector2.zero;
             return;
         }
 
         Vector2 delta = pos - _lastMovingPlatformPosition;
         _lastMovingPlatformPosition = pos;
-        if (delta.sqrMagnitude > 0.0001f)
-        {
+        if (!groundChecker.IsOnLadder)
             rb.position += delta;
 
-            if (physicsDrivenPlatform && !groundChecker.IsOnLadder)
-            {
-                float dt = Mathf.Max(0.0001f, TickOrFixedDelta());
-                rb.linearVelocity += delta / dt;
-            }
+        if (physicsDrivenPlatform && !groundChecker.IsOnLadder)
+        {
+            float dt = Mathf.Max(0.0001f, TickOrFixedDelta());
+            _currentPlatformVelocity = delta / dt;
+        }
+        else
+        {
+            _currentPlatformVelocity = Vector2.zero;
+        }
+    }
+
+    void ResolveSideContacts()
+    {
+        if (rb == null || playerCollider == null) return;
+
+        string platformTag = settings != null ? settings.groundTag :
+            (groundChecker != null ? groundChecker.platformTag : "Platform");
+
+        int contacts = rb.GetContacts(_contactFilter, _contactBuffer);
+        if (contacts == 0) return;
+
+        float halfHeight = playerCollider != null ? playerCollider.bounds.extents.y : 0.5f;
+
+        for (int i = 0; i < contacts; i++)
+        {
+            var contact = _contactBuffer[i];
+            var other = contact.collider;
+            if (other == null || !other.CompareTag(platformTag)) continue;
+
+            Vector2 normal = contact.normal;
+            if (Mathf.Abs(normal.x) < 0.6f || normal.y > 0.3f) continue;
+
+            float lift = Mathf.Max(0.02f, -contact.separation + 0.01f);
+            rb.position += Vector2.up * lift;
+            if (rb.linearVelocity.y < 0f)
+                rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
+            break;
         }
     }
 

@@ -18,6 +18,7 @@ public class CloudLadderController : MonoBehaviour
     const string ChildNameTop = "Top";
     const string ChildNameMiddlePrefix = "Middle_";
     const int MaxLadderMiddleSegments = 64;
+    const float HorizontalEdgeTolerance = 0.001f;
 
     [Header("References")]
     public CloudManager cloudManager;
@@ -376,37 +377,38 @@ public class CloudLadderController : MonoBehaviour
         _onLadderActivated?.Invoke(ladder, lower, upper);
     }
 
-    /// <summary>Top or bottom Y of the polygon at world X. Uses polygon edge if mainCollider is PolygonCollider2D; else AABB.</summary>
+    /// <summary>Top or bottom Y of colliders intersecting a vertical line at worldX. Considers all non-trigger colliders.</summary>
     static float GetEdgeYAtX(CloudPlatform platform, float worldX, bool top)
     {
-        Bounds b = platform.GetMainBounds();
-        var col = platform.mainCollider;
-        if (col is PolygonCollider2D poly)
+        float bestY = top ? float.MinValue : float.MaxValue;
+        bool found = false;
+        var colliders = platform.GetComponentsInChildren<Collider2D>();
+        for (int i = 0; i < colliders.Length; i++)
         {
-            var path = poly.GetPath(0);
-            if (path != null && path.Length >= 2)
+            var col = colliders[i];
+            if (col == null || !col.enabled || col.isTrigger) continue;
+            Bounds cb = col.bounds;
+            if (worldX < cb.min.x - HorizontalEdgeTolerance || worldX > cb.max.x + HorizontalEdgeTolerance)
+                continue;
+
+            float edgeY;
+            if (col is PolygonCollider2D poly && TryGetPolygonEdgeY(poly, worldX, top, out float polyY))
             {
-                var t = col.transform;
-                float bestY = top ? float.MinValue : float.MaxValue;
-                for (int i = 0; i < path.Length; i++)
-                {
-                    int j = (i + 1) % path.Length;
-                    Vector2 p0 = t.TransformPoint(path[i]);
-                    Vector2 p1 = t.TransformPoint(path[j]);
-                    float x0 = p0.x, x1 = p1.x;
-                    if ((x0 <= worldX && worldX <= x1) || (x1 <= worldX && worldX <= x0))
-                    {
-                        if (Mathf.Abs(x1 - x0) < 0.0001f) { bestY = top ? Mathf.Max(bestY, p0.y) : Mathf.Min(bestY, p0.y); continue; }
-                        float tSeg = (worldX - x0) / (x1 - x0);
-                        float y = Mathf.Lerp(p0.y, p1.y, tSeg);
-                        bestY = top ? Mathf.Max(bestY, y) : Mathf.Min(bestY, y);
-                    }
-                }
-                if (top && bestY > float.MinValue) return bestY;
-                if (!top && bestY < float.MaxValue) return bestY;
+                edgeY = polyY;
             }
+            else
+            {
+                edgeY = top ? cb.max.y : cb.min.y;
+            }
+
+            bestY = top ? Mathf.Max(bestY, edgeY) : Mathf.Min(bestY, edgeY);
+            found = true;
         }
-        return top ? b.max.y : b.min.y;
+
+        if (found) return bestY;
+
+        Bounds fallback = platform.GetBounds();
+        return top ? fallback.max.y : fallback.min.y;
     }
 
     /// <summary>Rebuilds ladder visuals and collider between two cloud platforms.
@@ -416,7 +418,10 @@ public class CloudLadderController : MonoBehaviour
         Bounds bl = lower.GetMainBounds();
         Bounds bu = upper.GetMainBounds();
 
-        float x = (bl.center.x + bu.center.x) * 0.5f;
+        float overlapMin, overlapMax;
+        bool hasOverlap = TryGetHorizontalOverlap(lower, upper, out overlapMin, out overlapMax);
+        float centerX = (bl.center.x + bu.center.x) * 0.5f;
+        float x = hasOverlap ? Mathf.Clamp(centerX, overlapMin, overlapMax) : centerX;
         float yMin, yMax;
         if (ladderInsetIntoCloud > 0f)
         {
@@ -476,5 +481,80 @@ public class CloudLadderController : MonoBehaviour
             col.size = new Vector2(ladderWidth, height);
             col.offset = Vector2.zero;
         }
+    }
+
+    static bool TryGetPolygonEdgeY(PolygonCollider2D poly, float worldX, bool top, out float edgeY)
+    {
+        edgeY = top ? float.MinValue : float.MaxValue;
+        var path = poly.GetPath(0);
+        if (path != null && path.Length >= 2)
+        {
+            var t = poly.transform;
+            for (int i = 0; i < path.Length; i++)
+            {
+                int j = (i + 1) % path.Length;
+                Vector2 p0 = t.TransformPoint(path[i]);
+                Vector2 p1 = t.TransformPoint(path[j]);
+                float x0 = p0.x;
+                float x1 = p1.x;
+                if (!((x0 <= worldX && worldX <= x1) || (x1 <= worldX && worldX <= x0)))
+                    continue;
+
+                if (Mathf.Abs(x1 - x0) < 0.0001f)
+                {
+                    edgeY = top ? Mathf.Max(edgeY, Mathf.Max(p0.y, p1.y)) : Mathf.Min(edgeY, Mathf.Min(p0.y, p1.y));
+                    continue;
+                }
+
+                float tSeg = Mathf.Clamp01((worldX - x0) / (x1 - x0));
+                float y = Mathf.Lerp(p0.y, p1.y, tSeg);
+                edgeY = top ? Mathf.Max(edgeY, y) : Mathf.Min(edgeY, y);
+            }
+            if (top && edgeY > float.MinValue) return true;
+            if (!top && edgeY < float.MaxValue) return true;
+        }
+        return false;
+    }
+
+    static bool TryGetHorizontalOverlap(CloudPlatform lower, CloudPlatform upper, out float overlapMin, out float overlapMax)
+    {
+        overlapMin = float.MaxValue;
+        overlapMax = float.MinValue;
+        bool found = false;
+        var lowerCols = lower.GetComponentsInChildren<Collider2D>();
+        var upperCols = upper.GetComponentsInChildren<Collider2D>();
+
+        for (int i = 0; i < lowerCols.Length; i++)
+        {
+            var lc = lowerCols[i];
+            if (lc == null || !lc.enabled || lc.isTrigger) continue;
+            Bounds lb = lc.bounds;
+            for (int j = 0; j < upperCols.Length; j++)
+            {
+                var uc = upperCols[j];
+                if (uc == null || !uc.enabled || uc.isTrigger) continue;
+                Bounds ub = uc.bounds;
+                float min = Mathf.Max(lb.min.x, ub.min.x);
+                float max = Mathf.Min(lb.max.x, ub.max.x);
+                if (min < max)
+                {
+                    float width = max - min;
+                    if (!found || width > (overlapMax - overlapMin))
+                    {
+                        overlapMin = min;
+                        overlapMax = max;
+                        found = true;
+                    }
+                }
+            }
+        }
+
+        if (found) return true;
+
+        Bounds bl = lower.GetMainBounds();
+        Bounds bu = upper.GetMainBounds();
+        overlapMin = Mathf.Max(bl.min.x, bu.min.x);
+        overlapMax = Mathf.Min(bl.max.x, bu.max.x);
+        return overlapMin < overlapMax;
     }
 }
