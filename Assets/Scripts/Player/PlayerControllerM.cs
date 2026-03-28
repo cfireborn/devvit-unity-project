@@ -535,6 +535,12 @@ public class PlayerControllerM : MonoBehaviour
         }
 
         Vector2 pos = current.GetPosition();
+        bool physicsDrivenPlatform = false;
+        if (current is Component component)
+        {
+            var platformRb = component.GetComponent<Rigidbody2D>();
+            physicsDrivenPlatform = platformRb != null && platformRb.bodyType == RigidbodyType2D.Kinematic;
+        }
         if (_lastMovingPlatform != current)
         {
             _lastMovingPlatform = current;
@@ -545,7 +551,15 @@ public class PlayerControllerM : MonoBehaviour
         Vector2 delta = pos - _lastMovingPlatformPosition;
         _lastMovingPlatformPosition = pos;
         if (delta.sqrMagnitude > 0.0001f)
+        {
             rb.position += delta;
+
+            if (physicsDrivenPlatform && !groundChecker.IsOnLadder)
+            {
+                float dt = Mathf.Max(0.0001f, TickOrFixedDelta());
+                rb.linearVelocity += delta / dt;
+            }
+        }
     }
 
     // Returns the correct timestep whether we're running in OnTick (networked) or FixedUpdate (offline).
