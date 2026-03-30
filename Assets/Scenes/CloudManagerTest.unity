@@ -3476,6 +3476,73 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 975279401}
   m_CullTransparentMesh: 1
+--- !u!1 &988808689
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 988808692}
+  - component: {fileID: 988808691}
+  - component: {fileID: 988808690}
+  m_Layer: 0
+  m_Name: TestRunner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &988808690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 988808689}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35cea41ef187d4e9da50e2873cca0e02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TestSceneVisualizer
+  cloudManager: {fileID: 0}
+  ladderController: {fileID: 0}
+  cloudGizmoColor: {r: 0.3, g: 0.8, b: 1, a: 0.9}
+  ladderGizmoColor: {r: 1, g: 0.65, b: 0.2, a: 0.9}
+  rangeGizmoColor: {r: 0.4, g: 1, b: 0.4, a: 0.35}
+--- !u!114 &988808691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 988808689}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f50fefda77c94700be982db1d9b9372, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CloudManagerTestRunner
+  cloudSpawnTimeoutSeconds: 6
+  movementSampleIntervalSeconds: 0.4
+  networkBootstrapper: {fileID: 0}
+  networkCloudManager: {fileID: 0}
+  cloudManager: {fileID: 0}
+--- !u!4 &988808692
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 988808689}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &991627783
 GameObject:
   m_ObjectHideFlags: 0
@@ -8164,3 +8231,4 @@ SceneRoots:
   - {fileID: 1680007392}
   - {fileID: 477864945}
   - {fileID: 1319779688}
+  - {fileID: 988808692}
