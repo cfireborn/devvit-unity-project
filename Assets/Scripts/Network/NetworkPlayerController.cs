@@ -32,6 +32,15 @@ public class NetworkPlayerController : NetworkBehaviour
     float _visualSyncTimer;
     const float VisualSyncInterval = 1f / 15f;
 
+    // Remote player colors: Red, Blue, Indigo, Purple
+    private static readonly Color[] RemotePlayerColors = new Color[]
+    {
+        new Color(1f, 0.2f, 0.2f),    // Red
+        new Color(0.2f, 0.6f, 1f),    // Blue
+        new Color(0.3f, 0.2f, 0.8f),  // Indigo
+        new Color(0.8f, 0.2f, 1f)     // Purple/Violet
+    };
+
     void Awake()
     {
         _controller = GetComponent<PlayerControllerM>();
@@ -63,6 +72,14 @@ public class NetworkPlayerController : NetworkBehaviour
         {
             if (_controller != null) _controller.enabled = false;
             if (_rb != null) _rb.simulated = false;
+
+            // Apply rainbow tint to remote players
+            if (_spriteRenderer != null)
+            {
+                // Consistent color based on player's connection ID
+                int colorIndex = OwnerId % RemotePlayerColors.Length;
+                _spriteRenderer.color = RemotePlayerColors[colorIndex];
+            }
         }
     }
 
