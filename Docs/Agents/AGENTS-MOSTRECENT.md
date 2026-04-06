@@ -88,7 +88,18 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 
 ## Testing & Operational Tips
 - **Multiplayer Play Mode**: Window → Multiplayer Play Mode. Keep the main editor window focused when acting as host; launch 1–3 virtual players for quick regression tests.
-- **WebGL smoke test**: `cd Builds/WebGL && python3 -m http.server 8080`, then open `http://localhost:8080/compersion`. Ensure Admin Menu's `AttemptConnection` is true so WebGL actually dials Bayou.
+- **WebGL smoke test** (serve the browser build locally):
+  ```
+  cd /Users/cfire/Desktop/devvit-unity-project/Builds/WebGL
+  python3 -m http.server 8080
+  ```
+  Then open `http://localhost:8080` in a browser. Ensure Admin Menu's `AttemptConnection` is true so WebGL actually dials Bayou.
+- **Local macOS server** (run a dedicated server from the terminal without Unity):
+  ```
+  cd /Users/cfire/Desktop/devvit-unity-project/Builds/MacOSServer
+  ./SampleGame
+  ```
+  The server starts headless and listens on the configured Tugboat port (default 7777). Editor/standalone clients can then connect to `localhost`.
 - **Verifying Cloudflare**: After containerizing, inspect the plugin log for the line that downloads `cloudflared-linux-amd64`. If missing, re-run `update-edgegap-dockerfile.sh` before rebuilding.
 - **Offline fallback**: Force it by blanking the Edgegap address or setting `AdminMenuPrefs.AttemptConnection = false`. Confirm `CloudManager` + `CloudLadderController` re-enable and the player tint flips grey.
 

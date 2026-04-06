@@ -43,6 +43,16 @@ public class AdminMenu : MonoBehaviour
     [Tooltip("Input field for editing Edgegap Bayou (TCP/WS) port at runtime.")]
     [SerializeField] TMP_InputField edgegapBayouPortInput;
 
+    [Header("Cloud Controls")]
+    [Tooltip("Optional — auto-found at runtime if blank.")]
+    [SerializeField] CloudManager cloudManager;
+    [Tooltip("Optional — auto-found at runtime if blank.")]
+    [SerializeField] CloudLadderController cloudLadderController;
+    [Tooltip("Label on the freeze button — auto-updated when toggled.")]
+    [SerializeField] TMP_Text freezeCloudsLabel;
+    [Tooltip("Label on the ladder building toggle button — auto-updated when toggled.")]
+    [SerializeField] TMP_Text ladderBuildingLabel;
+
     [Header("Debug Log")]
     [SerializeField] GameObject debugLogPanel;
     [SerializeField] TMP_Text debugLogText;
@@ -184,26 +194,44 @@ public class AdminMenu : MonoBehaviour
         ShowStatus(audio.mute ? "Muted." : "Unmuted.", isError: false);
     }
 
-    // ── Extensible action buttons ─────────────────────────────────
-    // Add new public methods here and wire them to Buttons in the Inspector.
+    // ── Cloud action buttons ──────────────────────────────────────
+    // Wire each method to its Button's OnClick in the Inspector.
 
-    /// <summary>
-    /// Example: spawn an extra cloud platform. Wire to a Button.
-    /// Replace the body with whatever admin action you need.
-    /// </summary>
-    public void SpawnCloud()
+    CloudManager GetCloudManager() =>
+        cloudManager != null ? cloudManager : cloudManager = FindFirstObjectByType<CloudManager>();
+
+    CloudLadderController GetLadderController() =>
+        cloudLadderController != null ? cloudLadderController : cloudLadderController = FindFirstObjectByType<CloudLadderController>();
+
+    /// <summary>Freeze or resume all cloud movement. Button label auto-updates.</summary>
+    public void ToggleFreezeClouds()
     {
-        var cm = FindFirstObjectByType<CloudManager>();
-        if (cm != null)
-        {
-            // Call whichever public spawn method CloudManager exposes.
-            // cm.ForceSpawnCloud();
-            ShowStatus("SpawnCloud: wire to CloudManager method.", isError: false);
-        }
-        else
-        {
-            ShowStatus("CloudManager not found.", isError: true);
-        }
+        var cm = GetCloudManager();
+        if (cm == null) { ShowStatus("CloudManager not found.", isError: true); return; }
+        cm.ToggleCloudFreeze();
+        bool frozen = cm.CloudsFrozen;
+        if (freezeCloudsLabel != null) freezeCloudsLabel.text = frozen ? "Resume Clouds" : "Freeze Clouds";
+        ShowStatus(frozen ? "Clouds frozen." : "Clouds resumed.", isError: false);
+    }
+
+    /// <summary>Flip the travel direction of every active cloud lane.</summary>
+    public void ReverseCloudDirections()
+    {
+        var cm = GetCloudManager();
+        if (cm == null) { ShowStatus("CloudManager not found.", isError: true); return; }
+        cm.ReverseAllLaneSpeeds();
+        ShowStatus("Cloud directions reversed.", isError: false);
+    }
+
+    /// <summary>Enable or disable the CloudLadderController (stops building new ladders and removes existing ones).</summary>
+    public void ToggleLadderBuilding()
+    {
+        var lc = GetLadderController();
+        if (lc == null) { ShowStatus("CloudLadderController not found.", isError: true); return; }
+        lc.enabled = !lc.enabled;
+        bool active = lc.enabled;
+        if (ladderBuildingLabel != null) ladderBuildingLabel.text = active ? "Stop Ladders" : "Start Ladders";
+        ShowStatus(active ? "Ladder building enabled." : "Ladder building stopped.", isError: false);
     }
 
     // ── Edgegap input field handlers ─────────────────────────────

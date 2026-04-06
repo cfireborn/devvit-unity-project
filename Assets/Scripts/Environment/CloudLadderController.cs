@@ -262,7 +262,7 @@ public class CloudLadderController : MonoBehaviour
         Bounds bu = upper.GetMainBounds();
 
         float gap = bu.min.y - bl.max.y;
-        if (gap < minVerticalGap) return false;
+        if (gap < minVerticalGap - 0.05f) return false; // 5 cm hysteresis prevents flicker near threshold
         if (gap > maxVerticalGap) return false;
 
         return true;

@@ -103,6 +103,7 @@ public class CloudManager : MonoBehaviour
     readonly List<PlayerViewRect> _viewportCullRects = new List<PlayerViewRect>();
 
     Transform _poolParent;
+    bool _cloudsFrozen;
 
     #endregion
 
@@ -180,7 +181,7 @@ public class CloudManager : MonoBehaviour
             if (!lane.isActive || lane.prefab == null || !LaneSlotLayoutValid(lane)) continue;
 
             float loopLen = lane.slotCount * lane.step;
-            if (loopLen > 0f)
+            if (loopLen > 0f && !_cloudsFrozen)
             {
                 float delta = lane.speed * dt / loopLen;
                 lane.loopPhase = Mathf.Repeat(lane.loopPhase + delta, 1f);
@@ -562,7 +563,6 @@ public class CloudManager : MonoBehaviour
     {
         if (slotIndex < 0 || slotIndex >= lane.clouds.Count) return;
         if (lane.clouds[slotIndex] != null) return;
-        if (settings.maxDynamicClouds > 0 && DynamicCloudCount >= settings.maxDynamicClouds) return;
         if (!TryGetSpawnScale(lane, out float scale)) return;
 
         Vector2 nat = GetPrefabNativeMainSize(lane.prefab);
@@ -575,6 +575,9 @@ public class CloudManager : MonoBehaviour
             return;
         if (!MainBoundsVisibleToAnyPlayer(spawnBounds))
             return;
+        // Cap check runs after visibility: visible slots always spawn to keep the viewport filled;
+        // only off-screen pre-spawns (within viewportMargin) are capped to bound pool size.
+        if (settings.maxDynamicClouds > 0 && DynamicCloudCount >= settings.maxDynamicClouds) return;
 
         AcquireCloudFromPool(lane, scale, out GameObject cloud, out CloudPlatform platform);
         platform.pooledWorldY = spawnY;
@@ -795,6 +798,42 @@ public class CloudManager : MonoBehaviour
     #endregion
 
     #region Public API
+
+    /// <summary>True while cloud movement is paused via ToggleCloudFreeze().</summary>
+    public bool CloudsFrozen => _cloudsFrozen;
+
+    /// <summary>Pause or resume all cloud movement. Pooled clouds stop advancing their loop phase;
+    /// non-pooled scene clouds have their isMoving flag cleared/restored.</summary>
+    public void ToggleCloudFreeze()
+    {
+        _cloudsFrozen = !_cloudsFrozen;
+        foreach (var go in _nonPooled)
+        {
+            if (go == null) continue;
+            var platform = go.GetComponent<CloudPlatform>();
+            if (platform == null) continue;
+            if (_cloudsFrozen)
+                platform.isMoving = false;
+            else if (!platform.IsBoundaryStopped && !platform.IsDespawning)
+                platform.isMoving = true;
+        }
+    }
+
+    /// <summary>Flip the travel direction of every active lane. Non-pooled scene clouds are reversed too.</summary>
+    public void ReverseAllLaneSpeeds()
+    {
+        if (_lanes != null)
+            foreach (var lane in _lanes)
+                if (lane.isActive) lane.speed = -lane.speed;
+
+        foreach (var go in _nonPooled)
+        {
+            if (go == null) continue;
+            var platform = go.GetComponent<CloudPlatform>();
+            if (platform != null)
+                platform.SetMovementSpeed(-platform.moveSpeed);
+        }
+    }
 
     public void RegisterNoSpawnZone(CloudNoSpawnZone zone)
     {
