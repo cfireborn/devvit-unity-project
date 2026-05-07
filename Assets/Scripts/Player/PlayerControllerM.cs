@@ -285,6 +285,8 @@ public class PlayerControllerM : MonoBehaviour
     {
         if (settings == null || goalReached) return;
 
+        ApplyMovingPlatformDelta();
+
         bool isOnLadder = groundChecker != null && groundChecker.IsOnLadder;
         if (isOnLadder)
         {
@@ -542,7 +544,7 @@ public class PlayerControllerM : MonoBehaviour
 
     void LateUpdate()
     {
-        ApplyMovingPlatformDelta();
+        // ApplyMovingPlatformDelta moved to ApplyMovement (FixedUpdate/OnTick) to prevent drift and jitter.
     }
 
     void ApplyMovingPlatformDelta()
@@ -574,18 +576,19 @@ public class PlayerControllerM : MonoBehaviour
 
         Vector2 delta = pos - _lastMovingPlatformPosition;
         _lastMovingPlatformPosition = pos;
-        if (!groundChecker.IsOnLadder)
-            rb.position += delta;
 
-        if (physicsDrivenPlatform && !groundChecker.IsOnLadder)
         {
-            float dt = Mathf.Max(0.0001f, TickOrFixedDelta());
-            _currentPlatformVelocity = delta / dt;
         }
-        else
+
+        // Only manually move the player if it's NOT a physics-driven platform (which handles it automatically)
+        // OR if the player is on a ladder (ladders are usually triggers, so no physics contact movement)
+        if (groundChecker.IsOnLadder || !physicsDrivenPlatform)
         {
-            _currentPlatformVelocity = Vector2.zero;
+            rb.position += delta;
         }
+
+        float dt = Mathf.Max(0.0001f, TickOrFixedDelta());
+        _currentPlatformVelocity = delta / dt;
     }
 
     void ResolveSideContacts()
