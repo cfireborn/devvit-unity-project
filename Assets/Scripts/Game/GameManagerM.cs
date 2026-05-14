@@ -9,7 +9,7 @@ public class GameManagerM : MonoBehaviour
     [Tooltip("Either assign a PlayerController prefab or place a PlayerController in the scene (will use existing if prefab not set)")]
     public PlayerControllerM playerPrefab;
     public CloudManager cloudManager;
-    public Transform startPoint;
+    public Transform respawnPoint;
 
     [Header("Goal Trigger (replace goalPoint)")]
     [Tooltip("Assign an InteractionTrigger used as the level goal. The GameManager will subscribe to its onInteract event.")]
@@ -32,7 +32,7 @@ public class GameManagerM : MonoBehaviour
 
         if (gameState != null)
         {
-            if (startPoint != null) gameState.startPosition = startPoint.position;
+            if (respawnPoint != null) gameState.startPosition = respawnPoint.position;
             if (goalTrigger != null) gameState.goalPosition = goalTrigger.transform.position;
         }
 
@@ -126,9 +126,9 @@ public class GameManagerM : MonoBehaviour
     {
         if (playerInstance != null) return; // already spawned
 
-        if (playerPrefab != null && startPoint != null)
+        if (playerPrefab != null && respawnPoint != null)
         {
-            var spawned = Instantiate(playerPrefab, startPoint.position, Quaternion.identity);
+            var spawned = Instantiate(playerPrefab, respawnPoint.position, Quaternion.identity);
             // RegisterPlayer fires onPlayerRegistered → OnPlayerRegistered() sets playerInstance
             gameServices?.RegisterPlayer(spawned);
         }
@@ -137,7 +137,7 @@ public class GameManagerM : MonoBehaviour
             var existing = FindFirstObjectByType<PlayerControllerM>();
             if (existing != null)
             {
-                if (startPoint != null) existing.transform.position = startPoint.position;
+                if (respawnPoint != null) existing.transform.position = respawnPoint.position;
                 gameServices?.RegisterPlayer(existing);
             }
             else
@@ -178,7 +178,7 @@ public class GameManagerM : MonoBehaviour
 
         if (player != null)
         {
-            Vector3 spawnPos = startPoint != null ? startPoint.position : player.transform.position;
+            Vector3 spawnPos = respawnPoint != null ? respawnPoint.position : player.transform.position;
             player.ResetForRespawn(spawnPos);
             if (playerSettings != null) player.settings = playerSettings;
             if (gameState != null) player.gameState = gameState;

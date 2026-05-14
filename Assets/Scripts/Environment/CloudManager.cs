@@ -197,8 +197,8 @@ public class CloudManager : MonoBehaviour
                     continue;
                 }
 
-                var platform = cloud.GetComponent<CloudPlatform>();
-                var rb = cloud.GetComponent<Rigidbody2D>();
+                var platform = GetCloudPlatform(cloud);
+                var rb = platform != null ? platform.GetComponent<Rigidbody2D>() : null;
                 if (platform == null || rb == null)
                     continue;
 
@@ -397,10 +397,10 @@ public class CloudManager : MonoBehaviour
                 if (cloud == null) continue;
                 if (_nonPooled.Contains(cloud)) continue;
 
-                var platform = cloud.GetComponent<CloudPlatform>();
+                var platform = GetCloudPlatform(cloud);
                 if (platform == null || !platform.isPooled || platform.IsDespawning) continue;
 
-                var rb = cloud.GetComponent<Rigidbody2D>();
+                var rb = platform.GetComponent<Rigidbody2D>();
                 if (rb == null) continue;
 
                 Vector2 nat = GetPrefabNativeMainSize(lane.prefab);
@@ -462,6 +462,9 @@ public class CloudManager : MonoBehaviour
     {
         return lane.slotCount > 0 && lane.clouds.Count == lane.slotCount;
     }
+
+    static CloudPlatform GetCloudPlatform(GameObject cloud) =>
+        cloud != null ? cloud.GetComponentInChildren<CloudPlatform>(true) : null;
 
     void ActivateLane(LaneState lane)
     {
@@ -603,7 +606,7 @@ public class CloudManager : MonoBehaviour
         var temp = Instantiate(prefab, _poolParent);
         temp.transform.position = Vector3.zero;
         temp.transform.localScale = Vector3.one;
-        var p = temp.GetComponent<CloudPlatform>();
+        var p = GetCloudPlatform(temp);
         if (p == null) p = temp.AddComponent<CloudPlatform>();
         Bounds b = p.GetMainBounds();
         Object.Destroy(temp);
@@ -672,7 +675,7 @@ public class CloudManager : MonoBehaviour
             cloud = Instantiate(prefab, _poolParent);
 
         cloud.transform.localScale = new Vector3(scale, scale, scale);
-        platform = cloud.GetComponent<CloudPlatform>();
+        platform = GetCloudPlatform(cloud);
         if (platform == null) platform = cloud.AddComponent<CloudPlatform>();
         platform.pooledSourcePrefab = prefab;
         platform.SetCloudManager(this);
@@ -762,7 +765,7 @@ public class CloudManager : MonoBehaviour
 
         _active.Remove(cloud);
 
-        var platform = cloud.GetComponent<CloudPlatform>();
+        var platform = GetCloudPlatform(cloud);
         if (_lanes != null && platform != null && platform.laneIndex >= 0 && platform.laneIndex < _lanes.Length)
         {
             LaneState lane = _lanes[platform.laneIndex];
@@ -810,7 +813,7 @@ public class CloudManager : MonoBehaviour
         foreach (var go in _nonPooled)
         {
             if (go == null) continue;
-            var platform = go.GetComponent<CloudPlatform>();
+            var platform = GetCloudPlatform(go);
             if (platform == null) continue;
             if (_cloudsFrozen)
                 platform.isMoving = false;
@@ -829,7 +832,7 @@ public class CloudManager : MonoBehaviour
         foreach (var go in _nonPooled)
         {
             if (go == null) continue;
-            var platform = go.GetComponent<CloudPlatform>();
+            var platform = GetCloudPlatform(go);
             if (platform != null)
                 platform.SetMovementSpeed(-platform.moveSpeed);
         }
@@ -844,6 +847,182 @@ public class CloudManager : MonoBehaviour
     public void RegisterBlockSpawnZone(CloudNoSpawnZone zone) => RegisterNoSpawnZone(zone);
 
     public IReadOnlyList<GameObject> GetActiveClouds() => _active;
+
+    /// <summary>Lane baselines match internal pooled lane layout (extended boundary or fallback).</summary>
+    public bool TryGetLaneLayout(out float baseY, out int laneCount, out float laneSpacing)
+    {
+        baseY = 0f;
+        laneCount = 0;
+        laneSpacing = 0f;
+        if (settings == null) return false;
+        laneSpacing = settings.laneSpacing;
+        GetLaneCountAndBaseY(out laneCount, out baseY);
+        return true;
+    }
+
+    /// <summary>Axis-aligned bounds covering lane baselines and horizontal spawn span.</summary>
+    public bool TryGetSpawnBounds(out Bounds bounds)
+    {
+        bounds = default;
+        if (settings == null) return false;
+        GetLaneCountAndBaseY(out int laneCount, out float baseY);
+        GetLaneHorizontalSpan(out float left, out float right);
+        float minY = baseY;
+        float maxY = baseY + (laneCount - 1) * settings.laneSpacing;
+        float height = Mathf.Max(maxY - minY, 0.01f);
+        float width = Mathf.Max(right - left, 0.01f);
+        Vector3 center = new Vector3((left + right) * 0.5f, (minY + maxY) * 0.5f, 0f);
+        bounds = new Bounds(center, new Vector3(width, height, 0f));
+        return true;
+    }
+
+    /// <summary>True if cloud main bounds overlap a blockSpawn <see cref="CloudNoSpawnZone"/>.</summary>
+    public bool IsMainBoundsBlockedByNoSpawnZones(Bounds cloudMainBounds) =>
+        IntersectsAnyBlockSpawn(cloudMainBounds);
+
+    /// <summary>
+    /// Samples a world position for a stationary delivery cloud: same horizontal span, lane baseline + height jitter,
+    /// and block-spawn zone rules as pooled clouds. Does not apply viewport visibility or lane slot exit checks.
+    /// </summary>
+    public bool TryPickDeliverySpawnWorldPosition(
+        GameObject prefab,
+        float lanesBaseY,
+        int laneCount,
+        float laneSpacing,
+        IReadOnlyList<int> restrictToLaneIndicesOrNull,
+        Collider2D vicinityOrNull,
+        Vector2 playerPosition,
+        float minDistanceFromPlayerWhenNoVicinity,
+        int maxAttempts,
+        out int chosenLaneIndex,
+        out Vector3 worldPosition)
+    {
+        chosenLaneIndex = -1;
+        worldPosition = default;
+        if (prefab == null || settings == null || laneCount <= 0) return false;
+
+        Vector2 native = GetPrefabNativeMainSize(prefab);
+        float scale = Mathf.Abs(prefab.transform.localScale.x);
+        float halfW = native.x * scale * 0.5f;
+
+        GetLaneHorizontalSpan(out float left, out float right);
+
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            int laneIdx;
+            if (restrictToLaneIndicesOrNull != null && restrictToLaneIndicesOrNull.Count > 0)
+                laneIdx = restrictToLaneIndicesOrNull[Random.Range(0, restrictToLaneIndicesOrNull.Count)];
+            else
+                laneIdx = Random.Range(0, laneCount);
+
+            float laneBaseline = lanesBaseY + laneIdx * laneSpacing;
+            float y = laneBaseline;
+            if (settings.cloudHeightVariation > 0f)
+                y += Random.Range(-settings.cloudHeightVariation, settings.cloudHeightVariation);
+
+            float xmin = left + halfW;
+            float xmax = right - halfW;
+            if (vicinityOrNull != null)
+            {
+                Bounds vb = vicinityOrNull.bounds;
+                xmin = Mathf.Max(xmin, vb.min.x + halfW);
+                xmax = Mathf.Min(xmax, vb.max.x - halfW);
+            }
+
+            if (xmin > xmax) continue;
+
+            float x = Random.Range(xmin, xmax);
+
+            if (vicinityOrNull == null)
+            {
+                if (Vector2.Distance(new Vector2(x, y), playerPosition) < minDistanceFromPlayerWhenNoVicinity)
+                    continue;
+            }
+
+            Bounds mainB = MainBoundsWorld(x, y, native, scale);
+            if (IntersectsAnyBlockSpawn(mainB))
+                continue;
+
+            chosenLaneIndex = laneIdx;
+            worldPosition = new Vector3(x, y, 0f);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Native main-collider size for a prefab at scale 1 (same cache as pooled clouds).</summary>
+    public Vector2 GetPrefabNativeMainSizePublic(GameObject prefab) => GetPrefabNativeMainSize(prefab);
+
+    /// <summary>Horizontal travel speed for a lane while it is active; false if lane index is invalid or inactive.</summary>
+    public bool TryGetActiveLaneSpeed(int laneIndex, out float speed)
+    {
+        speed = 0f;
+        if (_lanes == null || laneIndex < 0 || laneIndex >= _lanes.Length) return false;
+        LaneState lane = _lanes[laneIndex];
+        if (!lane.isActive) return false;
+        speed = lane.speed;
+        return true;
+    }
+
+    /// <summary>
+    /// Moves a non-pooled cloud under lane loop control (same as pooled clouds). Removes it from the non-pooled set.
+    /// <paramref name="poolKeyPrefab"/> is used as <see cref="CloudPlatform.pooledSourcePrefab"/> if the cloud later despawns into the pool.
+    /// </summary>
+    public bool TryAdoptNonPooledCloudIntoLane(GameObject cloud, int laneIndex, GameObject poolKeyPrefab)
+    {
+        if (cloud == null || poolKeyPrefab == null) return false;
+        if (!_nonPooled.Contains(cloud)) return false;
+        if (_lanes == null || laneIndex < 0 || laneIndex >= _lanes.Length) return false;
+
+        LaneState lane = _lanes[laneIndex];
+        if (!lane.isActive || lane.prefab == null || !LaneSlotLayoutValid(lane)) return false;
+
+        var platform = GetCloudPlatform(cloud);
+        if (platform == null) return false;
+
+        var rb = platform.GetComponent<Rigidbody2D>();
+        if (rb == null) return false;
+
+        GetLaneHorizontalSpan(out float left, out float right);
+
+        int bestSlot = -1;
+        float bestDist = float.MaxValue;
+        for (int i = 0; i < lane.clouds.Count; i++)
+        {
+            if (lane.clouds[i] != null) continue;
+            float tx = SlotCenterX(lane, left, i);
+            float d = Mathf.Abs(rb.position.x - tx);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                bestSlot = i;
+            }
+        }
+
+        if (bestSlot < 0) return false;
+
+        float targetX = SlotCenterX(lane, left, bestSlot);
+        Vector2 natCloud = GetPrefabNativeMainSize(poolKeyPrefab);
+        float scaleX = cloud.transform.localScale.x;
+        float spawnY = rb.position.y;
+        platform.pooledWorldY = spawnY;
+        Bounds mainAtTarget = MainBoundsWorld(targetX, spawnY, natCloud, scaleX);
+        GetBlockEntryOverlapParts(mainAtTarget, out _, out bool entryOnlyAtSpawn);
+        platform.pooledPrevOverlapEntryOnly = entryOnlyAtSpawn;
+
+        _nonPooled.Remove(cloud);
+        lane.clouds[bestSlot] = cloud;
+        platform.isPooled = true;
+        platform.isMoving = false;
+        platform.laneIndex = laneIndex;
+        platform.slotIndex = bestSlot;
+        platform.pooledSourcePrefab = poolKeyPrefab;
+        platform.SetMovementSpeed(lane.speed);
+        platform.ignoreNoSpawnZones = true;
+        rb.MovePosition(new Vector2(targetX, spawnY));
+        return true;
+    }
 
     #endregion
 

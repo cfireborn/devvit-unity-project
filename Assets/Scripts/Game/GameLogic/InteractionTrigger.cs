@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -6,6 +7,8 @@ using UnityEngine.Events;
 /// - Fires UnityEvents on enter/exit and explicit interact
 /// - Can filter by tag
 /// - Optionally requires a button press to activate
+/// - Optional activation delay (enter / button path only); <see cref="CancelActivation"/> or destroy clears it
+/// - <see cref="TriggerNow"/> is always immediate (ignores delay)
 /// - Can be single-use or reusable
 /// Useful as a replacement for simple goal points and other interaction volumes.
 /// </summary>
@@ -26,6 +29,16 @@ public class InteractionTrigger : MonoBehaviour
     [Tooltip("If true the GameObject will be deactivated after the trigger fires (when singleUse=true).")]
     public bool autoDisableAfterUse = false;
 
+    [Header("Randomization")]
+    [Tooltip("0–100. Chance this trigger runs when an activation is attempted (enter or button). 100 = always.")]
+    [Range(0f, 100f)]
+    public float activationChancePercent = 100f;
+
+    [Header("Activation timing")]
+    [Tooltip("Seconds to wait after a successful activation attempt before onInteract fires. 0 = immediate. Does not apply to TriggerNow.")]
+    [Min(0f)]
+    public float activationDelaySeconds = 0f;
+
     [Header("Events")]
     public UnityEvent onEnter;
     public UnityEvent onExit;
@@ -41,6 +54,8 @@ public class InteractionTrigger : MonoBehaviour
 
     bool _isOverlapping;
     bool _used;
+    bool _activationDelayPending;
+    Coroutine _activationDelayCoroutine;
     Collider2D _current;
     float _lastInteractTime;
     public float interactCooldown = 0f;
@@ -49,6 +64,12 @@ public class InteractionTrigger : MonoBehaviour
     {
         var c = GetComponent<Collider2D>();
         if (c != null) c.isTrigger = true;
+    }
+
+    public void TryInvokeActivation()
+    {
+        Vector2 contactPoint = _current != null ? _current.ClosestPoint(transform.position) : (Vector2)transform.position;
+        TryActivate(contactPoint);
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -107,14 +128,58 @@ public class InteractionTrigger : MonoBehaviour
     void TryActivate(Vector2 contactPoint)
     {
         if (_used && singleUse) return;
+        if (_activationDelayPending) return;
+
+        float chance = Mathf.Clamp01(activationChancePercent / 100f);
+        if (chance <= 0f) return;
+        if (chance < 1f && Random.value > chance) return;
+
+        if (activationDelaySeconds <= 0f)
+            FireActivation(contactPoint);
+        else
+        {
+            _activationDelayPending = true;
+            if (_activationDelayCoroutine != null)
+                StopCoroutine(_activationDelayCoroutine);
+            _activationDelayCoroutine = StartCoroutine(CoDelayedActivation(contactPoint));
+        }
+    }
+
+    IEnumerator CoDelayedActivation(Vector2 contactPoint)
+    {
+        yield return new WaitForSeconds(activationDelaySeconds);
+        _activationDelayCoroutine = null;
+        FireActivation(contactPoint);
+    }
+
+    void FireActivation(Vector2 contactPoint)
+    {
+        _activationDelayPending = false;
+        _activationDelayCoroutine = null;
         _used = true;
         _lastInteractTime = Time.time;
         onInteract?.Invoke(_current != null ? _current.gameObject : gameObject, contactPoint);
 
         if (singleUse && autoDisableAfterUse)
-        {
             gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// Stops a pending delayed activation (from <see cref="activationDelaySeconds"/>). No-op if nothing is pending.
+    /// </summary>
+    public void CancelActivation()
+    {
+        if (_activationDelayCoroutine != null)
+        {
+            StopCoroutine(_activationDelayCoroutine);
+            _activationDelayCoroutine = null;
         }
+        _activationDelayPending = false;
+    }
+
+    void OnDestroy()
+    {
+        CancelActivation();
     }
 
     /// <summary>
@@ -143,6 +208,7 @@ public class InteractionTrigger : MonoBehaviour
     /// </summary>
     public void ResetTrigger()
     {
+        CancelActivation();
         _used = false;
         _isOverlapping = false;
         _current = null;

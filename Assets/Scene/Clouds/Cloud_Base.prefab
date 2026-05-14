@@ -60,7 +60,8 @@ MonoBehaviour:
   ignoreNoSpawnZones: 0
   canBuildLadder: 1
   mainCollider: {fileID: 0}
-  despawnAnimationDuration: 1
+  despawnAnimator: {fileID: 0}
+  despawnTrigger: Despawn
   networkPrefabIndex: 0
   laneIndex: -1
   slotIndex: -1

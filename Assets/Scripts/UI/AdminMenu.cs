@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -10,8 +9,8 @@ using UnityEngine.UI;
 ///
 /// Show/hide:
 ///   - Call TogglePanel() from a Button's OnClick
-///   - In Editor / Standalone: press backtick (sampleInputList) key
-///   - In WebGL: tap the top-right corner 5 times quickly
+///   - In Editor / Standalone: press backtick — handled by <see cref="GameUIManager"/> (same object tree as mobile UI)
+///   - In WebGL: tap the top-right corner 5 times quickly (detected in <see cref="MobileInputManager"/>, opens via <see cref="GameUIManager"/>)
 ///
 /// To add new action buttons: add a public method here, wire it to a Button in the Inspector.
 /// </summary>
@@ -98,12 +97,6 @@ public class AdminMenu : MonoBehaviour
 
     void Update()
     {
-        // ── Keyboard shortcut (editor / standalone) ───────────────
-#if UNITY_EDITOR || UNITY_STANDALONE
-        if (Keyboard.current != null && Keyboard.current.backquoteKey.wasPressedThisFrame)
-            TogglePanel();
-#endif
-
         // ── Iaapa fading status text ───────────────────────────────
         _timeSinceStatus += Time.deltaTime;
         if (statusFeedbackText != null && _timeSinceStatus < FadeDuration)

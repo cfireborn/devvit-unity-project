@@ -12,6 +12,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 66bffb55b20f7b24aa1dbcc6530e6e54, type: 3}
+    - target: {fileID: 1020163350697320874, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
+      propertyPath: goalIcon
+      value: 
+      objectReference: {fileID: 21300000, guid: 631c77437ff82264eaca89b7aef6dc4c, type: 3}
     - target: {fileID: 1923177682573591630, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
       propertyPath: m_Size.x
       value: 0.25

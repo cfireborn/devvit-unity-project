@@ -398,11 +398,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -1.34
+      value: -1.52
       objectReference: {fileID: 0}
     - target: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1.5
+      value: 2.43
       objectReference: {fileID: 0}
     - target: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: m_LocalPosition.z
@@ -925,7 +925,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e95a6437ae8fbf4482d817e52c0e070, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ItemDeliveryTrigger
+  m_EditorClassIdentifier: Assembly-CSharp::GoalCompletionTrigger
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
@@ -935,7 +935,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 301867554}
-        m_TargetAssemblyTypeName: ItemDeliveryTrigger, Assembly-CSharp
+        m_TargetAssemblyTypeName: GoalCompletionTrigger, Assembly-CSharp
         m_MethodName: TriggerNow
         m_Mode: 1
         m_Arguments:
@@ -955,7 +955,7 @@ MonoBehaviour:
   gizmoRadius: 0.15
   interactCooldown: 0
   deliveryGoal: {fileID: 301867555}
-  onDeliverySuccess:
+  onCompletionSucceeded:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 171304674}
@@ -3476,6 +3476,73 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 975279401}
   m_CullTransparentMesh: 1
+--- !u!1 &988808689
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 988808692}
+  - component: {fileID: 988808691}
+  - component: {fileID: 988808690}
+  m_Layer: 0
+  m_Name: TestRunner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &988808690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 988808689}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35cea41ef187d4e9da50e2873cca0e02, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TestSceneVisualizer
+  cloudManager: {fileID: 0}
+  ladderController: {fileID: 0}
+  cloudGizmoColor: {r: 0.3, g: 0.8, b: 1, a: 0.9}
+  ladderGizmoColor: {r: 1, g: 0.65, b: 0.2, a: 0.9}
+  rangeGizmoColor: {r: 0.4, g: 1, b: 0.4, a: 0.35}
+--- !u!114 &988808691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 988808689}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f50fefda77c94700be982db1d9b9372, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CloudManagerTestRunner
+  cloudSpawnTimeoutSeconds: 6
+  movementSampleIntervalSeconds: 0.4
+  networkBootstrapper: {fileID: 0}
+  networkCloudManager: {fileID: 0}
+  cloudManager: {fileID: 0}
+--- !u!4 &988808692
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 988808689}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &991627783
 GameObject:
   m_ObjectHideFlags: 0
@@ -4588,7 +4655,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1333666530}
-        m_TargetAssemblyTypeName: DeliveryGoalTrigger, Assembly-CSharp
+        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
         m_MethodName: set_enabled
         m_Mode: 6
         m_Arguments:
@@ -4600,7 +4667,7 @@ MonoBehaviour:
           m_BoolArgument: 1
         m_CallState: 2
       - m_Target: {fileID: 1333666530}
-        m_TargetAssemblyTypeName: DeliveryGoalTrigger, Assembly-CSharp
+        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
         m_MethodName: EnableGoal
         m_Mode: 1
         m_Arguments:
@@ -4658,7 +4725,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2bfb4e3bfc815da4a8099bc4bedcbb98, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeliveryGoalTrigger
+  m_EditorClassIdentifier: Assembly-CSharp::GoalAssignmentTrigger
   deliveryGoal: {fileID: 301867555}
   makePrimaryGoalOnReceive: 1
   associatedItem: {fileID: 0}
@@ -7685,74 +7752,6 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 3.9, y: 13.8}
   m_EdgeRadius: 0
---- !u!1 &2078060594
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2078060597}
-  - component: {fileID: 2078060596}
-  - component: {fileID: 2078060595}
-  m_Layer: 0
-  m_Name: TestRunner
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2078060595
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2078060594}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 35cea41ef187d4e9da50e2873cca0e02, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TestSceneVisualizer
-  cloudManager: {fileID: 0}
-  ladderController: {fileID: 0}
-  cloudGizmoColor: {r: 0.3, g: 0.8, b: 1, a: 0.9}
-  ladderGizmoColor: {r: 1, g: 0.65, b: 0.2, a: 0.9}
-  rangeGizmoColor: {r: 0.4, g: 1, b: 0.4, a: 0.35}
---- !u!114 &2078060596
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2078060594}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e09e0f3ce0e84432aa633595bfc68bcc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LadderManagerTestRunner
-  ladderAppearTimeoutSeconds: 4
-  movementSampleIntervalSeconds: 0.4
-  controlledCloudLower: {fileID: 1144080111}
-  controlledCloudUpper: {fileID: 1419201455}
-  ladderController: {fileID: 0}
-  cloudManager: {fileID: 0}
---- !u!4 &2078060597
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2078060594}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2120384489
 GameObject:
   m_ObjectHideFlags: 0
@@ -8232,4 +8231,4 @@ SceneRoots:
   - {fileID: 1680007392}
   - {fileID: 477864945}
   - {fileID: 1319779688}
-  - {fileID: 2078060597}
+  - {fileID: 988808692}

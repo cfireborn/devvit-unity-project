@@ -23,6 +23,7 @@ public class DialogueUI : MonoBehaviour
     DialogueInstance _currentInstance;
     int _stepIndex;
     bool _isShowing;
+    bool _pushedGameplaySuspend;
     InputAction _subscribedAdvanceAction;
     VirtualJoystick _virtualJoystick;
 
@@ -37,6 +38,12 @@ public class DialogueUI : MonoBehaviour
 
         // Find virtual joystick to exclude it from tap-to-advance
         _virtualJoystick = FindFirstObjectByType<VirtualJoystick>();
+    }
+
+    void OnDestroy()
+    {
+        if (_isShowing)
+            CloseDialogue();
     }
 
     PlayerControllerM GetPlayer()
@@ -56,16 +63,13 @@ public class DialogueUI : MonoBehaviour
             Vector2 touchPosition = Vector2.zero;
             bool hasTouchInput = false;
 
-            // Touch input
             var touchscreen = Touchscreen.current;
             if (touchscreen != null && touchscreen.primaryTouch.press.wasPressedThisFrame)
             {
                 touchPosition = touchscreen.primaryTouch.position.ReadValue();
                 hasTouchInput = true;
-                Debug.Log($"DialogueUI: Touch detected at {touchPosition}");
             }
 
-            // Mouse input (for testing "Show On Desktop For Testing")
             if (!hasTouchInput)
             {
                 var mouse = Mouse.current;
@@ -73,25 +77,17 @@ public class DialogueUI : MonoBehaviour
                 {
                     touchPosition = mouse.position.ReadValue();
                     hasTouchInput = true;
-                    Debug.Log($"DialogueUI: Mouse click at {touchPosition}");
                 }
             }
 
-            // If we have a touch/click, check if it's NOT on the joystick
             if (hasTouchInput)
             {
                 bool isOverJoystick = IsTouchOverJoystick(touchPosition);
-                Debug.Log($"DialogueUI: IsTouchOverJoystick = {isOverJoystick}");
 
                 if (!isOverJoystick)
                 {
-                    Debug.Log("DialogueUI: Advancing dialogue from touch!");
                     AdvanceDialogue();
                     return;
-                }
-                else
-                {
-                    Debug.Log("DialogueUI: Touch in joystick zone, ignoring.");
                 }
             }
         }
@@ -120,13 +116,16 @@ public class DialogueUI : MonoBehaviour
         _currentInstance = instance;
         _stepIndex = 0;
         _isShowing = true;
+        _pushedGameplaySuspend = false;
 
         if (dialoguePanel != null)
             dialoguePanel.SetActive(true);
 
-        var player = GetPlayer();
-        if (player != null)
-            player.SetGameplayInputEnabled(false);
+        if (GameUIManager.Instance != null)
+        {
+            GameUIManager.Instance.PushGameplaySuspend();
+            _pushedGameplaySuspend = true;
+        }
 
         if (advanceAction != null)
         {
@@ -178,6 +177,12 @@ public class DialogueUI : MonoBehaviour
 
     void CloseDialogue()
     {
+        if (_pushedGameplaySuspend)
+        {
+            _pushedGameplaySuspend = false;
+            GameUIManager.Instance?.PopGameplaySuspend();
+        }
+
         _isShowing = false;
         _currentInstance = null;
 
@@ -190,10 +195,6 @@ public class DialogueUI : MonoBehaviour
 
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
-
-        var player = GetPlayer();
-        if (player != null)
-            player.SetGameplayInputEnabled(true);
     }
 
     /// <summary>

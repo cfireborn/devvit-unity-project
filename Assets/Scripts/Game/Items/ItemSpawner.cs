@@ -1,28 +1,27 @@
 using UnityEngine;
 
 /// <summary>
-/// Spawns item prefabs at a position. Can be used by NPCController or other systems.
-/// Calls Item.OnSpawned() on spawned instances that have an Item component.
+/// Spawns prefabs at a position. Calls <see cref="PickupSpawnFeedback.NotifySpawned"/> when present.
 /// </summary>
 public class ItemSpawner : MonoBehaviour
 {
-    [Header("Items")]
-    [Tooltip("Item prefabs to spawn. If SpawnItem() is called without index, uses first prefab.")]
+    [Header("Prefabs")]
+    [Tooltip("Prefabs to spawn. If SpawnItem() is called without index, uses first prefab.")]
     public GameObject[] itemPrefabs;
 
     [Header("Spawn")]
     [Tooltip("Local offset from this transform for spawn position.")]
     public Vector3 spawnOffset = Vector3.zero;
-    [Tooltip("Parent for spawned items. If null, uses this transform.")]
+    [Tooltip("Parent for spawned instances. If null, uses this transform.")]
     public Transform spawnParent;
 
-    /// <summary>Spawn the first item prefab. Returns the instantiated GameObject or null.</summary>
+    /// <summary>Spawn the first prefab. Returns the instantiated GameObject or null.</summary>
     public GameObject SpawnItem()
     {
         return SpawnItem(0);
     }
 
-    /// <summary>Spawn item at index. Returns the instantiated GameObject or null.</summary>
+    /// <summary>Spawn prefab at index. Returns the instantiated GameObject or null.</summary>
     public GameObject SpawnItem(int prefabIndex)
     {
         if (itemPrefabs == null || itemPrefabs.Length == 0) return null;
@@ -48,11 +47,11 @@ public class ItemSpawner : MonoBehaviour
         return instance;
     }
 
-    void NotifySpawned(GameObject instance)
+    static void NotifySpawned(GameObject instance)
     {
-        var item = instance.GetComponent<Item>();
-        if (item != null)
-            item.OnSpawned();
+        var feedback = instance.GetComponent<PickupSpawnFeedback>();
+        if (feedback != null)
+            feedback.NotifySpawned();
     }
 
     void OnDrawGizmosSelected()

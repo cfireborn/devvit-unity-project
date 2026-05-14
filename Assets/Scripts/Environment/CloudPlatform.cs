@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -30,8 +31,10 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     public Collider2D mainCollider;
 
     [Header("Despawn")]
-    [Tooltip("Duration of despawn animation before returning to pool.")]
-    public float despawnAnimationDuration = 1f;
+    [Tooltip("When set, despawn fires this Animator trigger then waits for the current state to finish before DeactivateCloud. When null, despawn is immediate.")]
+    public Animator despawnAnimator;
+    [Tooltip("Animator trigger name (ignored when Despawn Animator is null).")]
+    public string despawnTrigger = "Despawn";
 
     /// <summary>Set by CloudManager on spawn. Identifies which prefab this cloud was created from (for network sync).</summary>
     [HideInInspector]
@@ -61,9 +64,8 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     bool _playerOnCloud;
     bool _isInBlockEntryZone;
     bool _isDespawning;
-    public bool wasActiveAtStart; 
-    float _despawnTimer;
-    Vector3 _scaleAtDespawnStart;
+    public bool wasActiveAtStart;
+    Coroutine _despawnCoroutine;
     Rigidbody2D _rb;
 
     void Awake()
@@ -79,10 +81,15 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void OnEnable()
     {
+        if (_despawnCoroutine != null)
+        {
+            StopCoroutine(_despawnCoroutine);
+            _despawnCoroutine = null;
+        }
+
         _playerOnCloud = false;
         _isInBlockEntryZone = false;
         _isDespawning = false;
-        _despawnTimer = 0f;
         if (isPooled)
         {
             slotIndex = -1;
@@ -90,17 +97,12 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         }
     }
 
-    void Update()
+    void OnDisable()
     {
-        if (_isDespawning)
+        if (_despawnCoroutine != null)
         {
-            _despawnTimer += Time.deltaTime;
-            float t = Mathf.Clamp01(_despawnTimer / despawnAnimationDuration);
-            transform.localScale = _scaleAtDespawnStart * (1f - t);
-            if (_despawnTimer >= despawnAnimationDuration)
-            {
-                _cloudManager?.DeactivateCloud(gameObject);
-            }
+            StopCoroutine(_despawnCoroutine);
+            _despawnCoroutine = null;
         }
     }
 
@@ -117,8 +119,56 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     /// <summary>True when the player is in contact with this cloud. Used by CloudManager for boundary stop vs despawn.</summary>
     public bool IsPlayerOnCloud => _playerOnCloud;
-    /// <summary>True while the cloud is playing the despawn animation. Used by CloudLadderController for keep-active logic.</summary>
+    /// <summary>True while a despawn is in progress (animator wait or same-frame immediate handoff).</summary>
     public bool IsDespawning => _isDespawning;
+
+    /// <summary>
+    /// Starts despawn: optional <see cref="despawnAnimator"/> trigger then <see cref="CloudManager.DeactivateCloud"/> when the animator state completes;
+    /// if <see cref="despawnAnimator"/> is null, deactivates immediately. Does not use boundary-zone state.
+    /// If the player is standing on the cloud, existing collision logic can cancel despawn until they leave.
+    /// </summary>
+    public void BeginDespawnAnimation()
+    {
+        if (_isDespawning) return;
+        isMoving = false;
+        _isDespawning = true;
+
+        if (despawnAnimator == null || string.IsNullOrEmpty(despawnTrigger))
+        {
+            _cloudManager?.DeactivateCloud(gameObject);
+            return;
+        }
+
+        if (_despawnCoroutine != null)
+            StopCoroutine(_despawnCoroutine);
+        _despawnCoroutine = StartCoroutine(CoDespawnAfterAnimator());
+    }
+
+    IEnumerator CoDespawnAfterAnimator()
+    {
+        despawnAnimator.SetTrigger(despawnTrigger);
+
+        yield return null;
+        int waitTransition = 0;
+        while (despawnAnimator.IsInTransition(0) && waitTransition++ < 120)
+            yield return null;
+
+        AnimatorStateInfo st = despawnAnimator.GetCurrentAnimatorStateInfo(0);
+        float len = Mathf.Max(0.01f, st.length);
+        if (st.loop)
+            yield return new WaitForSeconds(len);
+        else
+        {
+            int frames = 0;
+            const int maxFrames = 6000;
+            while (frames++ < maxFrames && despawnAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime < 0.99f)
+                yield return null;
+        }
+
+        _despawnCoroutine = null;
+        _cloudManager?.DeactivateCloud(gameObject);
+        _isDespawning = false;
+    }
 
     /// <summary>True after boundary/exit stop (CloudManager skips driving pooled motion).</summary>
     public bool IsBoundaryStopped => _isInBlockEntryZone;
@@ -134,11 +184,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         _isInBlockEntryZone = true;
         isMoving = false;
         if (!_playerOnCloud)
-        {
-            _isDespawning = true;
-            _despawnTimer = 0f;
-            _scaleAtDespawnStart = transform.localScale;
-        }
+            BeginDespawnAnimation();
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -155,9 +201,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
         _isInBlockEntryZone = false;
         if (!_isDespawning)
-        {
             isMoving = true;
-        }
     }
 
     void OnCollisionEnter2D(Collision2D other)
@@ -167,8 +211,12 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
             _playerOnCloud = true;
             if (_isDespawning)
             {
+                if (_despawnCoroutine != null)
+                {
+                    StopCoroutine(_despawnCoroutine);
+                    _despawnCoroutine = null;
+                }
                 _isDespawning = false;
-                _despawnTimer = 0f;
             }
         }
     }
@@ -179,11 +227,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         {
             _playerOnCloud = false;
             if (_isInBlockEntryZone)
-            {
-                _isDespawning = true;
-                _despawnTimer = 0f;
-                _scaleAtDespawnStart = transform.localScale;
-            }
+                BeginDespawnAnimation();
         }
     }
 
@@ -215,9 +259,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
         var bounds = colliders[0].bounds;
         for (int i = 1; i < colliders.Length; i++)
-        {
             bounds.Encapsulate(colliders[i].bounds);
-        }
         return bounds;
     }
 

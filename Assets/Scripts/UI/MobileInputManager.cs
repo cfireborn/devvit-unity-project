@@ -19,8 +19,8 @@ public class MobileInputManager : MonoBehaviour
     [Tooltip("Automatically create a full-screen touch receiver at runtime (recommended for screen zones).")]
     [SerializeField] private bool autoCreateTouchReceiver = true;
 
-    [Header("Admin Panel")]
-    [SerializeField] private AdminMenu adminMenu;
+    [Header("UI")]
+    [SerializeField] private GameUIManager gameUIManager;
 
     private bool isMobilePlatform = false;
     private static MobileInputManager _instance;
@@ -58,8 +58,10 @@ public class MobileInputManager : MonoBehaviour
         if (virtualJoystick == null)
             virtualJoystick = FindFirstObjectByType<VirtualJoystick>();
 
-        if (adminMenu == null)
-            adminMenu = FindFirstObjectByType<AdminMenu>();
+        if (gameUIManager == null)
+            gameUIManager = GetComponent<GameUIManager>();
+        if (gameUIManager == null)
+            gameUIManager = GameUIManager.Instance;
 
         // Auto-create touch receiver if enabled
         if (autoCreateTouchReceiver && (isMobilePlatform || showOnDesktopForTesting))
@@ -88,17 +90,15 @@ public class MobileInputManager : MonoBehaviour
     {
         Vector2 pos = eventData.position;
         bool inCorner = pos.x > Screen.width * 0.8f && pos.y > Screen.height * 0.6f;
-        Debug.Log($"MobileInputManager: press at {pos} — inCorner={inCorner} ({Screen.width}x{Screen.height})");
         if (!inCorner) return;
 
         _cornerTapCount++;
         _cornerTapTimer = CornerTapWindow;
-        Debug.Log($"MobileInputManager: corner tap {_cornerTapCount}/{CornerTapsNeeded}");
         if (_cornerTapCount >= CornerTapsNeeded)
         {
             _cornerTapCount = 0;
-            if (adminMenu != null)
-                adminMenu.TogglePanel();
+            if (gameUIManager != null)
+                gameUIManager.ToggleAdminFromSecretGesture();
         }
     }
 
@@ -110,10 +110,7 @@ public class MobileInputManager : MonoBehaviour
     {
         // Check if one already exists
         if (FindFirstObjectByType<MobileTouchReceiver>() != null)
-        {
-            Debug.Log("MobileInputManager: TouchReceiver already exists, skipping auto-creation.");
             return;
-        }
 
         // Find the Canvas to parent the touch receiver to
         Canvas canvas = GetComponentInParent<Canvas>();
@@ -123,10 +120,7 @@ public class MobileInputManager : MonoBehaviour
         }
 
         if (canvas == null)
-        {
-            Debug.LogError("MobileInputManager: Cannot create TouchReceiver - no Canvas found!");
             return;
-        }
 
         // Create the touch receiver GameObject
         GameObject touchReceiverObj = new GameObject("TouchReceiver_Auto");
@@ -153,8 +147,6 @@ public class MobileInputManager : MonoBehaviour
         // Setup MobileTouchReceiver component
         MobileTouchReceiver receiver = touchReceiverObj.AddComponent<MobileTouchReceiver>();
         receiver.autoConfigureOnStart = false; // We already configured it
-
-        Debug.Log($"MobileInputManager: Auto-created full-screen TouchReceiver. Size: {rect.rect.width}x{rect.rect.height}");
     }
 
     /// <summary>
