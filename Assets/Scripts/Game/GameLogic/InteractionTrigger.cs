@@ -4,13 +4,12 @@ using UnityEngine.Events;
 /// <summary>
 /// Generic 2D interaction trigger.
 /// - Fires UnityEvents on enter/exit and explicit interact
-/// - Can filter by tag
-/// - Optionally requires a button press to activate
-/// - Can be single-use or reusable
-/// Useful as a replacement for simple goal points and other interaction volumes.
+/// - Inherits <see cref="ActivationTriggerBase"/> for chance, delay, single-use, auto-disable
+/// - <see cref="TriggerNow"/> is immediate: skips chance and <see cref="ActivationTriggerBase.activationDelaySeconds"/>; still respects <see cref="ActivationTriggerBase.singleUse"/>
+/// - Subclasses override <see cref="OnInteractInvoked"/> instead of subscribing to <c>onInteract</c> in code
 /// </summary>
 [RequireComponent(typeof(Collider2D))]
-public class InteractionTrigger : MonoBehaviour
+public class InteractionTrigger : ActivationTriggerBase
 {
     [Header("Filter")]
     [Tooltip("If set, only colliders with this tag will trigger events. Leave empty to allow any collider.")]
@@ -21,10 +20,6 @@ public class InteractionTrigger : MonoBehaviour
     public bool requireButtonPress = false;
     [Tooltip("Input button name used for interaction. Uses Unity Input Manager button names (e.g. 'Submit','Jump' or a custom name).")]
     public string interactButton = "Submit";
-    [Tooltip("If true the trigger will only activate once.")]
-    public bool singleUse = true;
-    [Tooltip("If true the GameObject will be deactivated after the trigger fires (when singleUse=true).")]
-    public bool autoDisableAfterUse = false;
 
     [Header("Events")]
     public UnityEvent onEnter;
@@ -40,10 +35,32 @@ public class InteractionTrigger : MonoBehaviour
     public float gizmoRadius = 0.15f;
 
     bool _isOverlapping;
-    bool _used;
     Collider2D _current;
     float _lastInteractTime;
     public float interactCooldown = 0f;
+
+
+    /// <summary>
+    /// When true after <see cref="OnInteractInvoked"/>, activation consumption (mark used / auto-disable) is skipped.
+    /// Set by subclasses that call <see cref="ResetTrigger"/> on failure so the trigger can fire again.
+    /// </summary>
+    protected bool suppressActivationConsume;
+
+    void OnEnable()
+    {
+        if (_current != null && _isOverlapping)
+        {
+            if (IsAllowed(_current))
+            {
+                OnTriggerEnter2D(_current);
+            }
+            else
+            {
+                _isOverlapping = false;
+                _current = null;
+            }
+        }
+    }
 
     void Reset()
     {
@@ -51,11 +68,18 @@ public class InteractionTrigger : MonoBehaviour
         if (c != null) c.isTrigger = true;
     }
 
+    public void TryInvokeActivation()
+    {
+        Vector2 contactPoint = _current != null ? _current.ClosestPoint(transform.position) : (Vector2)transform.position;
+        TryActivate(contactPoint);
+    }
+
     void OnTriggerEnter2D(Collider2D other)
     {
         if (!IsAllowed(other)) return;
         _isOverlapping = true;
         _current = other;
+        if (!enabled) return;
         onEnter?.Invoke();
 
         if (!requireButtonPress)
@@ -77,7 +101,7 @@ public class InteractionTrigger : MonoBehaviour
 
     void Update()
     {
-        if (requireButtonPress && _isOverlapping && !_used && Time.time - _lastInteractTime >= interactCooldown)
+        if (requireButtonPress && _isOverlapping && !IsBlockedBySingleUse() && Time.time - _lastInteractTime >= interactCooldown)
         {
             if (!string.IsNullOrEmpty(interactButton))
             {
@@ -106,19 +130,29 @@ public class InteractionTrigger : MonoBehaviour
 
     void TryActivate(Vector2 contactPoint)
     {
-        if (_used && singleUse) return;
-        _used = true;
-        _lastInteractTime = Time.time;
-        onInteract?.Invoke(_current != null ? _current.gameObject : gameObject, contactPoint);
+        if (!TryBeginActivationPipeline()) return;
 
-        if (singleUse && autoDisableAfterUse)
-        {
-            gameObject.SetActive(false);
-        }
+        RunDelayedOrImmediate(() => FireActivation(contactPoint));
     }
 
+    void FireActivation(Vector2 contactPoint)
+    {
+        ClearActivationPendingOnly();
+        suppressActivationConsume = false;
+        _lastInteractTime = Time.time;
+        GameObject src = _current != null ? _current.gameObject : gameObject;
+        onInteract?.Invoke(src, contactPoint);
+        OnInteractInvoked(src, contactPoint);
+        if (!suppressActivationConsume)
+            MarkActivationConsumedAndMaybeDisable();
+    }
+
+    /// <summary>Subclass logic after <see cref="onInteract"/> UnityEvent has fired.</summary>
+    protected virtual void OnInteractInvoked(GameObject source, Vector2 contactPoint) { }
+
     /// <summary>
-    /// Programmatically trigger the interaction (ignores input and overlap checks).
+    /// Programmatically trigger the interaction (ignores input, overlap, chance, and activation delay).
+    /// Still respects <see cref="ActivationTriggerBase.singleUse"/>.
     /// </summary>
     public void TriggerNow()
     {
@@ -127,23 +161,24 @@ public class InteractionTrigger : MonoBehaviour
     }
 
     /// <summary>
-    /// Programmatically trigger the interaction and pass the source GameObject and contact point.
+    /// Programmatically trigger with source and contact point. Skips chance and activation delay.
     /// </summary>
     public void TriggerNow(GameObject source, Vector2 contactPoint)
     {
-        if (_used && singleUse) return;
-        _used = true;
+        if (IsBlockedBySingleUse()) return;
+        suppressActivationConsume = false;
         _lastInteractTime = Time.time;
-        onInteract?.Invoke(source != null ? source : gameObject, contactPoint);
-        if (singleUse && autoDisableAfterUse) gameObject.SetActive(false);
+        GameObject src = source != null ? source : gameObject;
+        onInteract?.Invoke(src, contactPoint);
+        OnInteractInvoked(src, contactPoint);
+        if (!suppressActivationConsume)
+            MarkActivationConsumedAndMaybeDisable();
     }
 
-    /// <summary>
-    /// Reset the trigger so it can be used again (useful for level restart or reusable pickups).
-    /// </summary>
     public void ResetTrigger()
     {
-        _used = false;
+        ResetActivationState();
+        suppressActivationConsume = false;
         _isOverlapping = false;
         _current = null;
         _lastInteractTime = 0f;

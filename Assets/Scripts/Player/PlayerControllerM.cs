@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using FishNet;
 using UnityEngine;
@@ -16,13 +17,17 @@ public class PlayerControllerM : MonoBehaviour
     private List<Goal> goals = new List<Goal>();
     [Tooltip("The goal the direction indicator points to (e.g. current delivery target).")]
     private Goal primaryGoal;
+    private int _completedGoalsCount;
 
     /// <summary>All active goals for this player.</summary>
     public IReadOnlyList<Goal> Goals => goals;
     /// <summary>The goal the direction indicator points to.</summary>
     public Goal PrimaryGoal => primaryGoal;
+    /// <summary>Number of goals completed this session (e.g. successful deliveries).</summary>
+    public int CompletedGoalsCount => _completedGoalsCount;
 
-    private Item _carriedItem;
+    /// <summary>Fired after <see cref="CompletedGoalsCount"/> increments from <see cref="CompleteGoal"/>.</summary>
+    public event Action CompletedGoalsCountChanged;
 
     private Rigidbody2D rb;
     private Collider2D playerCollider;
@@ -64,6 +69,12 @@ public class PlayerControllerM : MonoBehaviour
     public Sprite[] walkSprites;
     [Tooltip("Frames per second for simple walk cycle")]
     public float walkFrameRate = 8f;
+
+    [Header("Goal feedback")]
+    [Tooltip("Optional Animator (e.g. on player or child) — receives addGoalAnimationTrigger when AddGoal runs.")]
+    public Animator goalFeedbackAnimator;
+    [Tooltip("Animator trigger parameter name fired when a goal is added.")]
+    public string addGoalAnimationTrigger = "GoalAdded";
 
     // runtime walk animation state
     private int walkIndex = 0;
@@ -449,9 +460,10 @@ public class PlayerControllerM : MonoBehaviour
         if (goal != null && !goals.Contains(goal))
         {
             goals.Add(goal);
+            print($"AddGoal: {goal.displayName}");
+            if (goalFeedbackAnimator != null && !string.IsNullOrEmpty(addGoalAnimationTrigger))
+                goalFeedbackAnimator.SetTrigger(addGoalAnimationTrigger);
         }
-
-        Debug.Log($"PlayerController: Added goal {goal.name}");
     }
 
     /// <summary>Remove a goal from the player's list.</summary>
@@ -467,9 +479,20 @@ public class PlayerControllerM : MonoBehaviour
         }
     }
 
-    /// <summary>Set the primary goal (e.g. for the direction indicator).</summary>
+    /// <summary>Complete an active goal (increments completed count and removes it from the list).</summary>
+    public void CompleteGoal(Goal goal)
+    {
+        if (goal == null || !goals.Contains(goal)) return;
+        _completedGoalsCount++;
+        RemoveGoal(goal);
+        CompletedGoalsCountChanged?.Invoke();
+    }
+
+    /// <summary>Set the primary goal (e.g. for the direction indicator). Ignores goals not in the active list.</summary>
     public void SetPrimaryGoal(Goal goal)
     {
+        if (goal != null && !goals.Contains(goal))
+            return;
         primaryGoal = goal;
     }
 
@@ -477,24 +500,6 @@ public class PlayerControllerM : MonoBehaviour
     public bool HasGoal(Goal goal)
     {
         return goal != null && goals.Contains(goal);
-    }
-
-    /// <summary>Set the currently carried item (from ItemPickupTrigger).</summary>
-    public void SetCarriedItem(Item item)
-    {
-        _carriedItem = item;
-    }
-
-    /// <summary>Get the currently carried item.</summary>
-    public Item GetCarriedItem()
-    {
-        return _carriedItem;
-    }
-
-    /// <summary>Clear the carried item (e.g. after delivery).</summary>
-    public void ClearCarriedItem()
-    {
-        _carriedItem = null;
     }
 
     /// <summary>
@@ -518,11 +523,11 @@ public class PlayerControllerM : MonoBehaviour
     }
 
     /// <summary>
-    /// Move player to spawn and reset movement state only. Goals, carried item, and trigger states are preserved.
+    /// Move player to spawn and reset movement state only. Goals and trigger states are preserved.
     /// </summary>
     public void ResetForRespawn(Vector3 spawnPosition)
     {
-        // reposition and clear velocities only; keep goals, carried item, and trigger states
+        // reposition and clear velocities only; keep goals and trigger states
         transform.position = spawnPosition;
         rb.linearVelocity = Vector2.zero;
 

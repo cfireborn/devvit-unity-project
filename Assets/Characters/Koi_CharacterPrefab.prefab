@@ -24,6 +24,10 @@ PrefabInstance:
       propertyPath: m_UsedByEffector
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 1020163350697320874, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
+      propertyPath: goalIcon
+      value: 
+      objectReference: {fileID: 21300000, guid: 6635d463901d2114cae49797af4e61ee, type: 3}
     - target: {fileID: 1923177682573591630, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
       propertyPath: m_Size.x
       value: 0.18
@@ -32,6 +36,10 @@ PrefabInstance:
       propertyPath: m_Size.y
       value: 0.29
       objectReference: {fileID: 0}
+    - target: {fileID: 2151101707492871581, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 59c71da3ee7c4384f854ce4ffef1eedd, type: 2}
     - target: {fileID: 2848509985452299082, guid: 7e3e58cd31dac37488140c8841fb2d0a, type: 3}
       propertyPath: m_Name
       value: Koi_CharacterPrefab

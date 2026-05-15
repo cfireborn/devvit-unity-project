@@ -15,6 +15,11 @@ public class DialogueTrigger : InteractionTrigger
     [Tooltip("Fired when the dialogue opened by this trigger is completed.")]
     public UnityEvent onDialogueComplete;
 
+    protected override void OnInteractInvoked(GameObject source, Vector2 contactPoint)
+    {
+        ShowDialogue();
+    }
+
     public void ShowDialogue()
     {
         var gs = FindFirstObjectByType<GameServices>();
@@ -25,6 +30,10 @@ public class DialogueTrigger : InteractionTrigger
             handler = () =>
             {
                 ui.onDialogueComplete.RemoveListener(handler);
+                var uiManager = GameUIManager.Instance != null
+                    ? GameUIManager.Instance
+                    : FindFirstObjectByType<GameUIManager>();
+                uiManager?.ApplyGameplayInputFromSuspendCount();
                 onDialogueComplete?.Invoke();
             };
             ui.onDialogueComplete.AddListener(handler);
