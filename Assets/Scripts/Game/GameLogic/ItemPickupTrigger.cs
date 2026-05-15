@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 /// <summary>
 /// Interaction trigger that assigns a goal when the player interacts (physical pickup zone).
@@ -11,17 +10,7 @@ public class ItemPickupTrigger : InteractionTrigger
     [Tooltip("Goal granted when the player interacts.")]
     public Goal goal;
 
-    void Awake()
-    {
-        onInteract.AddListener(HandleInteract);
-    }
-
-    void OnDestroy()
-    {
-        onInteract.RemoveListener(HandleInteract);
-    }
-
-    void HandleInteract(GameObject source, Vector2 contactPoint)
+    protected override void OnInteractInvoked(GameObject source, Vector2 contactPoint)
     {
         if (goal == null) return;
 

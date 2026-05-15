@@ -727,8 +727,8 @@ public class CloudManager : MonoBehaviour
 
     public bool ActivateNonPooledCloud(GameObject cloud)
     {
-        if (cloud == null) return false;
-        if (_queuedInPool.Contains(cloud)) return false;
+        if (cloud == null) { print("CloudManager: cloud is null"); return false; }
+        if (_queuedInPool.Contains(cloud)) { print("CloudManager: cloud is in pool"); return false; }
 
         if (!_nonPooled.Contains(cloud))
             _nonPooled.Add(cloud);

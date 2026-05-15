@@ -104,9 +104,15 @@ public class DialogueUI : MonoBehaviour
         }
     }
 
+    static GameUIManager ResolveGameUIManager() =>
+        GameUIManager.Instance != null ? GameUIManager.Instance : FindFirstObjectByType<GameUIManager>();
+
     /// <summary>Show dialogue. First step is displayed immediately.</summary>
     public void ShowDialogue(DialogueInstance instance)
     {
+        if (_isShowing)
+            CloseDialogue();
+
         if (instance == null || instance.steps == null || instance.steps.Length == 0)
         {
             CloseDialogue();
@@ -121,9 +127,10 @@ public class DialogueUI : MonoBehaviour
         if (dialoguePanel != null)
             dialoguePanel.SetActive(true);
 
-        if (GameUIManager.Instance != null)
+        var uiManager = ResolveGameUIManager();
+        if (uiManager != null)
         {
-            GameUIManager.Instance.PushGameplaySuspend();
+            uiManager.PushGameplaySuspend();
             _pushedGameplaySuspend = true;
         }
 
@@ -180,7 +187,7 @@ public class DialogueUI : MonoBehaviour
         if (_pushedGameplaySuspend)
         {
             _pushedGameplaySuspend = false;
-            GameUIManager.Instance?.PopGameplaySuspend();
+            ResolveGameUIManager()?.PopGameplaySuspend();
         }
 
         _isShowing = false;

@@ -149,11 +149,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1738139335291449445, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 3.22
+      value: 14.15
       objectReference: {fileID: 0}
     - target: {fileID: 1738139335291449445, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -1.85
+      value: 14.07
       objectReference: {fileID: 0}
     - target: {fileID: 1738139335291449445, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_LocalPosition.z
@@ -364,11 +364,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.5
+      value: -0.59
       objectReference: {fileID: 0}
     - target: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 6.25
+      value: 3.71
       objectReference: {fileID: 0}
     - target: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: m_LocalPosition.z
@@ -463,7 +463,9 @@ GameObject:
   - component: {fileID: 284141363}
   - component: {fileID: 284141365}
   - component: {fileID: 284141364}
-  - component: {fileID: 284141366}
+  - component: {fileID: 284141367}
+  - component: {fileID: 284141369}
+  - component: {fileID: 284141368}
   m_Layer: 0
   m_Name: FirstTimeDeliveryInteraction
   m_TagString: Untagged
@@ -493,18 +495,18 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 284141362}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e95a6437ae8fbf4482d817e52c0e070, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GoalCompletionTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 1
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -522,46 +524,10 @@ MonoBehaviour:
   onCompletionSucceeded:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2147255703}
-        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
+      - m_Target: {fileID: 284141369}
+        m_TargetAssemblyTypeName: DialogueTrigger, Assembly-CSharp
         m_MethodName: set_enabled
         m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 2147255703}
-        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
-        m_MethodName: EnableGoal
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 284141366}
-        m_TargetAssemblyTypeName: InteractionTrigger, Assembly-CSharp
-        m_MethodName: set_enabled
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 284141366}
-        m_TargetAssemblyTypeName: InteractionTrigger, Assembly-CSharp
-        m_MethodName: TryInvokeActivation
-        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -610,7 +576,7 @@ CapsuleCollider2D:
   m_Offset: {x: 0, y: 0}
   m_Size: {x: 0.5, y: 0.49}
   m_Direction: 0
---- !u!114 &284141366
+--- !u!114 &284141367
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -619,16 +585,57 @@ MonoBehaviour:
   m_GameObject: {fileID: 284141362}
   m_Enabled: 0
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
+  m_Script: {fileID: 11500000, guid: f8a41c2e9d7b5341e96f4ab02c8e310d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
+  m_EditorClassIdentifier: Assembly-CSharp::RandomCloudDeliveryGoalTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
+  manuallySetGoal: 0
+  goal: {fileID: 0}
+  completionTrigger: {fileID: 563388153}
+  generatedGoalDisplayName: Deliver Spike's Mail
+  makePrimaryGoalOnReceive: 1
+  associatedItem: {fileID: 11400000, guid: 1886145c594f9514c9bca331ff0d05b2, type: 2}
+  onGoalAdded:
+    m_PersistentCalls:
+      m_Calls: []
+  onMadePrimaryGoal:
+    m_PersistentCalls:
+      m_Calls: []
+  onGoalCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+  waitForEnableAnimation: 0
+  animSpriteRenderer: {fileID: 2147255700}
+  enableGoalAnimator: {fileID: 2147255699}
+  enableGoalTrigger: GiveItem
+  enableAnimationDelay: 1
+  cloudPrefabs:
+  - {fileID: 4783953750243772233, guid: c8c6c168ce76f194883422e35d355717, type: 3}
+  vicinity: {fileID: 0}
+  minDistanceFromPlayer: 3
+  maxPlacementAttempts: 48
+--- !u!114 &284141368
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284141362}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a540ce39737cb2840a06102c9c30a61c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 5
+  singleUse: 1
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 1
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 3
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -637,8 +644,14 @@ MonoBehaviour:
       m_Calls: []
   onInteract:
     m_PersistentCalls:
+      m_Calls: []
+  gizmoRadius: 0.15
+  interactCooldown: 0
+  dialogueInstance: {fileID: 11400000, guid: 31aa5fc5c149b114c85494c18fb10b5e, type: 2}
+  onDialogueComplete:
+    m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2147255706}
+      - m_Target: {fileID: 284141367}
         m_TargetAssemblyTypeName: RandomCloudDeliveryGoalTrigger, Assembly-CSharp
         m_MethodName: set_enabled
         m_Mode: 6
@@ -650,7 +663,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 1
         m_CallState: 2
-      - m_Target: {fileID: 2147255706}
+      - m_Target: {fileID: 284141367}
         m_TargetAssemblyTypeName: RandomCloudDeliveryGoalTrigger, Assembly-CSharp
         m_MethodName: EnableGoal
         m_Mode: 1
@@ -662,13 +675,76 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 1
         m_CallState: 2
+--- !u!114 &284141369
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 284141362}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a540ce39737cb2840a06102c9c30a61c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
+  requiredTag: Player
+  requireButtonPress: 0
+  interactButton: Submit
+  onEnter:
+    m_PersistentCalls:
+      m_Calls: []
+  onExit:
+    m_PersistentCalls:
+      m_Calls: []
+  onInteract:
+    m_PersistentCalls:
+      m_Calls: []
   gizmoRadius: 0.15
   interactCooldown: 0
---- !u!1 &301867551 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 977471582668496269, guid: a48a581ee03229346bc21864689520de, type: 3}
-  m_PrefabInstance: {fileID: 2147255698}
-  m_PrefabAsset: {fileID: 0}
+  dialogueInstance: {fileID: 11400000, guid: b32bfd7fcc1f6074ab1d849bc50f3104, type: 2}
+  onDialogueComplete:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2147255703}
+        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
+        m_MethodName: set_enabled
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 2147255703}
+        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
+        m_MethodName: EnableGoal
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 284141368}
+        m_TargetAssemblyTypeName: DialogueTrigger, Assembly-CSharp
+        m_MethodName: set_enabled
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
 --- !u!1 &323603073
 GameObject:
   m_ObjectHideFlags: 0
@@ -1105,11 +1181,11 @@ PrefabInstance:
       objectReference: {fileID: 563388153}
     - target: {fileID: 4642627866923287244, guid: c8c6c168ce76f194883422e35d355717, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1.4600706
+      value: 2.05
       objectReference: {fileID: 0}
     - target: {fileID: 4642627866923287244, guid: c8c6c168ce76f194883422e35d355717, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -3.6186595
+      value: 23.32
       objectReference: {fileID: 0}
     - target: {fileID: 4642627866923287244, guid: c8c6c168ce76f194883422e35d355717, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1210,11 +1286,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4770961392229186818, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.68
+      value: -0.96
       objectReference: {fileID: 0}
     - target: {fileID: 4770961392229186818, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 3.3
+      value: -0.66
       objectReference: {fileID: 0}
     - target: {fileID: 4770961392229186818, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1407,13 +1483,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 0
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 0
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1570,13 +1646,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 0
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 0
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1659,7 +1735,7 @@ Transform:
   m_GameObject: {fileID: 1025854225}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.48, y: -2.38, z: 0}
+  m_LocalPosition: {x: -2.64, y: -1.36, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1750,7 +1826,7 @@ GameObject:
   - component: {fileID: 1234040956}
   - component: {fileID: 1234040959}
   - component: {fileID: 1234040958}
-  - component: {fileID: 1234040957}
+  - component: {fileID: 1234040960}
   m_Layer: 0
   m_Name: FirstTimeDeliveryInteraction
   m_TagString: Untagged
@@ -1773,60 +1849,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1995255497}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1234040957
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1234040955}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
-  requiredTag: Player
-  requireButtonPress: 0
-  interactButton: Submit
-  singleUse: 1
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
-  onEnter:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1234040958}
-        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
-        m_MethodName: set_enabled
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 1234040958}
-        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
-        m_MethodName: EnableGoal
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-  onExit:
-    m_PersistentCalls:
-      m_Calls: []
-  onInteract:
-    m_PersistentCalls:
-      m_Calls: []
-  gizmoRadius: 0.15
-  interactCooldown: 0
 --- !u!114 &1234040958
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1839,6 +1861,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2bfb4e3bfc815da4a8099bc4bedcbb98, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GoalAssignmentTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 1
   manuallySetGoal: 0
   goal: {fileID: 0}
   completionTrigger: {fileID: 284141364}
@@ -1896,6 +1922,88 @@ CapsuleCollider2D:
   m_Offset: {x: 0, y: 0}
   m_Size: {x: 0.26, y: 0.2}
   m_Direction: 1
+--- !u!114 &1234040960
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1234040955}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a540ce39737cb2840a06102c9c30a61c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
+  requiredTag: Player
+  requireButtonPress: 0
+  interactButton: Submit
+  onEnter:
+    m_PersistentCalls:
+      m_Calls: []
+  onExit:
+    m_PersistentCalls:
+      m_Calls: []
+  onInteract:
+    m_PersistentCalls:
+      m_Calls: []
+  gizmoRadius: 0.15
+  interactCooldown: 0
+  dialogueInstance: {fileID: 11400000, guid: f1dff1c95ae034f4ea52175c207e0872, type: 2}
+  onDialogueComplete:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1234040958}
+        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
+        m_MethodName: set_enabled
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 1234040958}
+        m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
+        m_MethodName: EnableGoal
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 1144080112}
+        m_TargetAssemblyTypeName: LadderTrigger, Assembly-CSharp
+        m_MethodName: set_enabled
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 1144080112}
+        m_TargetAssemblyTypeName: LadderTrigger, Assembly-CSharp
+        m_MethodName: BuildLadder
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
 --- !u!1 &1293832658 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4191917485501292785, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
@@ -2308,13 +2416,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 1
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
   onEnter:
     m_PersistentCalls:
       m_Calls:
@@ -2334,6 +2442,30 @@ MonoBehaviour:
         m_TargetAssemblyTypeName: GoalAssignmentTrigger, Assembly-CSharp
         m_MethodName: set_enabled
         m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: InteractionTrigger, Assembly-CSharp
+        m_MethodName: set_enabled
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 1
+        m_CallState: 2
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: InteractionTrigger, Assembly-CSharp
+        m_MethodName: TriggerNow
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -2380,13 +2512,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 1
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -2882,6 +3014,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 303525441930506927, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 303525441930506927, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1449159629173147077, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -2892,6 +3032,22 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1449159629173147077, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1724062867079941430, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1724062867079941430, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1724062867079941430, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1724062867079941430, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_SizeDelta.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1800346777573994714, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
@@ -2978,6 +3134,30 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3897017263281310892, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3897017263281310892, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3897017263281310892, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3897017263281310892, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036965407362538753, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036965407362538753, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7234085131030660540, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_Size
       value: 0.99999994
@@ -3000,6 +3180,38 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7338508149759182203, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8653181415854489484, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8653181415854489484, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8653181415854489484, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8653181415854489484, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9054989806869547684, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9054989806869547684, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9054989806869547684, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9054989806869547684, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -3057,6 +3269,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1855974885995178057, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: dialogueInstance
+      value: 
+      objectReference: {fileID: 11400000, guid: f1dff1c95ae034f4ea52175c207e0872, type: 2}
     - target: {fileID: 3510274450619226084, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.102000326
@@ -3118,23 +3334,51 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8551636676243237798, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: manuallySetGoal
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8551636676243237798, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: completionTrigger
       value: 
       objectReference: {fileID: 2147255704}
+    - target: {fileID: 8551636676243237798, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: autoDisableAfterUse
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8551636676243237798, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: enableAnimationDelay
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8551636676243237798, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: generatedGoalDisplayName
       value: Deliver Letter to Spike
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: singleUse
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: autoDisableAfterUse
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.size
-      value: 2
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 6
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[1].m_Mode
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_Mode
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
@@ -3146,6 +3390,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1995255493}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_Target
+      value: 
+      objectReference: {fileID: 1995255493}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
       value: 2
       objectReference: {fileID: 0}
@@ -3154,11 +3402,19 @@ PrefabInstance:
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: set_enabled
+      value: ResetActivationState
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[1].m_MethodName
+      value: set_enabled
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_MethodName
       value: EnableGoal
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
@@ -3170,6 +3426,10 @@ PrefabInstance:
       value: GoalAssignmentTrigger, Assembly-CSharp
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_TargetAssemblyTypeName
+      value: GoalAssignmentTrigger, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_BoolArgument
       value: 1
       objectReference: {fileID: 0}
@@ -3178,11 +3438,19 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_Arguments.m_BoolArgument
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
       value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 8789560377452694392, guid: 050f98b585d44454791b0829175a34a9, type: 3}
+      propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_Arguments.m_ObjectArgumentAssemblyTypeName
       value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 9192967584226016703, guid: 050f98b585d44454791b0829175a34a9, type: 3}
@@ -3262,7 +3530,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 1995255491}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e95a6437ae8fbf4482d817e52c0e070, type: 3}
   m_Name: 
@@ -3343,13 +3611,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 0
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 0
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -3415,6 +3683,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1667940880}
     m_Modifications:
+    - target: {fileID: 1163927779201094019, guid: a48a581ee03229346bc21864689520de, type: 3}
+      propertyPath: dialogueInstance
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 1163927779201094019, guid: a48a581ee03229346bc21864689520de, type: 3}
+      propertyPath: onDialogueComplete.m_PersistentCalls.m_Calls.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1163927779201094019, guid: a48a581ee03229346bc21864689520de, type: 3}
+      propertyPath: onDialogueComplete.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 4130264255439941166, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.18200016
@@ -3460,16 +3740,24 @@ PrefabInstance:
       value: Puffer_CharacterPrefab
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
+      propertyPath: singleUse
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.size
-      value: 2
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 6
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[1].m_Mode
-      value: 1
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_Mode
@@ -3490,7 +3778,7 @@ PrefabInstance:
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_Target
       value: 
-      objectReference: {fileID: 2147255702}
+      objectReference: {fileID: 2147255703}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[3].m_Target
       value: 
@@ -3513,15 +3801,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: set_enabled
+      value: ResetUsedState
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[1].m_MethodName
-      value: EnableGoal
+      value: set_enabled
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_MethodName
-      value: TryInvokeActivation
+      value: EnableGoal
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[3].m_MethodName
@@ -3537,7 +3825,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[2].m_TargetAssemblyTypeName
-      value: InteractionTrigger, Assembly-CSharp
+      value: GoalAssignmentTrigger, Assembly-CSharp
       objectReference: {fileID: 0}
     - target: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: onCompletionSucceeded.m_PersistentCalls.m_Calls.Array.data[3].m_TargetAssemblyTypeName
@@ -3580,6 +3868,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1995255492}
     - target: {fileID: 9172461664276730476, guid: a48a581ee03229346bc21864689520de, type: 3}
+      propertyPath: enableAnimationDelay
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9172461664276730476, guid: a48a581ee03229346bc21864689520de, type: 3}
       propertyPath: generatedGoalDisplayName
       value: Delivery to Gray
       objectReference: {fileID: 0}
@@ -3593,9 +3885,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3169818124557560469, guid: a48a581ee03229346bc21864689520de, type: 3}
       insertIndex: -1
       addedObject: {fileID: 171304674}
-    - targetCorrespondingSourceObject: {fileID: 977471582668496269, guid: a48a581ee03229346bc21864689520de, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2147255706}
   m_SourcePrefab: {fileID: 100100000, guid: a48a581ee03229346bc21864689520de, type: 3}
 --- !u!95 &2147255699 stripped
 Animator:
@@ -3617,7 +3906,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8535832267821188213, guid: a48a581ee03229346bc21864689520de, type: 3}
   m_PrefabInstance: {fileID: 2147255698}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 301867551}
+  m_GameObject: {fileID: 0}
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
@@ -3628,7 +3917,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 9172461664276730476, guid: a48a581ee03229346bc21864689520de, type: 3}
   m_PrefabInstance: {fileID: 2147255698}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 301867551}
+  m_GameObject: {fileID: 0}
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2bfb4e3bfc815da4a8099bc4bedcbb98, type: 3}
@@ -3639,49 +3928,12 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8078454902497407666, guid: a48a581ee03229346bc21864689520de, type: 3}
   m_PrefabInstance: {fileID: 2147255698}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 301867551}
-  m_Enabled: 0
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e95a6437ae8fbf4482d817e52c0e070, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GoalCompletionTrigger
---- !u!114 &2147255706
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 301867551}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8a41c2e9d7b5341e96f4ab02c8e310d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RandomCloudDeliveryGoalTrigger
-  manuallySetGoal: 0
-  goal: {fileID: 0}
-  goalDeliveryCompletionTrigger: {fileID: 563388153}
-  generatedGoalDisplayName: Deliver Spike's Mail
-  makePrimaryGoalOnReceive: 1
-  associatedItem: {fileID: 11400000, guid: 1886145c594f9514c9bca331ff0d05b2, type: 2}
-  onGoalAdded:
-    m_PersistentCalls:
-      m_Calls: []
-  onMadePrimaryGoal:
-    m_PersistentCalls:
-      m_Calls: []
-  onGoalCompleted:
-    m_PersistentCalls:
-      m_Calls: []
-  waitForEnableAnimation: 0
-  animSpriteRenderer: {fileID: 2147255700}
-  enableGoalAnimator: {fileID: 2147255699}
-  enableGoalTrigger: GiveItem
-  enableAnimationDelay: 1
-  cloudPrefabs:
-  - {fileID: 4783953750243772233, guid: c8c6c168ce76f194883422e35d355717, type: 3}
-  vicinity: {fileID: 0}
-  minDistanceFromPlayer: 3
-  maxPlacementAttempts: 48
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

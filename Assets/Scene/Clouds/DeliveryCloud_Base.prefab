@@ -58,11 +58,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeliveryCloudPlatform
   moveSpeed: 0
   isPooled: 1
-  isMoving: 1
+  isMoving: 0
   ignoreNoSpawnZones: 0
   canBuildLadder: 1
   mainCollider: {fileID: 0}
-  despawnAnimator: {fileID: 0}
+  despawnAnimator: {fileID: 4036905594190477535}
   despawnTrigger: Despawn
   networkPrefabIndex: 0
   laneIndex: -1
@@ -308,7 +308,7 @@ MonoBehaviour:
   _componentIndexCache: 1
   _addedNetworkObject: {fileID: 3865330841086821826}
   _networkObjectCache: {fileID: 3865330841086821826}
-  _platformWasEnabledAtStart: 0
+  _platformWasEnabledAtStart: 1
 --- !u!61 &1065751000533457610
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -728,13 +728,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e95a6437ae8fbf4482d817e52c0e070, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GoalCompletionTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
-  singleUse: 1
-  autoDisableAfterUse: 0
-  activationChancePercent: 100
-  activationDelaySeconds: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -791,9 +791,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8a41c2e9d7b5341e96f4ab02c8e310d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RandomCloudDeliveryGoalTrigger
+  activationChancePercent: 100
+  activationDelaySeconds: 0
+  singleUse: 1
+  autoDisableAfterUse: 0
   manuallySetGoal: 0
   goal: {fileID: 0}
-  goalDeliveryCompletionTrigger: {fileID: 0}
+  completionTrigger: {fileID: 0}
   generatedGoalDisplayName: Task
   makePrimaryGoalOnReceive: 1
   associatedItem: {fileID: 11400000, guid: 1886145c594f9514c9bca331ff0d05b2, type: 2}

@@ -1,15 +1,62 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-[CustomEditor(typeof(GoalAssignmentTrigger))]
+[CustomEditor(typeof(GoalAssignmentTrigger), true)]
 public class GoalAssignmentTriggerEditor : Editor
 {
+    static readonly HashSet<string> ActivationFieldNames = new HashSet<string>
+    {
+        "activationChancePercent",
+        "activationDelaySeconds",
+        "singleUse",
+        "autoDisableAfterUse"
+    };
+
+    static readonly HashSet<string> GoalSourceFieldNames = new HashSet<string>
+    {
+        "manuallySetGoal",
+        "goal",
+        "completionTrigger",
+        "generatedGoalDisplayName"
+    };
+
     public override void OnInspectorGUI()
     {
         serializedObject.Update();
-        var manual = serializedObject.FindProperty("manuallySetGoal");
 
+        using (new EditorGUI.DisabledScope(true))
+        {
+            SerializedProperty scriptProp = serializedObject.FindProperty("m_Script");
+            if (scriptProp != null)
+                EditorGUILayout.PropertyField(scriptProp);
+        }
+
+        DrawActivationSection();
+        DrawGoalSourceSection();
+        DrawRemainingSerializedProperties();
+
+        serializedObject.ApplyModifiedProperties();
+    }
+
+    void DrawActivationSection()
+    {
+        EditorGUILayout.Space(4f);
+        EditorGUILayout.LabelField("Activation", EditorStyles.boldLabel);
+        foreach (string name in ActivationFieldNames)
+        {
+            SerializedProperty p = serializedObject.FindProperty(name);
+            if (p != null)
+                EditorGUILayout.PropertyField(p);
+        }
+    }
+
+    void DrawGoalSourceSection()
+    {
+        EditorGUILayout.Space(6f);
+        EditorGUILayout.LabelField("Goal source", EditorStyles.boldLabel);
+        SerializedProperty manual = serializedObject.FindProperty("manuallySetGoal");
         EditorGUILayout.PropertyField(manual);
         if (manual.boolValue)
             EditorGUILayout.PropertyField(serializedObject.FindProperty("goal"));
@@ -18,23 +65,34 @@ public class GoalAssignmentTriggerEditor : Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("completionTrigger"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("generatedGoalDisplayName"));
         }
+    }
 
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("makePrimaryGoalOnReceive"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("associatedItem"));
+    void DrawRemainingSerializedProperties()
+    {
+        EditorGUILayout.Space(6f);
+        SerializedProperty iterator = serializedObject.GetIterator();
+        if (!iterator.NextVisible(true))
+            return;
 
-        EditorGUILayout.Space();
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("onGoalAdded"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("onMadePrimaryGoal"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("onGoalCompleted"));
+        do
+        {
+            if (ShouldSkipProperty(iterator))
+                continue;
 
-        EditorGUILayout.Space();
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("waitForEnableAnimation"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("enableGoalAnimator"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("animSpriteRenderer"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("enableGoalTrigger"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("enableAnimationDelay"));
+            EditorGUILayout.PropertyField(iterator, true);
+        }
+        while (iterator.NextVisible(false));
+    }
 
-        serializedObject.ApplyModifiedProperties();
+    bool ShouldSkipProperty(SerializedProperty prop)
+    {
+        if (prop.name == "m_Script")
+            return true;
+        if (ActivationFieldNames.Contains(prop.name))
+            return true;
+        if (GoalSourceFieldNames.Contains(prop.name))
+            return true;
+        return false;
     }
 }
 #endif

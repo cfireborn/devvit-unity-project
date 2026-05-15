@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 416957903ce8daa4cbf8b3a61dc43588, type: 3}
+  m_Name: SpikeTutorialDialogue_2
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
+  steps:
+  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+    text: Oh also! You're not just Gray's mailmain right? I have some normal mail
+      it'd be super
+  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+    text: ...
+  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+    text: No I don't care which one you do first, you can choose

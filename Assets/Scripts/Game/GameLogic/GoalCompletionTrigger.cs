@@ -22,21 +22,12 @@ public class GoalCompletionTrigger : InteractionTrigger
     [Tooltip("Fired when the player interacts but does not have the required goal.")]
     public UnityEvent onCompletionFailed;
 
-    void Awake()
-    {
-        onInteract.AddListener(HandleInteract);
-    }
-
-    void OnDestroy()
-    {
-        onInteract.RemoveListener(HandleInteract);
-    }
-
-    void HandleInteract(GameObject source, Vector2 contactPoint)
+    protected override void OnInteractInvoked(GameObject source, Vector2 contactPoint)
     {
         if (goal == null)
         {
             ResetTrigger();
+            suppressActivationConsume = true;
             onCompletionFailed?.Invoke();
             return;
         }
@@ -44,12 +35,14 @@ public class GoalCompletionTrigger : InteractionTrigger
         var player = source != null ? source.GetComponentInParent<PlayerControllerM>() : null;
         if (player != null && player.HasGoal(goal))
         {
+            print("GoalCompletionTrigger: completing goal: " + goal.displayName);
             player.CompleteGoal(goal);
             onCompletionSucceeded?.Invoke();
         }
         else
         {
             ResetTrigger();
+            suppressActivationConsume = true;
             onCompletionFailed?.Invoke();
         }
     }

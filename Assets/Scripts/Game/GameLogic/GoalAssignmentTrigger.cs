@@ -4,10 +4,11 @@ using UnityEngine.Events;
 
 /// <summary>
 /// Assigns a <see cref="Goal"/> to the player (dialogue, NPC, scripted enable).
+/// Inherits <see cref="ActivationTriggerBase"/> for chance, activation delay, and single-use.
 /// Either references an existing Goal (<see cref="manuallySetGoal"/>), or creates one at runtime from
 /// <see cref="completionTrigger"/> and <see cref="generatedGoalDisplayName"/>.
 /// </summary>
-public class GoalAssignmentTrigger : MonoBehaviour
+public class GoalAssignmentTrigger : ActivationTriggerBase
 {
     [Header("Goal source")]
     [Tooltip("When true, assign the Goal reference below. When false, a Goal is created when EnableGoal runs (see Completion Trigger + Display Name).")]
@@ -41,46 +42,61 @@ public class GoalAssignmentTrigger : MonoBehaviour
     [Min(0f)]
     public float enableAnimationDelay = 1f;
 
-    bool _enableGoalRoutineRunning;
-    Goal _runtimeGeneratedGoal;
+    protected bool _enableGoalRoutineRunning;
+    protected Goal _runtimeGeneratedGoal;
 
-    void OnDestroy()
+    protected override void OnDestroy()
     {
         if (_runtimeGeneratedGoal != null)
         {
             Destroy(_runtimeGeneratedGoal.gameObject);
             _runtimeGeneratedGoal = null;
         }
+        base.OnDestroy();
     }
 
     /// <summary>Add the goal to the player. Call from dialogue complete, UnityEvents, etc.</summary>
-    public void EnableGoal()
+    public virtual void EnableGoal()
     {
         if (_enableGoalRoutineRunning) return;
+        if (!HasSpawnAuthorityForGoalAssignment()) return;
         if (!CanEnableGoal()) return;
 
         var gs = FindFirstObjectByType<GameServices>();
         var player = gs != null ? gs.GetPlayer() : null;
         if (player == null) return;
 
-        Goal g = ResolveGoalForAssignment();
+        if (!TryBeginActivationPipeline()) return;
 
-        if (waitForEnableAnimation && enableGoalAnimator != null)
-        {
-            StartCoroutine(EnableGoalAfterAnimation(player, g));
-            return;
-        }
-
-        ApplyGoalToPlayer(player, g);
+        RunDelayedOrImmediate(() => ExecuteEnableGoalBody(player));
     }
 
-    bool CanEnableGoal()
+    protected virtual bool HasSpawnAuthorityForGoalAssignment() => true;
+
+    protected virtual bool CanEnableGoal()
     {
         if (manuallySetGoal)
             return goal != null;
         if (completionTrigger == null)
             return false;
         return !string.IsNullOrWhiteSpace(generatedGoalDisplayName);
+    }
+
+    protected virtual Goal TryGetGoalForEnableAnimation(PlayerControllerM player) =>
+        manuallySetGoal ? goal : (_runtimeGeneratedGoal != null ? _runtimeGeneratedGoal : null);
+
+    /// <summary>Runs after activation chance and optional <see cref="ActivationTriggerBase.activationDelaySeconds"/>.</summary>
+    protected virtual void ExecuteEnableGoalBody(PlayerControllerM player)
+    {
+        Goal g = ResolveGoalForAssignment();
+
+        if (waitForEnableAnimation && enableGoalAnimator != null)
+            StartCoroutine(EnableGoalAfterAnimation(player, g));
+        else
+        {
+            ApplyGoalToPlayer(player, g);
+            MarkActivationConsumedAndMaybeDisable();
+        }
     }
 
     Goal ResolveGoalForAssignment()
@@ -121,35 +137,74 @@ public class GoalAssignmentTrigger : MonoBehaviour
         return g;
     }
 
-    void ApplyGoalToPlayer(PlayerControllerM player, Goal goal)
+    /// <summary>Create a runtime goal parented under <paramref name="completion"/> (e.g. spawned delivery).</summary>
+    protected Goal CreateGeneratedGoalForCompletion(GoalCompletionTrigger completion)
     {
-        if (goal == null) return;
+        if (completion == null)
+            return null;
+        if (_runtimeGeneratedGoal != null)
+            return _runtimeGeneratedGoal;
 
-        if (manuallySetGoal && associatedItem != null && goal.item == null)
-            goal.item = associatedItem;
+        var go = new GameObject($"Goal_{generatedGoalDisplayName}");
+        go.transform.SetParent(completion.transform, false);
+        var g = go.AddComponent<Goal>();
+        g.displayName = generatedGoalDisplayName.Trim();
+        g.item = associatedItem;
+        g.assignmentTrigger = this;
+        g.completionTrigger = completion;
+        g.goalIcon = completion.goalIcon;
 
-        player.AddGoal(goal);
+        if (completion.locationMarkerSource != null)
+            g.locationSource = completion.locationMarkerSource;
+        else
+        {
+            g.locationSource = null;
+            g.location = completion.transform.position;
+        }
+
+        completion.goal = g;
+        _runtimeGeneratedGoal = g;
+        return g;
+    }
+
+    protected void WireManualGoalToCompletion(Goal manualGoal, GoalCompletionTrigger completion)
+    {
+        if (manualGoal == null || completion == null) return;
+        completion.goal = manualGoal;
+        manualGoal.completionTrigger = completion;
+    }
+
+    protected void ApplyGoalToPlayer(PlayerControllerM player, Goal goalToAdd)
+    {
+        if (goalToAdd == null) return;
+
+        if (manuallySetGoal && associatedItem != null && goalToAdd.item == null)
+            goalToAdd.item = associatedItem;
+
+        player.AddGoal(goalToAdd);
         onGoalAdded?.Invoke();
 
         if (makePrimaryGoalOnReceive)
         {
-            player.SetPrimaryGoal(goal);
+            player.SetPrimaryGoal(goalToAdd);
             onMadePrimaryGoal?.Invoke();
         }
     }
 
-    IEnumerator EnableGoalAfterAnimation(PlayerControllerM player, Goal goal)
+    IEnumerator EnableGoalAfterAnimation(PlayerControllerM player, Goal animGoal)
     {
         _enableGoalRoutineRunning = true;
-        if (animSpriteRenderer != null && goal != null && goal.item != null && goal.item.icon != null)
-            animSpriteRenderer.sprite = completionTrigger.goal.item.icon;
+        Goal iconGoal = animGoal ?? TryGetGoalForEnableAnimation(player);
+        if (animSpriteRenderer != null && iconGoal != null && iconGoal.item != null && iconGoal.item.icon != null)
+            animSpriteRenderer.sprite = iconGoal.item.icon;
         if (!string.IsNullOrEmpty(enableGoalTrigger))
             enableGoalAnimator.SetTrigger(enableGoalTrigger);
         if (enableAnimationDelay > 0f)
             yield return new WaitForSeconds(enableAnimationDelay);
         else
             yield return null;
-        ApplyGoalToPlayer(player, goal);
+        ApplyGoalToPlayer(player, animGoal);
+        MarkActivationConsumedAndMaybeDisable();
         _enableGoalRoutineRunning = false;
     }
 

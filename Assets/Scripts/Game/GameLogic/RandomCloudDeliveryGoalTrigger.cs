@@ -1,16 +1,18 @@
+using System.Collections;
 using System.Collections.Generic;
 using FishNet;
 using UnityEngine;
 
 /// <summary>
 /// Spawns a random delivery cloud prefab on a lane (optionally constrained to a collider's bounds), enables completion on it,
-/// and adds its Goal to the player. Inherits goal options from <see cref="ItemDeliveryTrigger"/> (manual goal or runtime-generated from spawned <see cref="GoalCompletionTrigger"/>).
-/// Prefabs must include <see cref="DeliveryCloudPlatform"/> (with wired <see cref="GoalCompletionTrigger"/>), and have the completion trigger disabled until spawn.
+/// and adds its Goal to the player. Uses <see cref="GoalAssignmentTrigger"/> for goal source, events, and activation rules.
+/// Set <see cref="GoalAssignmentTrigger.completionTrigger"/> to use a pre-placed delivery in the scene; leave null to spawn from <see cref="cloudPrefabs"/>.
+/// Prefabs must include <see cref="DeliveryCloudPlatform"/> with a wired <see cref="GoalCompletionTrigger"/>.
 /// </summary>
-public class RandomCloudDeliveryGoalTrigger : ItemDeliveryTrigger
+public class RandomCloudDeliveryGoalTrigger : GoalAssignmentTrigger
 {
     [Header("Cloud spawn")]
-    [Tooltip("Random choice each time EnableGoal runs. Each prefab must use DeliveryCloudPlatform.")]
+    [Tooltip("Random choice each time EnableGoal runs when completionTrigger is not set. Each prefab must use DeliveryCloudPlatform.")]
     public GameObject[] cloudPrefabs;
     [Tooltip("Optional: restrict spawn to lanes whose baseline Y falls inside this collider's world bounds (e.g. BoxCollider2D).")]
     public Collider2D vicinity;
@@ -23,7 +25,7 @@ public class RandomCloudDeliveryGoalTrigger : ItemDeliveryTrigger
     GameObject _spawnedCloud;
     DeliveryCloudPlatform _spawnedDelivery;
 
-    protected override bool HasSpawnAuthorityForDelivery()
+    protected override bool HasSpawnAuthorityForGoalAssignment()
     {
         if (InstanceFinder.IsServerStarted) return true;
         var nm = InstanceFinder.NetworkManager;
@@ -31,51 +33,78 @@ public class RandomCloudDeliveryGoalTrigger : ItemDeliveryTrigger
         return true;
     }
 
-    protected override bool RequiresSceneDeliveryCompletion => false;
-
     protected override bool CanEnableGoal()
     {
-        return base.CanEnableGoal() && cloudPrefabs != null && cloudPrefabs.Length > 0;
+        if (manuallySetGoal)
+            return goal != null;
+        if (string.IsNullOrWhiteSpace(generatedGoalDisplayName))
+            return false;
+        if (completionTrigger != null)
+            return true;
+        return cloudPrefabs != null && cloudPrefabs.Length > 0;
     }
 
-    protected override void OnEnableGoalImmediate(PlayerControllerM player)
+    protected override Goal TryGetGoalForEnableAnimation(PlayerControllerM player) =>
+        manuallySetGoal ? goal : null;
+
+    protected override void ExecuteEnableGoalBody(PlayerControllerM player)
     {
-        TrySpawnAndApplyGoal(player);
+        if (waitForEnableAnimation && enableGoalAnimator != null)
+            StartCoroutine(EnableSpawnAfterAnimation(player));
+        else
+            TrySpawnAndApplyGoal(player);
     }
 
-    protected override void OnEnableGoalAfterAnimation(PlayerControllerM player)
+    IEnumerator EnableSpawnAfterAnimation(PlayerControllerM player)
     {
+        _enableGoalRoutineRunning = true;
+        Goal iconGoal = TryGetGoalForEnableAnimation(player);
+        if (animSpriteRenderer != null && iconGoal != null && iconGoal.item != null && iconGoal.item.icon != null)
+            animSpriteRenderer.sprite = iconGoal.item.icon;
+        if (!string.IsNullOrEmpty(enableGoalTrigger))
+            enableGoalAnimator.SetTrigger(enableGoalTrigger);
+        if (enableAnimationDelay > 0f)
+            yield return new WaitForSeconds(enableAnimationDelay);
+        else
+            yield return null;
         TrySpawnAndApplyGoal(player);
+        MarkActivationConsumedAndMaybeDisable();
+        _enableGoalRoutineRunning = false;
     }
 
     void TrySpawnAndApplyGoal(PlayerControllerM player)
     {
+        DestroyPriorSpawn();
+
         GameObject instance;
         DeliveryCloudPlatform delivery;
-        if (goalDeliveryCompletionTrigger == null)
+
+        if (completionTrigger == null)
         {
-            instance = GenerateGoal(player);
-            delivery = instance.GetComponentInChildren<DeliveryCloudPlatform>(true);
+            instance = GenerateSpawnedInstance(player);
+            if (instance == null)
+                return;
+            delivery = instance.GetComponent<DeliveryCloudPlatform>() ?? instance.GetComponentInChildren<DeliveryCloudPlatform>(true);
         }
         else
         {
-            instance = goalDeliveryCompletionTrigger.gameObject;
-            delivery = instance.GetComponentInParent<DeliveryCloudPlatform>(true);
+            delivery = completionTrigger.GetComponentInParent<DeliveryCloudPlatform>(true);
+            instance = delivery.gameObject;
         }
 
         if (delivery == null)
         {
-            string prefabName = instance != null ? instance.name : "null";
-            Debug.LogError("RandomCloudDeliveryGoalTrigger: prefab " + prefabName + " must include DeliveryCloudPlatform.");
-            Destroy(instance);
+            Debug.LogError("RandomCloudDeliveryGoalTrigger: instance must include DeliveryCloudPlatform.");
+            if (completionTrigger == null && instance != null)
+                Destroy(instance);
             return;
         }
 
         if (delivery.GoalCompletionTrigger == null)
         {
-            string prefabName = instance != null ? instance.name : "null";
-            Debug.LogError("RandomCloudDeliveryGoalTrigger: DeliveryCloudPlatform on " + prefabName + " must reference GoalCompletionTrigger.");
-            Destroy(instance);
+            Debug.LogError("RandomCloudDeliveryGoalTrigger: DeliveryCloudPlatform must reference GoalCompletionTrigger.");
+            if (completionTrigger == null && instance != null)
+                Destroy(instance);
             return;
         }
 
@@ -93,34 +122,54 @@ public class RandomCloudDeliveryGoalTrigger : ItemDeliveryTrigger
             if (goalToAssign == null)
             {
                 Debug.LogError("RandomCloudDeliveryGoalTrigger: could not create generated goal.");
-                Destroy(instance);
+                if (completionTrigger == null && instance != null)
+                    Destroy(instance);
                 return;
             }
         }
 
-        /*var gs = FindFirstObjectByType<GameServices>();
+        var gs = FindFirstObjectByType<GameServices>();
         var cm = gs != null ? gs.GetCloudManager() : null;
-        delivery.ConfigureAsStationaryDelivery(cm);
-
-        if (!cm.ActivateNonPooledCloud(instance))
+        if (cm == null || cm.settings == null)
         {
-            Destroy(instance);
+            Debug.LogError("RandomCloudDeliveryGoalTrigger: CloudManager or CloudBehaviorSettings missing.");
+            if (completionTrigger == null && instance != null)
+                Destroy(instance);
             if (!manuallySetGoal && _runtimeGeneratedGoal != null)
             {
                 Destroy(_runtimeGeneratedGoal.gameObject);
                 _runtimeGeneratedGoal = null;
             }
             return;
-        }*/
+        }
+
+        delivery.ConfigureAsStationaryDelivery(cm);
+
+        if (!cm.ActivateNonPooledCloud(instance))
+        {
+            if (completionTrigger == null && instance != null)
+                Destroy(instance);
+            if (!manuallySetGoal && _runtimeGeneratedGoal != null)
+            {
+                Destroy(_runtimeGeneratedGoal.gameObject);
+                _runtimeGeneratedGoal = null;
+            }
+            return;
+        }
 
         _spawnedCloud = instance;
         _spawnedDelivery = delivery;
         delivery.EnableDeliveryCompletion(OnSpawnedDeliverySuccess);
 
         ApplyGoalToPlayer(player, goalToAssign);
+
+        if (!(waitForEnableAnimation && enableGoalAnimator != null))
+        {
+            MarkActivationConsumedAndMaybeDisable();
+        }
     }
 
-    GameObject GenerateGoal(PlayerControllerM player)
+    GameObject GenerateSpawnedInstance(PlayerControllerM player)
     {
         var gs = FindFirstObjectByType<GameServices>();
         var cm = gs != null ? gs.GetCloudManager() : null;
@@ -179,9 +228,7 @@ public class RandomCloudDeliveryGoalTrigger : ItemDeliveryTrigger
             return null;
         }
 
-        GameObject instance = Instantiate(prefab, spawnPos, prefab.transform.rotation);
-
-        return instance;
+        return Instantiate(prefab, spawnPos, prefab.transform.rotation);
     }
 
     void DestroyPriorSpawn()

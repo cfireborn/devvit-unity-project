@@ -63,8 +63,9 @@ public class DeliveryCloudPlatform : CloudPlatform
     }
 
     /// <summary>
-    /// Call when the delivery goal is satisfied. Stays stationary until the player is no longer on this cloud,
-    /// then plays the despawn animation and hands off to <see cref="CloudManager.DeactivateCloud"/>.
+    /// Call when the delivery goal is satisfied. The cloud stays stationary, completion is disabled,
+    /// then <see cref="CloudPlatform.BeginDespawnAnimation"/> runs only after <see cref="CloudPlatform.IsPlayerOnCloud"/> is false
+    /// (player must have collided with this platform using the <c>Player</c> tag — same as <see cref="CloudPlatform"/>).
     /// </summary>
     public void BeginPostDeliveryDespawnWhenPlayerLeaves()
     {
@@ -93,9 +94,10 @@ public class DeliveryCloudPlatform : CloudPlatform
 
     IEnumerator CoDespawnAfterPlayerLeaves()
     {
-        yield return null;
+        yield return new WaitForFixedUpdate();
         while (IsPlayerOnCloud)
-            yield return null;
+            yield return new WaitForFixedUpdate();
+        yield return new WaitForFixedUpdate();
         BeginDespawnAnimation();
         _despawnAfterLeaveRoutine = null;
     }

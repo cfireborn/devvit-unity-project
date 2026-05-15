@@ -281,6 +281,7 @@ public sealed class GameUIManager : MonoBehaviour
 
         _boundPlayer.CompletedGoalsCountChanged += OnCompletedGoalsCountChanged;
         RefreshCompletedGoalsLabel();
+        ApplyGameplayInputFromSuspendCount();
     }
 
     void UnbindPlayer()
@@ -314,17 +315,19 @@ public sealed class GameUIManager : MonoBehaviour
     public void PushGameplaySuspend()
     {
         _gameplaySuspendCount++;
-        if (_gameplaySuspendCount == 1)
-            TrySetPlayerGameplayEnabled(false);
+        ApplyGameplayInputFromSuspendCount();
     }
 
     public void PopGameplaySuspend()
     {
         if (_gameplaySuspendCount <= 0) return;
         _gameplaySuspendCount--;
-        if (_gameplaySuspendCount == 0)
-            TrySetPlayerGameplayEnabled(true);
+        ApplyGameplayInputFromSuspendCount();
     }
+
+    /// <summary>Re-applies input enabled/disabled from the suspend stack (e.g. after dialogue closes).</summary>
+    public void ApplyGameplayInputFromSuspendCount() =>
+        TrySetPlayerGameplayEnabled(_gameplaySuspendCount == 0);
 
     void TrySetPlayerGameplayEnabled(bool enabled)
     {
@@ -337,7 +340,7 @@ public sealed class GameUIManager : MonoBehaviour
     {
         if (_gameplaySuspendCount <= 0) return;
         _gameplaySuspendCount = 0;
-        TrySetPlayerGameplayEnabled(true);
+        ApplyGameplayInputFromSuspendCount();
     }
 
     public bool TryOpenGoalSelection()
