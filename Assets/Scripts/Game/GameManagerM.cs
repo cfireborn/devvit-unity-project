@@ -161,7 +161,7 @@ public class GameManagerM : MonoBehaviour
 
     void HandleResetTriggered(GameObject source, Vector2 contactPoint)
     {
-        Debug.Log("GameManager: Player exited boundary. Resetting level.");
+        Debug.Log("GameManager: Player exited boundary. Respawning player at start.");
         ResetGame();
     }
 

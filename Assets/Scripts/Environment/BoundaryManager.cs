@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.Events;
 
 /// <summary>
-/// Defines a rectangular play boundary (safe zone). When the player leaves it, a reset event fires.
+/// Defines a rectangular play boundary (safe zone). When the player leaves it, a respawn event fires.
 /// Intended to sit on the same prefab as GameManager. CloudManager uses the boundary to derive
 /// lane count and to treat outside as no-spawn / stop or despawn for clouds.
 /// </summary>
@@ -16,7 +16,7 @@ public class BoundaryManager : MonoBehaviour
     public float marginY = 5f;
 
     [Header("Events")]
-    [Tooltip("Fired when a collider tagged 'Player' exits the boundary trigger (e.g. GameManager resets the level).")]
+    [Tooltip("Fired when a collider tagged 'Player' exits the boundary trigger (e.g. GameManager respawns the player at the start point).")]
     public UnityEvent<GameObject, Vector2> onPlayerExitedBoundary;
 
     BoxCollider2D _box;

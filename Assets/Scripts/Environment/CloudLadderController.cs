@@ -34,7 +34,7 @@ public class CloudLadderController : MonoBehaviour
     [Header("Params")]
     [Tooltip("Width of the ladder collider and visual (world units).")]
     public float ladderWidth = 0.3f;
-    [Tooltip("Overlap between adjacent middle segments in world units. Increase to remove gaps or create overlap.")]
+    [Tooltip("Overlap between middle ladder sprites in world units. Also used to tuck the middle section slightly into the top/bottom caps to hide seams.")]
     [Range(0f, 2f)]
     public float middleOverlap = 0f;
     [Tooltip("Ladder appears when clouds are within this horizontal distance.")]
@@ -446,10 +446,30 @@ public class CloudLadderController : MonoBehaviour
         float middleH = GetSpriteWorldHeight(ladderMiddleSprite);
 
         float middleTotal = height - topH - bottomH;
-        float step = middleH - Mathf.Clamp(middleOverlap, 0f, middleH - 0.001f);
+        float middleToMiddleOverlap = Mathf.Clamp(middleOverlap, 0f, Mathf.Max(0f, middleH - 0.001f));
+        float step = middleH - middleToMiddleOverlap;
         int middleCount = 0;
-        if (middleTotal > 0.001f && step > 0.001f)
-            middleCount = Mathf.Max(1, 1 + Mathf.CeilToInt((middleTotal - middleH) / step));
+        float firstMiddleY = 0f;
+        float lastMiddleY = 0f;
+        if (middleTotal > 0.001f && middleH > 0.001f && step > 0.001f)
+        {
+            float capJoinOverlap = Mathf.Min(
+                middleOverlap,
+                Mathf.Max(0f, bottomH * 0.5f + middleH * 0.5f - 0.001f),
+                Mathf.Max(0f, topH * 0.5f + middleH * 0.5f - 0.001f));
+
+            firstMiddleY = -height * 0.5f + bottomH + middleH * 0.5f - capJoinOverlap;
+            lastMiddleY = height * 0.5f - topH - middleH * 0.5f + capJoinOverlap;
+
+            if (lastMiddleY <= firstMiddleY)
+            {
+                middleCount = 1;
+            }
+            else
+            {
+                middleCount = 1 + Mathf.CeilToInt((lastMiddleY - firstMiddleY) / step);
+            }
+        }
 
         var bottomTr = GetOrCreateLadderPart(ladder, ChildNameBottom, ladderBottomSprite).transform;
         bottomTr.localPosition = new Vector3(0f, -height * 0.5f + bottomH * 0.5f, 0f);
@@ -457,7 +477,9 @@ public class CloudLadderController : MonoBehaviour
 
         for (int i = 0; i < middleCount; i++)
         {
-            float localY = -height * 0.5f + bottomH + middleH * 0.5f + i * step;
+            float localY = middleCount == 1
+                ? (firstMiddleY + lastMiddleY) * 0.5f
+                : Mathf.Lerp(firstMiddleY, lastMiddleY, i / (float)(middleCount - 1));
             var partName = ChildNameMiddlePrefix + i;
             var middleSr = GetOrCreateLadderPart(ladder, partName, ladderMiddleSprite);
             middleSr.transform.localPosition = new Vector3(0f, localY, 0f);
