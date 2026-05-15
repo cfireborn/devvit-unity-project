@@ -143,6 +143,7 @@ public class PlayerControllerM : MonoBehaviour
             verticalInput = 0f;
             jumpPressedFlag = false;
             _jumpBufferRemaining = 0f;
+            isGliding = false;
         }
     }
 
@@ -224,6 +225,7 @@ public class PlayerControllerM : MonoBehaviour
             verticalInput = 0f;
             jumpPressed = false;
             jumpHeld = false;
+            isGliding = false;
             return;
         }
 
@@ -296,6 +298,7 @@ public class PlayerControllerM : MonoBehaviour
                 rb.gravityScale = 0f;
             }
             _wasOnLadder = true;
+            isGliding = false;
             // On ladder: up/down (verticalInput) climbs, left/right (moveInput) moves horizontally. No gravity.
             rb.linearVelocity = new Vector2(moveInput * settings.moveSpeed, verticalInput * settings.ladderClimbSpeed);
             rb.gravityScale = 0f;
@@ -339,11 +342,8 @@ public class PlayerControllerM : MonoBehaviour
             _coyoteTimeRemaining = 0f;
         }
 
-        // Gliding: when falling and the jump button is held
-        if (!_isGroundedFixed && rb.linearVelocity.y < 0f && jumpHeld)
-        {
-            isGliding = true;
-        }
+        // Gliding is active only while falling and the jump/up input remains held.
+        isGliding = !_isGroundedFixed && rb.linearVelocity.y < 0f && jumpHeld;
 
         if (isGliding)
         {
