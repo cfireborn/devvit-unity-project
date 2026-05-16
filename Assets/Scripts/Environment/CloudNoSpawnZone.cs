@@ -13,10 +13,13 @@ public class CloudNoSpawnZone : MonoBehaviour
     public bool blockEntry;
 
     Collider2D _collider;
+    CloudManager _registeredCloudManager;
 
     void Awake()
     {
         _collider = GetComponent<Collider2D>();
+        var gameServices = FindFirstObjectByType<GameServices>();
+        _registeredCloudManager = gameServices != null ? gameServices.GetCloudManager() : null;
     }
 
     void Reset()
@@ -41,9 +44,13 @@ public class CloudNoSpawnZone : MonoBehaviour
     void Start()
     {
         if (!blockSpawn && !blockEntry) return;
-        var gameServices = FindFirstObjectByType<GameServices>();
-        var cloudManager = gameServices != null ? gameServices.GetCloudManager() : null;
-        cloudManager?.RegisterNoSpawnZone(this);
+        _registeredCloudManager?.RegisterNoSpawnZone(this);
+    }
+
+    void OnDestroy()
+    {
+        _registeredCloudManager?.UnregisterNoSpawnZone(this);
+        _registeredCloudManager = null;
     }
 
     void OnDrawGizmosSelected()

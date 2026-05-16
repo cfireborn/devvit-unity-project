@@ -635,6 +635,7 @@ public class CloudManager : MonoBehaviour
         for (int i = 0; i < n; i++)
         {
             CloudNoSpawnZone z = _noSpawnZones[i];
+            if (z == null) continue;
             if (!z.blockSpawn) continue;
             if (!z.TryGetWorldBounds(out Bounds zb)) continue;
             if (cloudMainBounds.Intersects(zb)) return true;
@@ -654,6 +655,7 @@ public class CloudManager : MonoBehaviour
         for (int i = 0; i < n; i++)
         {
             CloudNoSpawnZone z = _noSpawnZones[i];
+            if (z == null) continue;
             if (!z.blockEntry) continue;
             if (!z.TryGetWorldBounds(out Bounds zb)) continue;
             if (!cloudMainBounds.Intersects(zb)) continue;
@@ -842,6 +844,12 @@ public class CloudManager : MonoBehaviour
     {
         if (zone != null && !_noSpawnZones.Contains(zone))
             _noSpawnZones.Add(zone);
+    }
+
+    public void UnregisterNoSpawnZone(CloudNoSpawnZone zone)
+    {
+        if (zone != null)
+            _noSpawnZones.Remove(zone);
     }
 
     public void RegisterBlockSpawnZone(CloudNoSpawnZone zone) => RegisterNoSpawnZone(zone);

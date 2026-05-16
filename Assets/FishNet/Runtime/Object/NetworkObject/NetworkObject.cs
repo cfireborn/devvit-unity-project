@@ -598,6 +598,7 @@ namespace FishNet.Object
                 // ActiveDuringEdit is only used for scene objects.
                 if (IsSceneObject)
                     WasActiveDuringEdit = true;
+                print("NetworkObjectTryStartDeactivation: " + gameObject.name);
                 gameObject.SetActive(false);
             }
         }

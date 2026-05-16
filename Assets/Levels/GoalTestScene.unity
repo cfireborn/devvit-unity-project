@@ -356,7 +356,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1350014221247916768, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: SceneId
-      value: 1979677079
+      value: 2141974159
       objectReference: {fileID: 0}
     - target: {fileID: 1350014221247916768, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
       propertyPath: WasActiveDuringEdit
@@ -494,7 +494,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 284141362}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e95a6437ae8fbf4482d817e52c0e070, type: 3}
   m_Name: 
@@ -506,6 +506,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -630,6 +631,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -672,7 +674,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 284141362}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f8a41c2e9d7b5341e96f4ab02c8e310d, type: 3}
   m_Name: 
@@ -1130,7 +1132,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3865330841086821826, guid: c8c6c168ce76f194883422e35d355717, type: 3}
       propertyPath: SceneId
-      value: 4294733177
+      value: 532412415
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: c8c6c168ce76f194883422e35d355717, type: 3}
       propertyPath: WasActiveDuringEdit
@@ -1231,7 +1233,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4034196685460683276, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: SceneId
-      value: 4225726935
+      value: 3221202591
       objectReference: {fileID: 0}
     - target: {fileID: 4034196685460683276, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: WasActiveDuringEdit
@@ -1451,6 +1453,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1614,6 +1617,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -1817,7 +1821,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1234040955}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
   m_Name: 
@@ -1829,6 +1833,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls:
@@ -2356,6 +2361,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls:
@@ -2428,6 +2434,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
@@ -2553,7 +2560,7 @@ MonoBehaviour:
   <PrefabId>k__BackingField: 65535
   <SpawnableCollectionId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 0
-  SceneId: 3554605566
+  SceneId: 3753354895
   SerializedTransformProperties:
     Position: {x: 0, y: 0, z: 0}
     Rotation: {x: 0, y: 0, z: 0, w: 0}
@@ -3511,6 +3518,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []

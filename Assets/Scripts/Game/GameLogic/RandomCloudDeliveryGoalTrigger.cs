@@ -157,6 +157,8 @@ public class RandomCloudDeliveryGoalTrigger : GoalAssignmentTrigger
             return;
         }
 
+        delivery.LogNetworkRegistrationDebug("after ActivateNonPooledCloud (_onCloudActivated; expect Spawn if not IsSceneObject)");
+
         _spawnedCloud = instance;
         _spawnedDelivery = delivery;
         delivery.EnableDeliveryCompletion(OnSpawnedDeliverySuccess);

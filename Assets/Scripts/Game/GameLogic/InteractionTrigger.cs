@@ -21,6 +21,8 @@ public class InteractionTrigger : ActivationTriggerBase
     [Tooltip("Input button name used for interaction. Uses Unity Input Manager button names (e.g. 'Submit','Jump' or a custom name).")]
     public string interactButton = "Submit";
 
+    public bool printDebug = false;
+
     [Header("Events")]
     public UnityEvent onEnter;
     public UnityEvent onExit;
@@ -77,13 +79,15 @@ public class InteractionTrigger : ActivationTriggerBase
     void OnTriggerEnter2D(Collider2D other)
     {
         if (!IsAllowed(other)) return;
-        _isOverlapping = true;
+
+       _isOverlapping = true;
         _current = other;
         if (!enabled) return;
         onEnter?.Invoke();
 
         if (!requireButtonPress)
         {
+            if (printDebug) print("TryActivate: onEnter?.Invoke()");
             Vector2 contactPoint = other != null ? other.ClosestPoint(transform.position) : (Vector2)transform.position;
             TryActivate(contactPoint);
         }
@@ -130,7 +134,12 @@ public class InteractionTrigger : ActivationTriggerBase
 
     void TryActivate(Vector2 contactPoint)
     {
+
+        if (printDebug) print("TryActivate: " + contactPoint);
+
         if (!TryBeginActivationPipeline()) return;
+
+        if (printDebug) print("TryActivate: TryBeginActivationPipeline");
 
         RunDelayedOrImmediate(() => FireActivation(contactPoint));
     }

@@ -42,6 +42,7 @@ Transform:
   m_Children:
   - {fileID: 2390059600541747801}
   - {fileID: 8688252857759361925}
+  - {fileID: 9188914869980771640}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5278610883729239577
@@ -72,6 +73,7 @@ MonoBehaviour:
   pooledPrevOverlapEntryOnly: 0
   wasActiveAtStart: 0
   goalCompletionTrigger: {fileID: 5633091554218175895}
+  postDeliveryLeaveTrigger: {fileID: 3426062553875950837}
 --- !u!212 &5488670360206764498
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -222,7 +224,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584292091586088828
+  _initializedTimestamp: -8584227162904302536
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -238,7 +240,7 @@ MonoBehaviour:
   _spectatorInterpolation: 2
   _enableTeleport: 0
   _teleportThreshold: 1
-  <PrefabId>k__BackingField: 7
+  <PrefabId>k__BackingField: 1
   <SpawnableCollectionId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 2252718912750679074
   SceneId: 0
@@ -531,6 +533,75 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CloudNoSpawnZone
   blockSpawn: 1
   blockEntry: 1
+--- !u!1 &6132710279057276624
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9188914869980771640}
+  - component: {fileID: 3426062553875950837}
+  m_Layer: 0
+  m_Name: NoDespawnZone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9188914869980771640
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6132710279057276624}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.01, y: 0.12, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4642627866923287244}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!70 &3426062553875950837
+CapsuleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6132710279057276624}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_Size: {x: 4.07, y: 2.59}
+  m_Direction: 1
 --- !u!1 &7080411849405354243
 GameObject:
   m_ObjectHideFlags: 0
@@ -735,6 +806,7 @@ MonoBehaviour:
   requiredTag: Player
   requireButtonPress: 0
   interactButton: Submit
+  printDebug: 0
   onEnter:
     m_PersistentCalls:
       m_Calls: []
