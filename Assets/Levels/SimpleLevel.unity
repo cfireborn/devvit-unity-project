@@ -1710,6 +1710,17 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 3.9, y: 13.8}
   m_EdgeRadius: 0
+--- !u!114 &985301207 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7471440829977698748, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+  m_PrefabInstance: {fileID: 1947576933}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e453e1b0585d4935a77cc21cada61e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VirtualJoystick
 --- !u!1 &1025854225
 GameObject:
   m_ObjectHideFlags: 0
@@ -2217,8 +2228,8 @@ MonoBehaviour:
   edgegapTugboatAddress: b88db290f79d.pr.edgegap.net
   edgegapTugboatPort: 30473
   editorStartAsHost: 1
-  connectionTimeoutSeconds: 1
-  joystick: {fileID: 0}
+  connectionTimeoutSeconds: 5
+  joystick: {fileID: 985301207}
 --- !u!114 &1319779693
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2279,6 +2290,17 @@ MonoBehaviour:
   _port: 7771
   _maximumClients: 2000
   _clientAddress: localhost
+--- !u!114 &1343354458 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 412753800538628147, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+  m_PrefabInstance: {fileID: 1947576933}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
 --- !u!4 &1419201442 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
@@ -2738,7 +2760,30 @@ MonoBehaviour:
   marginY: 5
   onPlayerExitedBoundary:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 685484874}
+        m_TargetAssemblyTypeName: 
+        m_MethodName: 
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &1504431325 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4449832523319277437, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+  m_PrefabInstance: {fileID: 1864930203}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190467174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4626611950cc360469bc1e4f3706beac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CloudLadderController
 --- !u!1001 &1576647155
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2901,6 +2946,17 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 0.7909858, y: 0.0882473}
   m_EdgeRadius: 0
+--- !u!114 &1856931872 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4287288424924657765, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+  m_PrefabInstance: {fileID: 1947576933}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
 --- !u!1001 &1864930203
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3182,6 +3238,30 @@ PrefabInstance:
       propertyPath: m_AnchorMin.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: bootstrapper
+      value: 
+      objectReference: {fileID: 1319779691}
+    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: cloudManager
+      value: 
+      objectReference: {fileID: 1504431320}
+    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: freezeCloudsLabel
+      value: 
+      objectReference: {fileID: 1343354458}
+    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: targetAudioSource
+      value: 
+      objectReference: {fileID: 519420034}
+    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: ladderBuildingLabel
+      value: 
+      objectReference: {fileID: 1856931872}
+    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: cloudLadderController
+      value: 
+      objectReference: {fileID: 1504431325}
     - target: {fileID: 8653181415854489484, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
