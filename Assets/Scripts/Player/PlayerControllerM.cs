@@ -531,8 +531,6 @@ public class PlayerControllerM : MonoBehaviour
         transform.position = spawnPosition;
         rb.linearVelocity = Vector2.zero;
 
-        goalReached = false;
-
         // reset movement related state
         if (settings != null)
             rb.gravityScale = settings.normalGravityScale;
