@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using FishNet;
+using FishNet.Component.Transforming;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -528,8 +529,19 @@ public class PlayerControllerM : MonoBehaviour
     public void ResetForRespawn(Vector3 spawnPosition)
     {
         // reposition and clear velocities only; keep goals and trigger states
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            rb.position = spawnPosition;
+        }
         transform.position = spawnPosition;
-        rb.linearVelocity = Vector2.zero;
+
+        // Tell FishNet that this large position change is an intentional teleport so
+        // interpolation does not visually pull the player back across the level.
+        var networkTransform = GetComponent<NetworkTransform>();
+        if (networkTransform != null)
+            networkTransform.Teleport();
 
         // reset movement related state
         if (settings != null)

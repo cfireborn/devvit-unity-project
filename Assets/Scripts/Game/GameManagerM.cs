@@ -1,5 +1,7 @@
 using FishNet;
+using JamesFrowen.SimpleWeb;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class GameManagerM : MonoBehaviour
 {
@@ -9,6 +11,7 @@ public class GameManagerM : MonoBehaviour
     [Tooltip("Either assign a PlayerController prefab or place a PlayerController in the scene (will use existing if prefab not set)")]
     public PlayerControllerM playerPrefab;
     public CloudManager cloudManager;
+    [FormerlySerializedAs("startPoint")]
     public Transform respawnPoint;
 
     [Header("Goal Trigger (replace goalPoint)")]
@@ -22,6 +25,8 @@ public class GameManagerM : MonoBehaviour
     // Works for both networked (NetworkPlayerController registers on ownership confirmed)
     // and offline (SpawnPlayerLocal registers immediately).
     private PlayerControllerM playerInstance;
+    private Vector3 _playerStartPosition;
+    private bool _hasPlayerStartPosition;
 
     void Start()
     {
@@ -56,6 +61,12 @@ public class GameManagerM : MonoBehaviour
         if (player == null) return;
 
         playerInstance = player;
+
+        // NetworkPlayerSpawner has its own spawn point, so respawnPoint may legitimately
+        // be unassigned here. Remember the position at which the local player spawned.
+        _playerStartPosition = respawnPoint != null ? respawnPoint.position : player.transform.position;
+        _hasPlayerStartPosition = true;
+        if (gameState != null) gameState.startPosition = _playerStartPosition;
 
         if (playerSettings != null) playerInstance.settings = playerSettings;
         if (gameState != null) playerInstance.gameState = gameState;
@@ -161,6 +172,12 @@ public class GameManagerM : MonoBehaviour
 
     void HandleResetTriggered(GameObject source, Vector2 contactPoint)
     {
+        // BoundaryManager also sees remote players. Only reset the local owned player.
+        var localPlayer = playerInstance ?? gameServices?.GetPlayer();
+        if (localPlayer == null || source == null ||
+            source.GetComponentInParent<PlayerControllerM>() != localPlayer)
+            return;
+
         Debug.Log("GameManager: Player exited boundary. Respawning player at start.");
         ResetGame();
     }
@@ -178,7 +195,13 @@ public class GameManagerM : MonoBehaviour
 
         if (player != null)
         {
-            Vector3 spawnPos = respawnPoint != null ? respawnPoint.position : player.transform.position;
+            // Prefer an explicit marker, then the position captured when this local player
+            // spawned. Falling back to the current position would make reset a no-op.
+            Vector3 spawnPos = respawnPoint != null
+                ? respawnPoint.position
+                : (_hasPlayerStartPosition ? _playerStartPosition : gameState != null
+                    ? gameState.startPosition
+                    : Vector3.zero);
             player.ResetForRespawn(spawnPos);
             if (playerSettings != null) player.settings = playerSettings;
             if (gameState != null) player.gameState = gameState;

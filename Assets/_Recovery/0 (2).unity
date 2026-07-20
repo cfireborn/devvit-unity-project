@@ -311,10 +311,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 4617497127598801563, guid: c9bb9cf0170784860b68d3f6ecd3443b, type: 3}
     - target: {fileID: 8310575160776078934, guid: e77c0cb5bd1bdc647a2be58071874d38, type: 3}
-      propertyPath: respawnPoint
-      value: 
-      objectReference: {fileID: 1025854226}
-    - target: {fileID: 8310575160776078934, guid: e77c0cb5bd1bdc647a2be58071874d38, type: 3}
       propertyPath: resetTriggers.Array.size
       value: 3
       objectReference: {fileID: 0}
@@ -1543,7 +1539,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: -2.4870238}
+  m_Offset: {x: 0, y: -5.48}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -1553,7 +1549,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 21.76, y: 1.6151567}
+  m_Size: {x: 21.76, y: 3.61}
   m_EdgeRadius: 0
 --- !u!1 &685484874 stripped
 GameObject:
@@ -2744,7 +2740,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 14.2009735}
+  m_Offset: {x: 0, y: 0}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -2754,7 +2750,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 50, y: 37.038055}
+  m_Size: {x: 50, y: 65.44}
   m_EdgeRadius: 0
 --- !u!114 &1504431324
 MonoBehaviour:
@@ -3289,6 +3285,14 @@ PrefabInstance:
     - target: {fileID: 8653181415854489484, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8949541663832620839, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -0.000030517578
+      objectReference: {fileID: 0}
+    - target: {fileID: 8949541663832620839, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -0.00028074614
       objectReference: {fileID: 0}
     - target: {fileID: 9054989806869547684, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMax.y
