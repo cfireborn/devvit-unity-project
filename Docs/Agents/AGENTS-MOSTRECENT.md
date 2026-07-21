@@ -1,7 +1,7 @@
 # Agent Handoff — Compersion Multiplayer (March 24, 2026)
 
 ## Snapshot
-- **Game**: Compersion — Unity 6 (6000.2.8f1) 2D platformer embedded via Devvit WebGL iframe.
+- **Game**: Compersion — Unity 6 (6000.2.8f1) 2D platformer published as WebGL on GitHub Pages.
 - **Networking**: FishNet 4.6.22 with Multipass transport (Tugboat UDP for editor/standalone, Bayou WebSocket for WebGL).
 - **Hosting**: Linux headless build packaged through the Edgegap Unity plugin, fronted by a persistent Cloudflare Tunnel (`compersion.charliefeuerborn.com`) for Bayou while Tugboat uses the per-deploy Edgegap hostname.
 - **Offline mode**: Automatic fallback after `NetworkBootstrapper` waits `connectionTimeoutSeconds` (5 s default). Gameplay components expose `ActivateOfflineMode()` so the single-player loop keeps running without a server.
@@ -22,10 +22,10 @@ Assets/
     Network/                    ← Wrappers: NetworkBootstrapper, cloud+ladder sync, player sync, admin UI
 Builds/
   EdgegapServer/                ← Edgegap plugin output (ServerBuild binary et al.)
-  WebGL/                        ← Latest WebGL export (served to Devvit)
+  WebGL/                        ← Latest WebGL export (published to GitHub Pages)
 Docs/Agents/                    ← You are here (AGENTS, AGENTS-MOSTRECENT, plans)
 Server/                         ← Dockerfile, Cloudflare tunnel config, start script
-Tools/export_devvit.sh          ← Packs WebGL build for Devvit upload
+Tools/export_devvit.sh          ← Legacy Devvit exporter; not used for releases
 update-edgegap-dockerfile.sh    ← Copies our Dockerfile into the Edgegap plugin cache
 ```
 
@@ -81,6 +81,7 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 
 ### 4. Address Management After Deployments
 - WebGL/Bayou clients always hit `edgegapAddress` (default `compersion.charliefeuerborn.com`) on port `edgegapBayouPort` (443). The Cloudflare tunnel routes them into the running container regardless of deployment.
+- WebGL attempts this connection automatically on a fresh session. Set `AdminMenuPrefs.AttemptConnection` false only when deliberately testing offline fallback.
 - Tugboat clients (editor, standalone, macOS) must be pointed at the deploy-specific hostname/port pair that Edgegap displays after each launch. Update either the `NetworkBootstrapper` inspector or the Admin Menu overrides before testing.
 - Local testing flips `useLocal` on and uses `localAddress`, `localTugboatPort` (7777), and `localBayouPort` (7771).
 

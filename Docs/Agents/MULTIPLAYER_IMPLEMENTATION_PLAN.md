@@ -19,7 +19,7 @@
 
 ## Overview
 
-Transform the Compersion Unity 2D platformer into a multiplayer game using Fishnet networking with Edgegap server hosting, targeting WebGL deployment on Reddit's Devvit platform.
+Transform the Compersion Unity 2D platformer into a multiplayer game using Fishnet networking with Edgegap server hosting, targeting WebGL deployment on GitHub Pages.
 
 ---
 
@@ -140,7 +140,7 @@ The `CloudLadderController` is not networked. Ladders currently only appear on t
    - MenuItem: "Build/Build Linux Server"
    - `BuildTarget.LinuxHeadlessSimulation`, `StandaloneBuildSubtarget.Server`
    - Output: `Builds/LinuxServer/GameServer`
-2. Build WebGL client via existing `export_devvit.sh` (GZip compression, Decompression Fallback enabled)
+2. Build the WebGL client and publish the generated site through GitHub Pages.
 3. Create `Builds/LinuxServer/Dockerfile`:
    ```dockerfile
    FROM ubuntu:22.04
@@ -164,7 +164,7 @@ The `CloudLadderController` is not networked. Ladders currently only appear on t
 
 ---
 
-### Phase 6 — Polish & Devvit Integration
+### Phase 6 — Polish & Web Integration
 **Goal**: Production-ready with Reddit username display
 
 **Steps**:
@@ -173,7 +173,7 @@ The `CloudLadderController` is not networked. Ladders currently only appear on t
    - Server broadcasts via `[ObserversRpc]`
 2. Username display: TextMesh Pro label above each NetworkPlayer, updated on username RPC
 3. Player color variation: random hue per player, synced via SyncVar
-4. Build pipeline: `build_multiplayer.sh` — WebGL build + Linux server + Docker push, integrates with `export_devvit.sh`
+4. Build pipeline: WebGL build + GitHub Pages publish + Linux server + Docker push.
 5. Production config: secure WebSocket (`wss://`), Edgegap auto-scaling rules, reconnection logic
 
 **Verification**:

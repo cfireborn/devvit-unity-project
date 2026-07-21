@@ -1,10 +1,10 @@
 # Compersion
 
-A 2D Unity platformer embedded in Reddit posts via the [Devvit](https://developers.reddit.com/docs/devvit) platform. Players parkour across procedurally generated moving cloud platforms, climb ladders between them, and complete delivery quests — all live, with other Reddit users in the same session.
+A 2D Unity platformer published as WebGL on GitHub Pages. Players parkour across procedurally generated moving cloud platforms, climb ladders between them, and complete delivery quests — all live, with other players in the same session.
 
 **Engine:** Unity 6 (6000.2.8f1)
 **Networking:** FishNet 4.6.22 (Tugboat UDP for editor testing, Bayou WebSocket for WebGL production)
-**Deployment:** WebGL → Devvit iframe + Linux dedicated server → Edgegap cloud hosting (in progress)
+**Deployment:** WebGL → GitHub Pages + Linux dedicated server → Edgegap cloud hosting (in progress)
 
 ---
 
@@ -261,9 +261,9 @@ Every new spawnable prefab must be registered in **NetworkManager → Spawnable 
 
 ## Building
 
-### WebGL (for Devvit)
+### WebGL (for GitHub Pages)
 
-`File → Build Settings → WebGL → Build`. Use the existing `export_devvit.sh` script for packaging.
+Build with `File → Build Settings → WebGL → Build`, then publish the generated WebGL directory through GitHub Pages. The legacy `export_devvit.sh` script is no longer part of the release workflow.
 
 ### Linux Server + Containerize (for Edgegap)
 

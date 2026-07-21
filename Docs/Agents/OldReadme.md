@@ -5,7 +5,9 @@
 2. Navigate to `Assets/Scenes/SampleScene` and open that scene.
 3. Press Play to test the scene in the Unity environment.
 
-## Exporting for Devvit
+> Historical documentation: Devvit is no longer the publishing target. Current WebGL releases are published through GitHub Pages.
+
+## Exporting for Devvit (legacy)
 Here are the steps to export this project for the configured Devvit Unity Starter Template:
 
 1. In Unity, select **File > Build Profiles** and switch the active platform to **Web**.
