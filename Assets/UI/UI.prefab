@@ -2954,7 +2954,7 @@ MonoBehaviour:
   showDebugText: 0
   useDynamicPosition: 1
   returnToOriginOnRelease: 1
-  useScreenZones: 1
+  useScreenZones: 0
   joystickZoneHeight: 0.33
   maxAlpha: 0.8
   minAlpha: 0.3
@@ -3177,7 +3177,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1449159629173147077}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.99999994
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -4627,8 +4627,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 7001484616098290474}
   m_HandleRect: {fileID: 7338508149759182203}
   m_Direction: 0
-  m_Value: 1
-  m_Size: 0.9999998
+  m_Value: 0
+  m_Size: 0.99999994
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
