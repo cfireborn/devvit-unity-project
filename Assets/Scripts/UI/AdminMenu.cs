@@ -69,7 +69,7 @@ public class AdminMenu : MonoBehaviour
 
     // ── Debug log capture ─────────────────────────────────────────
     readonly List<string> _logLines = new();
-    const int MaxLogLines = 60;
+    const int MaxLogLines = 200;
     bool _logDirty;
 
 
@@ -85,7 +85,7 @@ public class AdminMenu : MonoBehaviour
         if (wasOpen) PopulateEdgegapInputs();
 
         if (debugLogPanel != null)
-            debugLogPanel.SetActive(false);
+            debugLogPanel.SetActive(wasOpen);
 
         Application.logMessageReceived += OnLogMessage;
     }
@@ -129,7 +129,11 @@ public class AdminMenu : MonoBehaviour
     {
         adminPanel.SetActive(!adminPanel.activeSelf);
         if (adminPanel.activeSelf)
+        {
             PopulateEdgegapInputs();
+            if (debugLogPanel != null)
+                debugLogPanel.SetActive(true);
+        }
     }
 
     public void ToggleDebugLog()
@@ -311,10 +315,9 @@ public class AdminMenu : MonoBehaviour
         string bayouAddr   = local ? bootstrapper.localAddress
                                    : (AdminMenuPrefs.EdgegapAddressOverride ?? bootstrapper.edgegapAddress);
         string tugboatAddr = local ? bootstrapper.localAddress
-                                   : (AdminMenuPrefs.EdgegapAddressOverride
-                                      ?? (string.IsNullOrWhiteSpace(bootstrapper.edgegapTugboatAddress)
-                                          ? bootstrapper.edgegapAddress
-                                          : bootstrapper.edgegapTugboatAddress));
+                                   : (string.IsNullOrWhiteSpace(bootstrapper.edgegapTugboatAddress)
+                                      ? bootstrapper.edgegapAddress
+                                      : bootstrapper.edgegapTugboatAddress);
         ushort tPort = local ? bootstrapper.localTugboatPort
                              : (AdminMenuPrefs.EdgegapTugboatPortOverride ?? bootstrapper.edgegapTugboatPort);
         ushort bPort = local ? bootstrapper.localBayouPort
@@ -325,8 +328,8 @@ public class AdminMenu : MonoBehaviour
 
         activeAddressText.text =
             $"<b>[{(local ? "LOCAL" : "EDGEGAP")}]</b>\n" +
-            $"WSS  (Bayou)   : {bayouAddr}:{bPort}\n" +
-            $"UDP  (Tugboat) : {tugboatAddr}:{tPort}";
+            $"Web / mobile (WSS): {bayouAddr}:{bPort}\n" +
+            $"Editor / desktop (UDP): {tugboatAddr}:{tPort}";
 
         if (serverToggleLabel != null)
             serverToggleLabel.text = local ? "Switch to Edgegap" : "Switch to Local";
@@ -367,7 +370,7 @@ public class AdminMenu : MonoBehaviour
             LogType.Assert                       => "<color=orange>[AST]</color> ",
             _                                    => "<color=white>[LOG]</color> "
         };
-        _logLines.Add(prefix + condition);
+        _logLines.Add($"[{System.DateTime.Now:HH:mm:ss}] {prefix}{condition}");
         if (_logLines.Count > MaxLogLines)
             _logLines.RemoveAt(0);
         _logDirty = true;
@@ -395,10 +398,9 @@ public static class AdminMenuPrefs
     public static bool KeepPanelOpen = false;
 
     /// <summary>
-    /// WebGL starts offline by default. Set true before a scene reload to allow
-    /// NetworkBootstrapper to attempt a server connection on the next Start().
+    /// WebGL connects automatically. Set false to force offline mode for testing.
     /// </summary>
-    public static bool AttemptConnection = false;
+    public static bool AttemptConnection = true;
 
     // Edgegap runtime overrides — edited via the admin menu input fields.
     // null = use the inspector field value on NetworkBootstrapper.

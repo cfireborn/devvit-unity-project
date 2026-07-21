@@ -58,6 +58,18 @@ public class NetworkBootstrapper : MonoBehaviour
     ushort _tugboatPort;
     ushort _bayouPort;
 
+    void Awake()
+    {
+        NetworkManager nm = InstanceFinder.NetworkManager;
+        if (nm == null) return;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        SetClientTransport<FishNet.Transporting.Bayou.Bayou>(nm);
+#else
+        SetClientTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
+#endif
+    }
+
     void Start()
     {
         // Compile flag sets the default; AdminMenu can override at runtime.
@@ -81,7 +93,7 @@ public class NetworkBootstrapper : MonoBehaviour
         if (!useLocal)
         {
             if (!string.IsNullOrWhiteSpace(AdminMenuPrefs.EdgegapAddressOverride))
-                _bayouAddress = _tugboatAddress = AdminMenuPrefs.EdgegapAddressOverride;
+                _bayouAddress = AdminMenuPrefs.EdgegapAddressOverride;
             if (AdminMenuPrefs.EdgegapTugboatPortOverride.HasValue)
                 _tugboatPort = AdminMenuPrefs.EdgegapTugboatPortOverride.Value;
             if (AdminMenuPrefs.EdgegapBayouPortOverride.HasValue)
@@ -105,8 +117,7 @@ public class NetworkBootstrapper : MonoBehaviour
         TryStartServer(nm);
 
 #elif UNITY_EDITOR
-        bool isHost = editorStartAsHost && CurrentPlayer.IsMainEditor;
-        SetClientTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
+        bool isHost = useLocal && editorStartAsHost && CurrentPlayer.IsMainEditor;
         if (isHost)
         {
             Debug.Log("NetworkBootstrapper: Editor (Main) — starting as Host.");
@@ -115,25 +126,23 @@ public class NetworkBootstrapper : MonoBehaviour
         }
         else
         {
-            Debug.Log($"NetworkBootstrapper: Editor (Virtual Player) — connecting to {_tugboatAddress}:{_tugboatPort}.");
+            Debug.Log($"NetworkBootstrapper: Editor (Client) — connecting to {_tugboatAddress}:{_tugboatPort}.");
             TryConnectClient(nm, _tugboatAddress, _tugboatPort);
         }
 
 #elif UNITY_WEBGL
         if (!AdminMenuPrefs.AttemptConnection)
         {
-            Debug.Log("NetworkBootstrapper: WebGL — offline by default. Open admin panel and press Retry to connect.");
+            Debug.Log("NetworkBootstrapper: WebGL — connection disabled for this session; starting offline.");
             TriggerOfflineFallback();
             return;
         }
         Debug.Log($"NetworkBootstrapper: WebGL — connecting via Bayou to {_bayouAddress}:{_bayouPort}.");
-        SetClientTransport<FishNet.Transporting.Bayou.Bayou>(nm);
         TryConnectClient(nm, _bayouAddress, _bayouPort);
 
 #else
         // Standalone (macOS / Windows) — Tugboat UDP direct to Edgegap
         Debug.Log($"NetworkBootstrapper: Standalone — connecting via Tugboat to {_tugboatAddress}:{_tugboatPort}.");
-        SetClientTransport<FishNet.Transporting.Tugboat.Tugboat>(nm);
         TryStartServer(nm);
         TryConnectClient(nm, _tugboatAddress, _tugboatPort);
 #endif
@@ -228,6 +237,8 @@ public class NetworkBootstrapper : MonoBehaviour
 
     void OnClientConnectionState(ClientConnectionStateArgs args)
     {
+        Debug.Log($"NetworkBootstrapper: Client state → {args.ConnectionState}.");
+
         if (args.ConnectionState == LocalConnectionState.Started)
         {
             _connectionEstablished = true;

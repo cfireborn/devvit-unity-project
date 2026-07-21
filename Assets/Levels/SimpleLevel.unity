@@ -2235,8 +2235,8 @@ MonoBehaviour:
   localBayouPort: 7771
   edgegapAddress: compersion.charliefeuerborn.com
   edgegapBayouPort: 443
-  edgegapTugboatAddress: b88db290f79d.pr.edgegap.net
-  edgegapTugboatPort: 30473
+  edgegapTugboatAddress: b3cfceb8de9f.pr.edgegap.net
+  edgegapTugboatPort: 30045
   editorStartAsHost: 1
   connectionTimeoutSeconds: 5
   joystick: {fileID: 985301207}
