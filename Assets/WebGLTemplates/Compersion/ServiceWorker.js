@@ -1,20 +1,24 @@
 #if USE_DATA_CACHING
-const cacheName = {{{JSON.stringify(COMPANY_NAME + "-" + PRODUCT_NAME + "-" + PRODUCT_VERSION )}}};
+const version = encodeURIComponent({{{ JSON.stringify(PRODUCT_VERSION) }}});
+const cachePrefix = "unity-webgl-" + self.registration.scope + "-";
+const legacyCachePrefix = {{{ JSON.stringify(COMPANY_NAME + "-" + PRODUCT_NAME + "-") }}};
+const cacheName = cachePrefix + version;
 const contentToCache = [
-    "Build/{{{ LOADER_FILENAME }}}",
-    "Build/{{{ FRAMEWORK_FILENAME }}}",
+    "Build/{{{ LOADER_FILENAME }}}?v=" + version,
+    "Build/{{{ FRAMEWORK_FILENAME }}}?v=" + version,
 #if USE_THREADS
-    "Build/{{{ WORKER_FILENAME }}}",
+    "Build/{{{ WORKER_FILENAME }}}?v=" + version,
 #endif
-    "Build/{{{ DATA_FILENAME }}}",
-    "Build/{{{ CODE_FILENAME }}}",
-    "TemplateData/style.css"
+    "Build/{{{ DATA_FILENAME }}}?v=" + version,
+    "Build/{{{ CODE_FILENAME }}}?v=" + version,
+    "TemplateData/style.css?v=" + version
 
 ];
 #endif
 
 self.addEventListener('install', function (e) {
     console.log('[Service Worker] Install');
+    self.skipWaiting();
 
 #if USE_DATA_CACHING
     e.waitUntil((async function () {
@@ -25,17 +29,47 @@ self.addEventListener('install', function (e) {
 #endif
 });
 
+self.addEventListener('activate', function (e) {
+    e.waitUntil((async function () {
+#if USE_DATA_CACHING
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames
+        .filter(name => name !== cacheName &&
+          (name.startsWith(cachePrefix) || name.startsWith(legacyCachePrefix)))
+        .map(name => caches.delete(name)));
+#endif
+      await self.clients.claim();
+    })());
+});
+
 #if USE_DATA_CACHING
 self.addEventListener('fetch', function (e) {
+    if (e.request.method !== 'GET') { return; }
+
     e.respondWith((async function () {
-      let response = await caches.match(e.request);
+      const cache = await caches.open(cacheName);
       console.log(`[Service Worker] Fetching resource: ${e.request.url}`);
+
+      if (e.request.mode === 'navigate') {
+        try {
+          const response = await fetch(e.request, { cache: 'no-store' });
+          if (response.ok) { await cache.put(e.request, response.clone()); }
+          return response;
+        } catch (error) {
+          const response = await cache.match(e.request);
+          if (response) { return response; }
+          throw error;
+        }
+      }
+
+      let response = await cache.match(e.request);
       if (response) { return response; }
 
       response = await fetch(e.request);
-      const cache = await caches.open(cacheName);
-      console.log(`[Service Worker] Caching new resource: ${e.request.url}`);
-      cache.put(e.request, response.clone());
+      if (response.ok) {
+        console.log(`[Service Worker] Caching new resource: ${e.request.url}`);
+        await cache.put(e.request, response.clone());
+      }
       return response;
     })());
 });

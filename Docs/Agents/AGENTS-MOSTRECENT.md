@@ -85,6 +85,12 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 - Tugboat clients (editor, standalone, macOS) must be pointed at the deploy-specific hostname/port pair that Edgegap displays after each launch. Update either the `NetworkBootstrapper` inspector or the Admin Menu overrides before testing.
 - Local testing flips `useLocal` on and uses `localAddress`, `localTugboatPort` (7777), and `localBayouPort` (7771).
 
+### 5. Calendar Versioning + WebGL Cache Updates
+
+- `Assets/Editor/BuildVersioning.cs` bumps `Assets/Resources/BuildVersion.txt` before every build and editor play session, records `YYYY.MM.DD.run-<8-char Git SHA>`, and sets `PlayerSettings.bundleVersion` for WebGL builds.
+- `AdminMenu.Awake()` copies that resource into the prefab's `VersionText`, making the embedded version visible in editor play and every player build.
+- `Assets/WebGLTemplates/Compersion/` appends the version to Unity artifact and service-worker URLs. The generated service worker activates immediately, checks only the current version cache, and deletes older caches for this game. No generated WebGL file needs manual editing after a build.
+
 ---
 
 ## Testing & Operational Tips

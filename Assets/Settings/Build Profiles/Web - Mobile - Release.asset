@@ -40,7 +40,7 @@ MonoBehaviour:
     - line: '|   cursorHotspot: {x: 0, y: 0}'
     - line: '|   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b:
         0.1254902, a: 1}'
-    - line: '|   m_ShowUnitySplashScreen: 1'
+    - line: '|   m_ShowUnitySplashScreen: 0'
     - line: '|   m_ShowUnitySplashLogo: 1'
     - line: '|   m_SplashScreenOverlayOpacity: 1'
     - line: '|   m_SplashScreenAnimation: 1'
@@ -166,7 +166,7 @@ MonoBehaviour:
     - line: '|   loadStoreDebugModeEnabled: 0'
     - line: '|   visionOSBundleVersion: 1.0'
     - line: '|   tvOSBundleVersion: 1.0'
-    - line: '|   bundleVersion: 0.1.0'
+    - line: '|   bundleVersion: 2026.08.08.4-bf6505a4'
     - line: '|   preloadedAssets:'
     - line: '|   - {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b,
         type: 3}'
@@ -846,7 +846,7 @@ MonoBehaviour:
     - line: '|   webGLDebugSymbols: 0'
     - line: '|   webGLEmscriptenArgs: '
     - line: '|   webGLModulesDirectory: '
-    - line: '|   webGLTemplate: APPLICATION:PWA'
+    - line: '|   webGLTemplate: PROJECT:Compersion'
     - line: '|   webGLAnalyzeBuildSize: 0'
     - line: '|   webGLUseEmbeddedResources: 0'
     - line: '|   webGLCompressionFormat: 0'

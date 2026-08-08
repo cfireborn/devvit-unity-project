@@ -3846,6 +3846,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AdminMenu
   adminPanel: {fileID: 4780285873362529308}
+  versionText: {fileID: 3736373303057298376}
   bootstrapper: {fileID: 0}
   activeAddressText: {fileID: 6067157395360838373}
   statusFeedbackText: {fileID: 3713322729655154900}

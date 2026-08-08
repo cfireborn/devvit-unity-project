@@ -19,6 +19,7 @@ public class AdminMenu : MonoBehaviour
     [Header("Panel")]
     [Tooltip("The root GameObject of the admin panel to show/hide.")]
     [SerializeField] GameObject adminPanel;
+    [SerializeField] TMP_Text versionText;
     [SerializeField] NetworkBootstrapper bootstrapper;
 
     [Header("Connection Display")]
@@ -75,6 +76,10 @@ public class AdminMenu : MonoBehaviour
 
     void Awake()
     {
+        TextAsset version = Resources.Load<TextAsset>("BuildVersion");
+        if (versionText != null)
+            versionText.text = version != null ? version.text.Trim() : Application.version;
+
         if (bootstrapper == null)
             bootstrapper = FindFirstObjectByType<NetworkBootstrapper>();
 

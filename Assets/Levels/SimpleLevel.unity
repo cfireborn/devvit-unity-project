@@ -2300,17 +2300,6 @@ MonoBehaviour:
   _port: 7771
   _maximumClients: 2000
   _clientAddress: localhost
---- !u!114 &1343354458 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 412753800538628147, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-  m_PrefabInstance: {fileID: 1947576933}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
 --- !u!4 &1419201442 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
@@ -2958,17 +2947,6 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 0.7909858, y: 0.0882473}
   m_EdgeRadius: 0
---- !u!114 &1856931872 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4287288424924657765, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-  m_PrefabInstance: {fileID: 1947576933}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
 --- !u!1001 &1864930203
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3202,6 +3180,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3736373303057298376, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_text
+      value: VersionText
+      objectReference: {fileID: 0}
     - target: {fileID: 3897017263281310892, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -3227,15 +3209,15 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7234085131030660540, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: m_Size
-      value: 0.99999994
-      objectReference: {fileID: 0}
-    - target: {fileID: 7234085131030660540, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_Value
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7235214531886163668, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_Size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7235214531886163668, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_Value
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7338508149759182203, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
@@ -3250,22 +3232,6 @@ PrefabInstance:
       propertyPath: m_AnchorMin.x
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 8211653350893409799, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 740.49
-      objectReference: {fileID: 0}
-    - target: {fileID: 8211653350893409799, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 848.92
-      objectReference: {fileID: 0}
-    - target: {fileID: 8211653350893409799, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 13.793
-      objectReference: {fileID: 0}
-    - target: {fileID: 8211653350893409799, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: -0.00045181
-      objectReference: {fileID: 0}
     - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: bootstrapper
       value: 
@@ -3275,17 +3241,9 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1504431320}
     - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: freezeCloudsLabel
-      value: 
-      objectReference: {fileID: 1343354458}
-    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: targetAudioSource
       value: 
       objectReference: {fileID: 519420034}
-    - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: ladderBuildingLabel
-      value: 
-      objectReference: {fileID: 1856931872}
     - target: {fileID: 8449353858679685342, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: cloudLadderController
       value: 
@@ -3305,6 +3263,14 @@ PrefabInstance:
     - target: {fileID: 8653181415854489484, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8949541663832620839, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0.000016212463
+      objectReference: {fileID: 0}
+    - target: {fileID: 8949541663832620839, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -0.0000641346
       objectReference: {fileID: 0}
     - target: {fileID: 9054989806869547684, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMax.y

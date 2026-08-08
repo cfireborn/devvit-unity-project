@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
     <title>Unity Web Player | {{{ PRODUCT_NAME }}}</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css">
+    <link rel="stylesheet" href="TemplateData/style.css?v={{{ PRODUCT_VERSION }}}">
     <link rel="manifest" href="manifest.webmanifest">
   </head>
   <body>
@@ -26,9 +26,11 @@
       </div>
     </div>
     <script>
+      const buildVersion = encodeURIComponent({{{ JSON.stringify(PRODUCT_VERSION) }}});
+
       window.addEventListener("load", function () {
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js");
+          navigator.serviceWorker.register("ServiceWorker.js?v=" + buildVersion, { updateViaCache: "none" });
         }
       });
 
@@ -54,12 +56,12 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}?v=" + buildVersion;
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
-        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
-        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}?v=" + buildVersion,
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}?v=" + buildVersion,
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}?v=" + buildVersion,
         streamingAssetsUrl: "StreamingAssets",
         companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
         productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
