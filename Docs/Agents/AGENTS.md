@@ -99,7 +99,7 @@ See `AGENTS-MOSTRECENT.md` in this same folder for the in-depth architecture bri
 
 ## Build and Play Versioning
 
-- `Assets/Editor/BuildVersioning.cs` automatically bumps `Assets/Resources/BuildVersion.txt` before every player build and every editor play session. The format is `YYYY.MM.DD.run-commitsha`, for example `2026.08.08.2-bf6505a4`; the run counter resets to 1 on a new local calendar day.
+- `Assets/Editor/BuildVersioning.cs` creates and bumps the gitignored `Assets/Resources/BuildVersion.txt` before every player build and every editor play session. The format is `YYYY.MM.DD.run-commitsha`, for example `2026.08.08.2-bf6505a4`; the run counter resets to 1 on a new local calendar day.
 - Before WebGL builds, the hook also assigns the same value to `PlayerSettings.bundleVersion`. `AdminMenu` reads the resource into the `VersionText` object on every `Awake`, so editor and built players expose the exact embedded version.
 - The `Compersion` WebGL template adds this version to all generated Unity artifact URLs and to the service-worker script URL. Its service worker only reads from the current version's cache and removes older Compersion caches during activation. Do not patch generated `framework.js` or build output by hand; rebuilding applies the policy automatically.
 - If Git is unavailable, versioning retains the last recorded SHA (or `00000000` before the first successful lookup) so local play and builds remain fire-and-forget.

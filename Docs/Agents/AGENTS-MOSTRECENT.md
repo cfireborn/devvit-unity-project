@@ -87,7 +87,7 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 
 ### 5. Calendar Versioning + WebGL Cache Updates
 
-- `Assets/Editor/BuildVersioning.cs` bumps `Assets/Resources/BuildVersion.txt` before every build and editor play session, records `YYYY.MM.DD.run-<8-char Git SHA>`, and sets `PlayerSettings.bundleVersion` for WebGL builds.
+- `Assets/Editor/BuildVersioning.cs` creates and bumps the gitignored `Assets/Resources/BuildVersion.txt` before every build and editor play session, records `YYYY.MM.DD.run-<8-char Git SHA>`, and sets `PlayerSettings.bundleVersion` for WebGL builds.
 - `AdminMenu.Awake()` copies that resource into the prefab's `VersionText`, making the embedded version visible in editor play and every player build.
 - `Assets/WebGLTemplates/Compersion/` appends the version to Unity artifact and service-worker URLs. The generated service worker activates immediately, checks only the current version cache, and deletes older caches for this game. No generated WebGL file needs manual editing after a build.
 

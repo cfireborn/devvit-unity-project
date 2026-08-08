@@ -4,6 +4,8 @@ const cachePrefix = "unity-webgl-" + self.registration.scope + "-";
 const legacyCachePrefix = {{{ JSON.stringify(COMPANY_NAME + "-" + PRODUCT_NAME + "-") }}};
 const cacheName = cachePrefix + version;
 const contentToCache = [
+    "index.html",
+    "manifest.webmanifest",
     "Build/{{{ LOADER_FILENAME }}}?v=" + version,
     "Build/{{{ FRAMEWORK_FILENAME }}}?v=" + version,
 #if USE_THREADS
@@ -11,8 +13,12 @@ const contentToCache = [
 #endif
     "Build/{{{ DATA_FILENAME }}}?v=" + version,
     "Build/{{{ CODE_FILENAME }}}?v=" + version,
-    "TemplateData/style.css?v=" + version
-
+    "TemplateData/style.css?v=" + version,
+    "TemplateData/unity-logo-dark.png",
+    "TemplateData/progress-bar-empty-dark.png",
+    "TemplateData/progress-bar-full-dark.png",
+    "TemplateData/balloon-koi-192.png",
+    "TemplateData/balloon-koi-512.png"
 ];
 #endif
 
@@ -56,7 +62,7 @@ self.addEventListener('fetch', function (e) {
           if (response.ok) { await cache.put(e.request, response.clone()); }
           return response;
         } catch (error) {
-          const response = await cache.match(e.request);
+          const response = await cache.match(e.request) || await cache.match("index.html");
           if (response) { return response; }
           throw error;
         }

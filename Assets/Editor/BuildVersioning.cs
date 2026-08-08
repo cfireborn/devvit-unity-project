@@ -35,6 +35,7 @@ public sealed class BuildVersioning : IPreprocessBuildWithReport
     {
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string versionPath = Path.Combine(projectRoot, VersionAssetPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(versionPath));
         string previousVersion = File.Exists(versionPath) ? File.ReadAllText(versionPath).Trim() : string.Empty;
         string date = DateTime.Now.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
         string prefix = date + ".";
