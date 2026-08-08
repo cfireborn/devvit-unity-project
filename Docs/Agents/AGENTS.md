@@ -67,6 +67,12 @@ Prefer **deriving** state from already-synced data over **replicating** it separ
 
 See `AGENTS-MOSTRECENT.md` in this same folder for the in-depth architecture brief, deployment runbooks, and current priorities. Read it end-to-end before touching multiplayer code or build tooling.
 
+## Publishing Target
+
+- The current publishing target is WebGL through GitHub Pages.
+- Devvit exporting is retired. Do not recreate or look for a Devvit-specific export script, Unity editor menu, or double-build artifact-copy workflow; the retired tooling has been removed.
+- Devvit runtime bridge/API integration is also retired; the current build has no Devvit-specific runtime dependency.
+
 ---
 
 ## Runtime Modes & Architecture Quick Reference

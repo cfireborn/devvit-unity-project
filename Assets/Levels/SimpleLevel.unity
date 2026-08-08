@@ -197,11 +197,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5876434701957586748, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_Size.x
-      value: 5.97
+      value: 4.184249
       objectReference: {fileID: 0}
     - target: {fileID: 5876434701957586748, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_Size.y
-      value: 3.15
+      value: 3.1500611
+      objectReference: {fileID: 0}
+    - target: {fileID: 5876434701957586748, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
+      propertyPath: m_Offset.x
+      value: 0.1275592
+      objectReference: {fileID: 0}
+    - target: {fileID: 5876434701957586748, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
+      propertyPath: m_Offset.y
+      value: -0.00000001520624
       objectReference: {fileID: 0}
     - target: {fileID: 5876434701957586748, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_Direction
@@ -797,7 +805,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5680a71f05685245bb583bfdd1f64c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CloudNoSpawnZone
-  blockSpawn: 1
+  blockSpawn: 0
   blockEntry: 1
 --- !u!70 &323603076
 CapsuleCollider2D:
@@ -1293,11 +1301,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4770961392229186818, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.96
+      value: -6.84
       objectReference: {fileID: 0}
     - target: {fileID: 4770961392229186818, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.66
+      value: -1.83
       objectReference: {fileID: 0}
     - target: {fileID: 4770961392229186818, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1755,7 +1763,7 @@ Transform:
   m_GameObject: {fileID: 1025854225}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.64, y: -1.36, z: 0}
+  m_LocalPosition: {x: -7.535, y: -1.689, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2733,7 +2741,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 14.2009735}
+  m_Offset: {x: 5.0041447, y: 10.074129}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -2743,7 +2751,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 50, y: 37.038055}
+  m_Size: {x: 39.99171, y: 28.784367}
   m_EdgeRadius: 0
 --- !u!114 &1504431324
 MonoBehaviour:
@@ -2867,11 +2875,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Size.x
-      value: 6.31
+      value: 3.4166393
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Size.y
-      value: 6.27
+      value: 4.374852
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
+      propertyPath: m_Offset.x
+      value: 0.07987785
+      objectReference: {fileID: 0}
+    - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
+      propertyPath: m_Offset.y
+      value: -0.008844376
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Direction
@@ -3024,6 +3040,10 @@ PrefabInstance:
       value: CloudManager
       objectReference: {fileID: 0}
     - target: {fileID: 4449832523319277437, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      propertyPath: maxDistance
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4449832523319277437, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: maxVerticalGap
       value: 2
       objectReference: {fileID: 0}
@@ -3067,6 +3087,18 @@ PrefabInstance:
     - target: {fileID: 303525441930506927, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1211746930538918321, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_fontColor.b
+      value: 0.015686275
+      objectReference: {fileID: 0}
+    - target: {fileID: 1211746930538918321, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_fontColor.g
+      value: 0.92156863
+      objectReference: {fileID: 0}
+    - target: {fileID: 1211746930538918321, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: m_fontColor32.rgba
+      value: 4278512639
       objectReference: {fileID: 0}
     - target: {fileID: 1449159629173147077, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchorMax.x

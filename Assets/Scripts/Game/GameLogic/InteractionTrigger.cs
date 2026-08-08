@@ -134,6 +134,7 @@ public class InteractionTrigger : ActivationTriggerBase
 
     void TryActivate(Vector2 contactPoint)
     {
+        if (!CanInvokeInteraction()) return;
 
         if (printDebug) print("TryActivate: " + contactPoint);
 
@@ -159,6 +160,9 @@ public class InteractionTrigger : ActivationTriggerBase
     /// <summary>Subclass logic after <see cref="onInteract"/> UnityEvent has fired.</summary>
     protected virtual void OnInteractInvoked(GameObject source, Vector2 contactPoint) { }
 
+    /// <summary>Allows subclasses to disable their interaction before events or activation state are touched.</summary>
+    protected virtual bool CanInvokeInteraction() => true;
+
     /// <summary>
     /// Programmatically trigger the interaction (ignores input, overlap, chance, and activation delay).
     /// Still respects <see cref="ActivationTriggerBase.singleUse"/>.
@@ -174,6 +178,7 @@ public class InteractionTrigger : ActivationTriggerBase
     /// </summary>
     public void TriggerNow(GameObject source, Vector2 contactPoint)
     {
+        if (!CanInvokeInteraction()) return;
         if (IsBlockedBySingleUse()) return;
         suppressActivationConsume = false;
         _lastInteractTime = Time.time;

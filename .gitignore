@@ -108,9 +108,6 @@ Assets/Resources/PerformanceTestRunInfo.json
 Assets/Resources/PerformanceTestRunInfo.json.meta
 Assets/Resources/PerformanceTestRunSettings.json
 Assets/Resources/PerformanceTestRunSettings.json.meta
-DevvitExports/SampleGame.wasm.unityweb
-DevvitExports/SampleGame.framework.js
-DevvitExports/SampleGame.data.unityweb
 /Packages/com.bezi.sidekick
 Assets/Resources/BuildVersion.txt
 Assets/Resources/BuildVersion.txt.meta

@@ -10,6 +10,9 @@ public class ItemPickupTrigger : InteractionTrigger
     [Tooltip("Goal granted when the player interacts.")]
     public Goal goal;
 
+    protected override bool CanInvokeInteraction() =>
+        OptionalGameplayFeatures.DeliveryAndGoalSystemEnabled;
+
     protected override void OnInteractInvoked(GameObject source, Vector2 contactPoint)
     {
         if (goal == null) return;

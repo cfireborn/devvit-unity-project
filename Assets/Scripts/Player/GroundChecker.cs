@@ -33,6 +33,9 @@ public class GroundChecker : MonoBehaviour
     /// <summary>Platform we are standing on (if any and it implements IMovingPlatform). Null when not grounded or platform is static.</summary>
     public IMovingPlatform CurrentPlatform { get; private set; }
 
+    /// <summary>Ground collider currently beneath the player. Null when not grounded.</summary>
+    public Collider2D CurrentGroundCollider { get; private set; }
+
     /// <summary>True when the player is inside at least one trigger tagged "Ladder".</summary>
     public bool IsOnLadder => _ladderTriggers.Count > 0;
 
@@ -60,6 +63,7 @@ public class GroundChecker : MonoBehaviour
 
         isGrounded = false;
         CurrentPlatform = null;
+        CurrentGroundCollider = null;
 
         if (groundCheckColliders != null && groundCheckColliders.Length > 0)
         {
@@ -76,6 +80,7 @@ public class GroundChecker : MonoBehaviour
                     if (other.CompareTag(platformTag))
                     {
                         isGrounded = true;
+                        CurrentGroundCollider = other;
                         CurrentPlatform = other.GetComponent<IMovingPlatform>() ?? other.GetComponentInParent<IMovingPlatform>();
                         return;
                     }
@@ -94,6 +99,7 @@ public class GroundChecker : MonoBehaviour
                 if (other.CompareTag(platformTag))
                 {
                     isGrounded = true;
+                    CurrentGroundCollider = other;
                     CurrentPlatform = other.GetComponent<IMovingPlatform>() ?? other.GetComponentInParent<IMovingPlatform>();
                     return;
                 }

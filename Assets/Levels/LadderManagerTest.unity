@@ -133,7 +133,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 158380014578975247, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: blockSpawn
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1528557211927595774, guid: 539adfba73d6bc94d9b1002328ec5a75, type: 3}
       propertyPath: m_IsTrigger
@@ -1034,7 +1034,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5680a71f05685245bb583bfdd1f64c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CloudNoSpawnZone
-  blockSpawn: 1
+  blockSpawn: 0
   blockEntry: 1
 --- !u!70 &323603076
 CapsuleCollider2D:
@@ -6053,7 +6053,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3565316231515950007, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: blockSpawn
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5441659074233179131, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Enabled

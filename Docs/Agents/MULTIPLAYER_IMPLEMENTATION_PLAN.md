@@ -165,20 +165,15 @@ The `CloudLadderController` is not networked. Ladders currently only appear on t
 ---
 
 ### Phase 6 — Polish & Web Integration
-**Goal**: Production-ready with Reddit username display
+**Goal**: Production-ready WebGL multiplayer
 
 **Steps**:
-1. Reddit username sync:
-   - Modify `DevvitBridge.cs`: after `FetchInitData()`, send username to server via `[ServerRpc] CmdSetUsername(string name)`
-   - Server broadcasts via `[ObserversRpc]`
-2. Username display: TextMesh Pro label above each NetworkPlayer, updated on username RPC
-3. Player color variation: random hue per player, synced via SyncVar
-4. Build pipeline: WebGL build + GitHub Pages publish + Linux server + Docker push.
-5. Production config: secure WebSocket (`wss://`), Edgegap auto-scaling rules, reconnection logic
+1. Player color variation: random hue per player, synced via SyncVar
+2. Build pipeline: WebGL build + GitHub Pages publish + Linux server + Docker push.
+3. Production config: secure WebSocket (`wss://`), Edgegap auto-scaling rules, reconnection logic
 
 **Verification**:
-- [ ] Reddit usernames visible above players
-- [ ] Multiple Reddit users can play together
+- [ ] Multiple players can play together
 - [ ] Clouds sync for parkour gameplay
 - [ ] Delivery quests work independently per player
 - [ ] Server stable with player churn over 1+ hour
@@ -202,7 +197,7 @@ The `CloudLadderController` is not networked. Ladders currently only appear on t
 
 **Why server-authoritative clouds?** Prevents duplicate clouds from independent clients. Single source of truth makes synchronized parkour reliable. Clients are lightweight renderers.
 
-**Why local quests?** Each player has independent progression. Avoids quest-state conflicts in the shared world. Reddit API calls (POST `/api/level-completed`) are per-player anyway.
+**Why local quests?** Each player has independent progression, avoiding quest-state conflicts in the shared world.
 
 ### Risk Mitigation
 | Risk | Impact | Mitigation |

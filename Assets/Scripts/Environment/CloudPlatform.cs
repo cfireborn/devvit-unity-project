@@ -67,11 +67,16 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     public bool wasActiveAtStart;
     Coroutine _despawnCoroutine;
     Rigidbody2D _rb;
+    PlatformEffector2D _platformEffector;
+    float _platformEffectorOffset;
 
     void Awake()
     {
         wasActiveAtStart = gameObject.activeSelf && enabled;
         _rb = GetComponent<Rigidbody2D>();
+        _platformEffector = GetComponent<PlatformEffector2D>();
+        if (_platformEffector != null)
+            _platformEffectorOffset = _platformEffector.rotationalOffset;
         if (_rb != null)
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
@@ -81,6 +86,9 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void OnEnable()
     {
+        if (_platformEffector != null)
+            _platformEffector.rotationalOffset = _platformEffectorOffset;
+
         if (_despawnCoroutine != null)
         {
             StopCoroutine(_despawnCoroutine);

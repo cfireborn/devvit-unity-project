@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96717fe2c7954244aa7c1afc5b48f31f, type: 3}
   m_Name: CloudManagerSettings_Basic
   m_EditorClassIdentifier: Assembly-CSharp::CloudBehaviorSettings
-  laneSpacing: 2.5
-  laneYOffset: -0.38
+  laneSpacing: 1.5
+  laneYOffset: -0.5
   laneHeightVariation: 0
   cloudHeightVariation: 0
   viewportMargin: 5

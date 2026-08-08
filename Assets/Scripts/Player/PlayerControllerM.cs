@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using FishNet;
 using FishNet.Component.Transforming;
@@ -14,7 +15,7 @@ public class PlayerControllerM : MonoBehaviour
     public GroundChecker groundChecker;
 
     [Header("Goals")]
-    [Tooltip("All active goals for this player.")]
+    [Tooltip("All active goals for this player.")] 
     private List<Goal> goals = new List<Goal>();
     [Tooltip("The goal the direction indicator points to (e.g. current delivery target).")]
     private Goal primaryGoal;
@@ -85,6 +86,9 @@ public class PlayerControllerM : MonoBehaviour
     private bool _isGroundedFixed;
     private float _coyoteTimeRemaining;
     private float _jumpBufferRemaining;
+    private PlatformEffector2D _dropThroughEffector;
+    private float _dropThroughOriginalOffset;
+    private Coroutine _dropThroughCoroutine;
 
     // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
     private bool _gameplayInputSuspended;
@@ -161,6 +165,8 @@ public class PlayerControllerM : MonoBehaviour
 
     void OnDisable()
     {
+        RestoreDropThroughPlatform();
+
         if (InstanceFinder.NetworkManager != null)
             InstanceFinder.TimeManager.OnTick -= OnTick;
 
@@ -301,7 +307,25 @@ public class PlayerControllerM : MonoBehaviour
 
         ApplyMovingPlatformDelta();
 
+        // Refresh before the ladder branch so Down + Jump can pass through a platform at a ladder opening.
+        if (groundChecker != null)
+        {
+            groundChecker.RefreshCheck();
+            _isGroundedFixed = groundChecker.isGrounded;
+        }
+        else
+            _isGroundedFixed = false;
+
         bool isOnLadder = groundChecker != null && groundChecker.IsOnLadder;
+        bool dropThroughPressed = verticalInput < -0.5f && (jumpPressed || _jumpBufferRemaining > 0f);
+        bool droppedThrough = _isGroundedFixed && dropThroughPressed && TryDropThroughCurrentPlatform();
+        if (droppedThrough || (isOnLadder && dropThroughPressed))
+        {
+            jumpPressed = false;
+            _jumpBufferRemaining = 0f;
+            _coyoteTimeRemaining = 0f;
+        }
+
         if (isOnLadder)
         {
             if (!_wasOnLadder)
@@ -317,15 +341,6 @@ public class PlayerControllerM : MonoBehaviour
             return;
         }
         _wasOnLadder = false;
-
-        // Use GroundChecker for ground state (player sets platformTag from PlayerSettings)
-        if (groundChecker != null)
-        {
-            groundChecker.RefreshCheck();
-            _isGroundedFixed = groundChecker.isGrounded;
-        }
-        else
-            _isGroundedFixed = false;
 
         // Coyote time: extend "can jump" briefly after leaving ground
         if (_isGroundedFixed)
@@ -377,6 +392,41 @@ public class PlayerControllerM : MonoBehaviour
             float decay = 8f * TickOrFixedDelta();
             _pendingPlatformVelocity = Vector2.MoveTowards(_pendingPlatformVelocity, Vector2.zero, decay);
         }
+    }
+
+    bool TryDropThroughCurrentPlatform()
+    {
+        Collider2D ground = groundChecker != null ? groundChecker.CurrentGroundCollider : null;
+        if (ground == null) return false;
+
+        PlatformEffector2D effector = ground.GetComponent<PlatformEffector2D>() ?? ground.GetComponentInParent<PlatformEffector2D>();
+        if (effector == null) return false;
+        if (_dropThroughEffector == effector) return true;
+        if (_dropThroughEffector != null)
+            RestoreDropThroughPlatform();
+
+        _dropThroughEffector = effector;
+        _dropThroughOriginalOffset = effector.rotationalOffset;
+        effector.rotationalOffset = 180f;
+        _dropThroughCoroutine = StartCoroutine(RestoreDropThroughPlatformAfterDelay());
+        return true;
+    }
+
+    IEnumerator RestoreDropThroughPlatformAfterDelay()
+    {
+        yield return new WaitForSeconds(settings.dropThroughDuration);
+        _dropThroughCoroutine = null;
+        RestoreDropThroughPlatform();
+    }
+
+    void RestoreDropThroughPlatform()
+    {
+        if (_dropThroughCoroutine != null)
+            StopCoroutine(_dropThroughCoroutine);
+        if (_dropThroughEffector != null)
+            _dropThroughEffector.rotationalOffset = _dropThroughOriginalOffset;
+        _dropThroughCoroutine = null;
+        _dropThroughEffector = null;
     }
 
     private void UpdateSprite()
@@ -528,6 +578,8 @@ public class PlayerControllerM : MonoBehaviour
     /// </summary>
     public void ResetForRespawn(Vector3 spawnPosition)
     {
+        RestoreDropThroughPlatform();
+
         // reposition and clear velocities only; keep goals and trigger states
         if (rb != null)
         {

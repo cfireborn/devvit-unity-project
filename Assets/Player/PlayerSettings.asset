@@ -25,3 +25,4 @@ MonoBehaviour:
   groundTag: Platform
   coyoteTime: 0.12
   jumpBufferTime: 0.12
+  dropThroughDuration: 0.25

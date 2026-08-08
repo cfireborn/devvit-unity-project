@@ -2,6 +2,13 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 
+/// <summary>Temporary kill switches for optional gameplay systems that remain wired for later reuse.</summary>
+public static class OptionalGameplayFeatures
+{
+    /// <summary>Controls the postbox/delivery-cloud loop and its multi-goal UI.</summary>
+    public static bool DeliveryAndGoalSystemEnabled { get; } = false;
+}
+
 /// <summary>
 /// Assigns a <see cref="Goal"/> to the player (dialogue, NPC, scripted enable).
 /// Inherits <see cref="ActivationTriggerBase"/> for chance, activation delay, and single-use.
@@ -58,6 +65,7 @@ public class GoalAssignmentTrigger : ActivationTriggerBase
     /// <summary>Add the goal to the player. Call from dialogue complete, UnityEvents, etc.</summary>
     public virtual void EnableGoal()
     {
+        if (!OptionalGameplayFeatures.DeliveryAndGoalSystemEnabled) return;
         if (_enableGoalRoutineRunning) return;
         if (!HasSpawnAuthorityForGoalAssignment()) return;
         if (!CanEnableGoal()) return;

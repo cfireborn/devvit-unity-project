@@ -2,6 +2,7 @@
 
 ## Snapshot
 - **Game**: Compersion — Unity 6 (6000.2.8f1) 2D platformer published as WebGL on GitHub Pages.
+- **Publishing**: Devvit exporting is retired; releases use Unity's normal WebGL build and publish `Builds/WebGL` through GitHub Pages.
 - **Networking**: FishNet 4.6.22 with Multipass transport (Tugboat UDP for editor/standalone, Bayou WebSocket for WebGL).
 - **Hosting**: Linux headless build packaged through the Edgegap Unity plugin, fronted by a persistent Cloudflare Tunnel (`compersion.charliefeuerborn.com`) for Bayou while Tugboat uses the per-deploy Edgegap hostname.
 - **Offline mode**: Automatic fallback after `NetworkBootstrapper` waits `connectionTimeoutSeconds` (5 s default). Gameplay components expose `ActivateOfflineMode()` so the single-player loop keeps running without a server.
@@ -25,7 +26,6 @@ Builds/
   WebGL/                        ← Latest WebGL export (published to GitHub Pages)
 Docs/Agents/                    ← You are here (AGENTS, AGENTS-MOSTRECENT, plans)
 Server/                         ← Dockerfile, Cloudflare tunnel config, start script
-Tools/export_devvit.sh          ← Legacy Devvit exporter; not used for releases
 update-edgegap-dockerfile.sh    ← Copies our Dockerfile into the Edgegap plugin cache
 ```
 

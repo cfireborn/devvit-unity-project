@@ -5,7 +5,6 @@ const legacyCachePrefix = {{{ JSON.stringify(COMPANY_NAME + "-" + PRODUCT_NAME +
 const cacheName = cachePrefix + version;
 const contentToCache = [
     "index.html",
-    "manifest.webmanifest",
     "Build/{{{ LOADER_FILENAME }}}?v=" + version,
     "Build/{{{ FRAMEWORK_FILENAME }}}?v=" + version,
 #if USE_THREADS
@@ -16,9 +15,7 @@ const contentToCache = [
     "TemplateData/style.css?v=" + version,
     "TemplateData/unity-logo-dark.png",
     "TemplateData/progress-bar-empty-dark.png",
-    "TemplateData/progress-bar-full-dark.png",
-    "TemplateData/balloon-koi-192.png",
-    "TemplateData/balloon-koi-512.png"
+    "TemplateData/progress-bar-full-dark.png"
 ];
 #endif
 

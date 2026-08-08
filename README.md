@@ -6,6 +6,8 @@ A 2D Unity platformer published as WebGL on GitHub Pages. Players parkour across
 **Networking:** FishNet 4.6.22 (Tugboat UDP for editor testing, Bayou WebSocket for WebGL production)
 **Deployment:** WebGL → GitHub Pages + Linux dedicated server → Edgegap cloud hosting (in progress)
 
+**Publishing target:** Devvit exporting and runtime bridge integration are retired. Use Unity's normal WebGL build and publish the generated `Builds/WebGL` directory through GitHub Pages. The old Devvit tooling has been removed.
+
 ---
 
 ## Getting Started
@@ -263,7 +265,7 @@ Every new spawnable prefab must be registered in **NetworkManager → Spawnable 
 
 ### WebGL (for GitHub Pages)
 
-Build with `File → Build Settings → WebGL → Build`, then publish the generated WebGL directory through GitHub Pages. The legacy `export_devvit.sh` script is no longer part of the release workflow.
+Build with `File → Build Settings → WebGL → Build`, then publish the generated WebGL directory through GitHub Pages. Do not use or recreate a Devvit-specific export pipeline.
 
 ### Linux Server + Containerize (for Edgegap)
 

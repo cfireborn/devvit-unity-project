@@ -22,6 +22,9 @@ public class GoalCompletionTrigger : InteractionTrigger
     [Tooltip("Fired when the player interacts but does not have the required goal.")]
     public UnityEvent onCompletionFailed;
 
+    protected override bool CanInvokeInteraction() =>
+        OptionalGameplayFeatures.DeliveryAndGoalSystemEnabled;
+
     protected override void OnInteractInvoked(GameObject source, Vector2 contactPoint)
     {
         if (goal == null)

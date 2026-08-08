@@ -730,6 +730,12 @@ public class CloudManager : MonoBehaviour
     public bool ActivateNonPooledCloud(GameObject cloud)
     {
         if (cloud == null) { print("CloudManager: cloud is null"); return false; }
+        if (!OptionalGameplayFeatures.DeliveryAndGoalSystemEnabled &&
+            cloud.GetComponent<DeliveryCloudPlatform>() != null)
+        {
+            cloud.SetActive(false);
+            return false;
+        }
         if (_queuedInPool.Contains(cloud)) { print("CloudManager: cloud is in pool"); return false; }
 
         if (!_nonPooled.Contains(cloud))

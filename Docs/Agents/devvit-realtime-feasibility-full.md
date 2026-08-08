@@ -1,5 +1,7 @@
 # Feasibility: Replacing FishNet/Edgegap with Devvit Realtime
 
+> Historical analysis only. Devvit runtime integration is not part of the current build; do not treat the proposed bridge or backend work below as an active dependency.
+
 ## Short Answer: Not feasible as a full replacement. Feasible as a complement.
 
 ---
@@ -31,7 +33,7 @@ Devvit realtime docs don't publish rate limits. At 15Hz × N players you'd likel
 
 ## What IS Feasible: Devvit Realtime as a Complement
 
-You already use Devvit for `FetchInitData` (username/avatar) and `CompleteLevel` (Redis score). Adding realtime alongside FishNet for meta-game features is very achievable:
+A Devvit realtime complement would require a separate Reddit-hosted API layer alongside FishNet:
 
 | Feature | Notes |
 |---------|-------|
@@ -41,7 +43,7 @@ You already use Devvit for `FetchInitData` (username/avatar) and `CompleteLevel`
 | Post-level reactions visible to Reddit viewers | Event-driven, no timing constraints |
 
 Files that would change:
-- `Assets/Scripts/DevvitBridge.cs` — add JS interop for incoming realtime messages
+- A new JavaScript bridge or external integration layer — only if Devvit support is explicitly reintroduced
 - New `.jslib` or extension of the existing Bayou jslib pattern
 - Devvit TypeScript backend (outside this repo) — add `realtime.send()` on score post
 
@@ -57,4 +59,4 @@ Would require redesigning the game as turn-based or tile-based (no real-time phy
 
 **Keep FishNet + Edgegap** for multiplayer physics — it's working and already deployed.
 
-**Add Devvit realtime** selectively for meta-features that don't need sub-100ms latency. This is additive — no FishNet changes required.
+Do not add Devvit realtime as part of the current build. Revisit this only if the publishing/runtime target explicitly returns to Reddit-hosted Devvit features.
