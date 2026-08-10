@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -31,11 +33,12 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     public Collider2D mainCollider;
 
     [Header("Despawn")]
+    [Tooltip("Prevents this cloud from being faded or deactivated. Use for permanent scene platforms such as player spawn clouds.")]
+    public bool isPersistent = false;
     [Tooltip("When set, despawn fires this Animator trigger then waits for the current state to finish before DeactivateCloud. When null, despawn is immediate.")]
     public Animator despawnAnimator;
     [Tooltip("Animator trigger name (ignored when Despawn Animator is null).")]
     public string despawnTrigger = "Despawn";
-
     /// <summary>Set by CloudManager on spawn. Identifies which prefab this cloud was created from (for network sync).</summary>
     [HideInInspector]
     public int networkPrefabIndex = 0;
@@ -56,24 +59,28 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     [HideInInspector]
     public GameObject pooledSourcePrefab;
 
-    /// <summary>Last FixedUpdate: cloud main bounds overlapped a blockEntry-only zone (blockSpawn false). Used to detect entry vs travel inside.</summary>
-    [HideInInspector]
-    public bool pooledPrevOverlapEntryOnly;
-
     CloudManager _cloudManager;
-    bool _playerOnCloud;
     bool _isInBlockEntryZone;
+    bool _despawnRequested;
     bool _isDespawning;
     public bool wasActiveAtStart;
     Coroutine _despawnCoroutine;
     Rigidbody2D _rb;
+    Collider2D[] _boundsColliders;
     PlatformEffector2D _platformEffector;
     float _platformEffectorOffset;
+    readonly HashSet<(Collider2D player, Collider2D platform)> _playerContacts =
+        new HashSet<(Collider2D, Collider2D)>();
+    readonly HashSet<CloudNoSpawnZone> _overlappingBlockEntryZones = new HashSet<CloudNoSpawnZone>();
+
+    /// <summary>Fires once when a pending despawn actually begins (after riders have cleared).</summary>
+    public event Action DespawnStarted;
 
     void Awake()
     {
         wasActiveAtStart = gameObject.activeSelf && enabled;
         _rb = GetComponent<Rigidbody2D>();
+        _boundsColliders = GetComponentsInChildren<Collider2D>();
         _platformEffector = GetComponent<PlatformEffector2D>();
         if (_platformEffector != null)
             _platformEffectorOffset = _platformEffector.rotationalOffset;
@@ -95,8 +102,10 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
             _despawnCoroutine = null;
         }
 
-        _playerOnCloud = false;
+        _playerContacts.Clear();
+        _overlappingBlockEntryZones.Clear();
         _isInBlockEntryZone = false;
+        _despawnRequested = false;
         _isDespawning = false;
         if (isPooled)
         {
@@ -112,11 +121,17 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
             StopCoroutine(_despawnCoroutine);
             _despawnCoroutine = null;
         }
+        _playerContacts.Clear();
+        _overlappingBlockEntryZones.Clear();
+        _despawnRequested = false;
+        _isDespawning = false;
     }
 
     void FixedUpdate()
     {
         if (_rb == null) return;
+        if (_despawnRequested && !_isDespawning && !IsPlayerOnCloud)
+            BeginDespawnAnimation();
         if (isPooled) return;
         if (_isInBlockEntryZone || _isDespawning || !isMoving) return;
 
@@ -126,20 +141,32 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     }
 
     /// <summary>True when the player is in contact with this cloud. Used by CloudManager for boundary stop vs despawn.</summary>
-    public bool IsPlayerOnCloud => _playerOnCloud;
+    public bool IsPlayerOnCloud
+    {
+        get
+        {
+            _playerContacts.RemoveWhere(IsInvalidPlayerContact);
+            return _playerContacts.Count > 0;
+        }
+    }
     /// <summary>True while a despawn is in progress (animator wait or same-frame immediate handoff).</summary>
     public bool IsDespawning => _isDespawning;
+    internal Collider2D[] BoundsColliders => _boundsColliders;
 
     /// <summary>
     /// Starts despawn: optional <see cref="despawnAnimator"/> trigger then <see cref="CloudManager.DeactivateCloud"/> when the animator state completes;
     /// if <see cref="despawnAnimator"/> is null, deactivates immediately. Does not use boundary-zone state.
-    /// If the player is standing on the cloud, existing collision logic can cancel despawn until they leave.
+    /// If a player is standing on the cloud, the request remains pending until the last contact leaves.
     /// </summary>
     public void BeginDespawnAnimation()
     {
-        if (_isDespawning) return;
+        if (isPersistent) return;
+        _despawnRequested = true;
         isMoving = false;
+        if (_isDespawning || IsPlayerOnCloud) return;
+
         _isDespawning = true;
+        DespawnStarted?.Invoke();
 
         if (despawnAnimator == null || string.IsNullOrEmpty(despawnTrigger))
         {
@@ -168,14 +195,18 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         else
         {
             int frames = 0;
-            const int maxFrames = 6000;
+            const int maxFrames = 600;
             while (frames++ < maxFrames && despawnAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime < 0.99f)
                 yield return null;
+            if (frames >= maxFrames)
+                Debug.LogWarning($"CloudPlatform: despawn animator timed out on '{name}'; forcing lifecycle completion.");
         }
 
         _despawnCoroutine = null;
-        _cloudManager?.DeactivateCloud(gameObject);
-        _isDespawning = false;
+        if (_cloudManager != null)
+            _cloudManager.DeactivateCloud(gameObject);
+        else
+            gameObject.SetActive(false);
     }
 
     /// <summary>True after boundary/exit stop (CloudManager skips driving pooled motion).</summary>
@@ -189,54 +220,69 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void EnterBlockEntryZone()
     {
+        if (isPersistent) return;
         _isInBlockEntryZone = true;
         isMoving = false;
-        if (!_playerOnCloud)
-            BeginDespawnAnimation();
+        BeginDespawnAnimation();
     }
 
     void OnTriggerEnter2D(Collider2D other)
     {
         var zone = other.GetComponent<CloudNoSpawnZone>();
         if (zone == null || !zone.blockEntry || ignoreNoSpawnZones) return;
+        _overlappingBlockEntryZones.Add(zone);
         EnterBlockEntryZone();
     }
 
     void OnTriggerExit2D(Collider2D other)
     {
         var zone = other.GetComponent<CloudNoSpawnZone>();
-        if (zone == null) return;
+        if (zone == null || ignoreNoSpawnZones) return;
 
-        _isInBlockEntryZone = false;
-        if (!_isDespawning)
+        _overlappingBlockEntryZones.Remove(zone);
+        _isInBlockEntryZone = _overlappingBlockEntryZones.Count > 0;
+        if (!_isInBlockEntryZone && !_despawnRequested && !_isDespawning)
             isMoving = true;
     }
 
     void OnCollisionEnter2D(Collision2D other)
     {
-        if (other.gameObject.CompareTag("Player"))
+        if (TryGetPlayerContact(other, out Collider2D playerCollider))
         {
-            _playerOnCloud = true;
-            if (_isDespawning)
-            {
-                if (_despawnCoroutine != null)
-                {
-                    StopCoroutine(_despawnCoroutine);
-                    _despawnCoroutine = null;
-                }
-                _isDespawning = false;
-            }
+            _playerContacts.Add((playerCollider, other.otherCollider));
         }
     }
 
     void OnCollisionExit2D(Collision2D other)
     {
-        if (other.gameObject.CompareTag("Player"))
+        if (TryGetPlayerContact(other, out Collider2D playerCollider))
         {
-            _playerOnCloud = false;
-            if (_isInBlockEntryZone)
+            _playerContacts.Remove((playerCollider, other.otherCollider));
+            if (!IsPlayerOnCloud && _despawnRequested)
                 BeginDespawnAnimation();
         }
+    }
+
+    static bool TryGetPlayerContact(Collision2D collision, out Collider2D playerCollider)
+    {
+        playerCollider = collision.collider;
+        if (playerCollider == null) return false;
+        if (playerCollider.gameObject.CompareTag("Player")) return true;
+        if (playerCollider.attachedRigidbody != null &&
+            playerCollider.attachedRigidbody.gameObject.CompareTag("Player")) return true;
+        return playerCollider.GetComponentInParent<PlayerControllerM>() != null;
+    }
+
+    static bool IsInvalidPlayerContact((Collider2D player, Collider2D platform) contact) =>
+        contact.player == null || !contact.player.enabled || !contact.player.gameObject.activeInHierarchy ||
+        contact.platform == null || !contact.platform.enabled || !contact.platform.gameObject.activeInHierarchy;
+
+    /// <summary>Client-side visual only; lifecycle ownership remains on the server CloudManager.</summary>
+    public void PlayDespawnVisualOnly()
+    {
+        if (isPersistent) return;
+        if (despawnAnimator != null && !string.IsNullOrEmpty(despawnTrigger))
+            despawnAnimator.SetTrigger(despawnTrigger);
     }
 
     void SetMoving(bool moving)
@@ -261,7 +307,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     /// <summary>Combined bounds of all Collider2D on this cloud.</summary>
     public Bounds GetBounds()
     {
-        var colliders = GetComponentsInChildren<Collider2D>();
+        var colliders = _boundsColliders;
         if (colliders == null || colliders.Length == 0)
             return new Bounds(transform.position, Vector3.zero);
 

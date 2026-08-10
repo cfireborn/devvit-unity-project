@@ -12,6 +12,7 @@ public class NetworkPlayerController : NetworkBehaviour
     PlayerControllerM _controller;
     Rigidbody2D _rb;
     SpriteRenderer _spriteRenderer;
+    CloudManager _serverCloudManager;
 
     float _serverOrthoSize = 5f;
     float _serverAspect = 16f / 9f;
@@ -83,8 +84,24 @@ public class NetworkPlayerController : NetworkBehaviour
         }
     }
 
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        _serverCloudManager = FindFirstObjectByType<CloudManager>();
+        if (_serverCloudManager != null)
+            _serverCloudManager.RegisterPlayer(transform);
+        else
+        {
+            Debug.LogError($"NetworkPlayerController: no CloudManager found for server player {OwnerId}; dynamic clouds cannot activate.");
+        }
+    }
+
     public override void OnStopServer()
     {
+        if (_serverCloudManager != null)
+            _serverCloudManager.UnregisterPlayer(transform);
+        _serverCloudManager = null;
+
         base.OnStopServer();
         var gs = FindFirstObjectByType<GameServices>();
         if (gs != null && _controller != null)

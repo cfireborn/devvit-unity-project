@@ -14,11 +14,13 @@ using UnityEngine;
 ///   3. NetworkBootstrapper starts server in editor (InstanceFinder.IsServerStarted).
 ///   4. NetworkCloudManager exists and has CloudManager sibling.
 ///   5. CloudManager enables after OnStartServer (checked via polling).
-///   6. CloudManager spawns at least one cloud within timeout.
-///   7. Active cloud count stays at or below maxDynamicClouds cap.
-///   8. All active clouds have valid Rigidbody2D and are Kinematic.
-///   9. Clouds are moving (position delta observed over two FixedUpdate cycles).
-///  10. CloudManager disables on a pure client (offline mode bypass test).
+///   6. A FishNet player registers directly with the server CloudManager.
+///   7. Player registration activates at least one lane.
+///   8. CloudManager spawns at least one cloud within timeout.
+///   9. Active cloud count stays at or below maxDynamicClouds cap.
+///  10. All active clouds have valid Rigidbody2D and are Kinematic.
+///  11. Clouds are moving (position delta observed over two FixedUpdate cycles).
+///  12. CloudManager disables on a pure client (offline mode bypass test).
 /// </summary>
 public class CloudManagerTestRunner : MonoBehaviour
 {
@@ -111,6 +113,8 @@ public class CloudManagerTestRunner : MonoBehaviour
 
         CheckBootstrapperStartedServer();
         yield return StartCoroutine(CheckCloudManagerEnabledOnServer());
+        yield return StartCoroutine(CheckServerPlayerRegistered());
+        yield return StartCoroutine(CheckPlayerActivatedLanes());
         yield return StartCoroutine(CheckCloudSpawnsWithinTimeout());
         CheckMaxCloudCapRespected();
         CheckActiveCloudsAreKinematic();
@@ -200,16 +204,52 @@ public class CloudManagerTestRunner : MonoBehaviour
 
         while (elapsed < cloudSpawnTimeoutSeconds)
         {
-            cloudCount = cloudManager.GetActiveClouds().Count;
+            cloudCount = CountDynamicClouds();
             if (cloudCount > 0) break;
             elapsed += Time.deltaTime;
             yield return null;
         }
 
         if (cloudCount > 0)
-            Pass($"CloudManager spawned {cloudCount} cloud(s) within {elapsed:F1}s — spawn pipeline is healthy.");
+            Pass($"CloudManager spawned {cloudCount} dynamic cloud(s) within {elapsed:F1}s — spawn pipeline is healthy.");
         else
-            Fail($"No clouds appeared after {cloudSpawnTimeoutSeconds}s.", "Check: cloudPrefabs assigned, CloudBehaviorSettings.maxDynamicClouds > 0, at least one lane is within player viewport, and a player is registered with GameServices.");
+            Fail($"No clouds appeared after {cloudSpawnTimeoutSeconds}s.", "Check: cloudPrefabs assigned, maxDynamicClouds > 0, ActiveLaneCount > 0, and the first-spawn NetworkCloudManager diagnostic.");
+    }
+
+    IEnumerator CheckServerPlayerRegistered()
+    {
+        if (cloudManager == null) yield break;
+
+        float elapsed = 0f;
+        while (cloudManager.RegisteredPlayerCount == 0 && elapsed < cloudSpawnTimeoutSeconds)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (cloudManager.RegisteredPlayerCount > 0)
+            Pass($"Server CloudManager registered {cloudManager.RegisteredPlayerCount} FishNet player(s).");
+        else
+            Fail("Server CloudManager has no registered players.",
+                "NetworkPlayerController.OnStartServer must register its transform directly; GameServices only tracks the local client player.");
+    }
+
+    IEnumerator CheckPlayerActivatedLanes()
+    {
+        if (cloudManager == null || cloudManager.RegisteredPlayerCount == 0) yield break;
+
+        float elapsed = 0f;
+        while (cloudManager.ActiveLaneCount == 0 && elapsed < 2f)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (cloudManager.ActiveLaneCount > 0)
+            Pass($"Registered server player activated {cloudManager.ActiveLaneCount} cloud lane(s).");
+        else
+            Fail("A server player registered, but no cloud lanes activated.",
+                "Check the player's server transform, fallback viewport extents, boundary clipping, and lane layout.");
     }
 
     void CheckMaxCloudCapRespected()
@@ -217,7 +257,7 @@ public class CloudManagerTestRunner : MonoBehaviour
         if (cloudManager == null || cloudManager.settings == null) return;
 
         int cap    = cloudManager.settings.maxDynamicClouds;
-        int active = cloudManager.GetActiveClouds().Count;
+        int active = CountDynamicClouds();
 
         if (cap == 0)
         {
@@ -229,6 +269,16 @@ public class CloudManagerTestRunner : MonoBehaviour
             Pass($"Active cloud count ({active}) is within maxDynamicClouds cap ({cap}).");
         else
             Fail($"Active cloud count ({active}) exceeds maxDynamicClouds cap ({cap}).", "CloudManager is not enforcing the dynamic cap correctly.");
+    }
+
+    int CountDynamicClouds()
+    {
+        if (cloudManager == null) return 0;
+        int count = 0;
+        var clouds = cloudManager.GetActiveClouds();
+        for (int i = 0; i < clouds.Count; i++)
+            if (cloudManager.IsDynamicCloud(clouds[i])) count++;
+        return count;
     }
 
     void CheckActiveCloudsAreKinematic()
@@ -277,10 +327,14 @@ public class CloudManagerTestRunner : MonoBehaviour
         GameObject target = null;
         foreach (var c in clouds)
         {
-            if (c != null) { target = c; break; }
+            if (c != null && cloudManager.IsDynamicCloud(c)) { target = c; break; }
         }
 
-        if (target == null) yield break;
+        if (target == null)
+        {
+            Warn("No dynamic cloud was available for the movement check.");
+            yield break;
+        }
 
         Vector2 posA = target.transform.position;
         yield return new WaitForSeconds(movementSampleIntervalSeconds);

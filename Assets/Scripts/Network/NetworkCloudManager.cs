@@ -29,6 +29,7 @@ public class NetworkCloudManager : NetworkBehaviour
     // Cached flags — IsServerStarted/IsClientStarted crash in offline mode when
     // the NetworkObject's internal manager is null
     bool _serverRunning;
+    bool _loggedFirstServerCloud;
 
     void Awake()
     {
@@ -64,9 +65,23 @@ public class NetworkCloudManager : NetworkBehaviour
             {
                 if (!nob.IsSceneObject)
                     InstanceFinder.ServerManager.Spawn(nob);
-                var nc = go.GetComponent<NetworkCloud>();
-                if (nc != null) nc.SyncScale(scale);
+                if (nob.IsSpawned)
+                {
+                    var nc = go.GetComponent<NetworkCloud>();
+                    if (nc != null) nc.SyncScale(scale);
+
+                    if (!_loggedFirstServerCloud && _cloudManager.IsDynamicCloud(go))
+                    {
+                        _loggedFirstServerCloud = true;
+                        Debug.Log($"NetworkCloudManager: spawned first server cloud '{go.name}' " +
+                            $"(players={_cloudManager.RegisteredPlayerCount}, activeLanes={_cloudManager.ActiveLaneCount}).");
+                    }
+                }
+                else
+                    Debug.LogError($"NetworkCloudManager: FishNet did not spawn cloud '{go.name}'.");
             }
+            else
+                Debug.LogError($"NetworkCloudManager: cloud '{go.name}' has no NetworkObject and cannot replicate.");
         };
         _cloudManager._onCloudDeactivated = go =>
         {
@@ -88,10 +103,15 @@ public class NetworkCloudManager : NetworkBehaviour
     {
         base.OnStartServer();
         _serverRunning = true;
+        _loggedFirstServerCloud = false;
         if (_cloudManager != null)
         {
             SetServerDelegates();
             _cloudManager.enabled = true;
+            if (_cloudManager.settings == null || _cloudManager.cloudPrefabs == null || _cloudManager.cloudPrefabs.Length == 0)
+                Debug.LogError("NetworkCloudManager: server cloud simulation is missing settings or cloud prefabs.");
+            else
+                Debug.Log("NetworkCloudManager: server cloud simulation enabled; lanes will activate when a server player registers.");
         }
     }
 
@@ -99,6 +119,8 @@ public class NetworkCloudManager : NetworkBehaviour
     {
         base.OnStopServer();
         _serverRunning = false;
+        if (_cloudManager != null && !_offlineMode)
+            _cloudManager.enabled = false;
     }
 
     // ── Client lifecycle ──────────────────────────────────────────────────────

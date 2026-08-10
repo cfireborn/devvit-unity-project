@@ -295,6 +295,15 @@ Press Play in the editor — the main window connects as host via Tugboat UDP di
 
 WebGL players connect automatically via Cloudflare Tunnel (`compersion.charliefeuerborn.com:443`) — no inspector changes needed there between deploys.
 
+#### Cloud spawning diagnostics
+
+The dedicated server intentionally leaves dynamic cloud lanes idle while no players are connected. After the first player finishes loading start scenes, the server log should show:
+
+1. `NetworkCloudManager: server cloud simulation enabled...`
+2. `NetworkCloudManager: spawned first server cloud ... (players=1, activeLanes=...)`
+
+If step 1 appears without step 2, verify the spawned player prefab still has `NetworkPlayerController`, then inspect the cloud settings, prefabs, server player position, and boundary-clipped fallback viewport. A missing or failed `NetworkObject` spawn is reported as an explicit replication error.
+
 #### Edgegap app version port config
 
 | Internal Port | Protocol | Purpose |

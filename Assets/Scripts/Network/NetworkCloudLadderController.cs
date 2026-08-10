@@ -98,6 +98,8 @@ public class NetworkCloudLadderController : NetworkBehaviour
     {
         base.OnStopServer();
         _serverRunning = false;
+        if (_ladderController != null && !_offlineMode)
+            _ladderController.enabled = false;
     }
 
     // ── Client lifecycle ──────────────────────────────────────────────────────

@@ -68,7 +68,6 @@ MonoBehaviour:
   slotIndex: -1
   pooledWorldY: 0
   pooledSourcePrefab: {fileID: 0}
-  pooledPrevOverlapEntryOnly: 0
   wasActiveAtStart: 0
 --- !u!212 &5488670360206764498
 SpriteRenderer:

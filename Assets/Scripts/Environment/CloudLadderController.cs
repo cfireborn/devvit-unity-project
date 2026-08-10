@@ -48,11 +48,22 @@ public class CloudLadderController : MonoBehaviour
     [Tooltip("Distance (world units) the ladder extends inside each cloud from the polygon edge. 0 = use AABB edge.")]
     [Min(0f)]
     public float ladderInsetIntoCloud = 0.2f;
+    [Tooltip("How long a ladder remains usable after a connected cloud begins its evaporation animation.")]
+    [Min(0f)]
+    public float ladderCloudEvaporationHoldSeconds = 1f;
 
     // Injected by NetworkCloudLadderController before CloudLadderController is enabled.
     internal Action<GameObject, CloudPlatform, CloudPlatform> _onLadderActivated;
     // null = ReturnLadderToPool path. Server: FishNet Despawn or Destroy.
     internal Action<GameObject> _onLadderDeactivated;
+
+    sealed class RetiringLadder
+    {
+        public GameObject ladder;
+        public CloudPlatform lower;
+        public CloudPlatform upper;
+        public float removeAt;
+    }
 
     readonly List<CloudPlatform> _cachedPlatformList = new List<CloudPlatform>();
     readonly HashSet<(CloudPlatform, CloudPlatform)> _validPairsScratch = new HashSet<(CloudPlatform, CloudPlatform)>();
@@ -60,9 +71,11 @@ public class CloudLadderController : MonoBehaviour
     readonly HashSet<CloudPlatform> _hasLadderBelowScratch = new HashSet<CloudPlatform>();
     readonly HashSet<GameObject> _activeSetScratch = new HashSet<GameObject>();
     readonly List<(CloudPlatform, CloudPlatform)> _toRemoveScratch = new List<(CloudPlatform, CloudPlatform)>();
+    readonly List<Collider2D> _ladderOverlapScratch = new List<Collider2D>(16);
 
     readonly Dictionary<(CloudPlatform, CloudPlatform), GameObject> _ladders = new Dictionary<(CloudPlatform, CloudPlatform), GameObject>();
     readonly HashSet<(CloudPlatform, CloudPlatform)> _forcedPairs = new HashSet<(CloudPlatform, CloudPlatform)>();
+    readonly List<RetiringLadder> _retiringLadders = new List<RetiringLadder>();
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
     Transform _ladderParent;
 
@@ -74,6 +87,7 @@ public class CloudLadderController : MonoBehaviour
 
     void LateUpdate()
     {
+        UpdateRetiringLadders();
         if (cloudManager == null || ladderPrefab == null) return;
 
         var platformList = GetActiveCloudPlatforms();
@@ -111,6 +125,11 @@ public class CloudLadderController : MonoBehaviour
             if (lower != null) _hasLadderAboveScratch.Add(lower);
             if (upper != null) _hasLadderBelowScratch.Add(upper);
         }
+        foreach (var retiring in _retiringLadders)
+        {
+            if (retiring.lower != null) _hasLadderAboveScratch.Add(retiring.lower);
+            if (retiring.upper != null) _hasLadderBelowScratch.Add(retiring.upper);
+        }
 
         for (int i = 0; i < platformList.Count; i++)
         {
@@ -118,7 +137,7 @@ public class CloudLadderController : MonoBehaviour
             {
                 var a = platformList[i];
                 var b = platformList[j];
-                if (!a.canBuildLadder || !b.canBuildLadder) continue;
+                if (!a.canBuildLadder || !b.canBuildLadder || a.IsDespawning || b.IsDespawning) continue;
                 var pair = OrderPair(a, b);
                 var lower = pair.Item1;
                 var upper = pair.Item2;
@@ -126,10 +145,15 @@ public class CloudLadderController : MonoBehaviour
                     continue;
                 if (ShouldHaveLadder(a, b))
                 {
+                    bool alreadyExists = _ladders.ContainsKey(pair);
+                    if (!alreadyExists &&
+                        (TotalManagedLadderCount >= maxLadders || WouldNewLadderOverlapPlayer(lower, upper)))
+                        continue;
+
                     _validPairsScratch.Add(pair);
                     _hasLadderAboveScratch.Add(lower);
                     _hasLadderBelowScratch.Add(upper);
-                    if (!_ladders.ContainsKey(pair) && _ladders.Count < maxLadders)
+                    if (!alreadyExists)
                         CreateLadder(lower, upper);
                 }
             }
@@ -140,7 +164,8 @@ public class CloudLadderController : MonoBehaviour
 
         foreach (var kvp in _ladders)
         {
-            if (kvp.Key.Item1 == null || kvp.Key.Item2 == null) continue;
+            if (kvp.Key.Item1 == null || kvp.Key.Item2 == null ||
+                kvp.Key.Item1.IsDespawning || kvp.Key.Item2.IsDespawning) continue;
             if (ShouldHaveLadder(kvp.Key.Item1, kvp.Key.Item2))
                 _validPairsScratch.Add(kvp.Key);
         }
@@ -154,15 +179,14 @@ public class CloudLadderController : MonoBehaviour
         foreach (var pair in _forcedPairs)
         {
             if (pair.Item1 == null || pair.Item2 == null ||
+                pair.Item1.IsDespawning || pair.Item2.IsDespawning ||
                 !activeSet.Contains(pair.Item1.gameObject) || !activeSet.Contains(pair.Item2.gameObject))
                 _toRemoveScratch.Add(pair);
         }
         foreach (var pair in _toRemoveScratch)
         {
             _forcedPairs.Remove(pair);
-            if (_ladders.TryGetValue(pair, out var ladder) && ladder != null)
-                DespawnLadder(ladder);
-            _ladders.Remove(pair);
+            RemoveOrRetireLadder(pair, activeSet);
         }
 
         _toRemoveScratch.Clear();
@@ -172,10 +196,51 @@ public class CloudLadderController : MonoBehaviour
                 _toRemoveScratch.Add(kvp.Key);
         }
         foreach (var pair in _toRemoveScratch)
+            RemoveOrRetireLadder(pair, activeSet);
+    }
+
+    int TotalManagedLadderCount => _ladders.Count + _retiringLadders.Count;
+
+    void RemoveOrRetireLadder((CloudPlatform, CloudPlatform) pair, HashSet<GameObject> activeSet)
+    {
+        if (!_ladders.TryGetValue(pair, out var ladder)) return;
+        _ladders.Remove(pair);
+        _forcedPairs.Remove(pair);
+        if (ladder == null) return;
+
+        bool lowerGone = pair.Item1 == null || !activeSet.Contains(pair.Item1.gameObject);
+        bool upperGone = pair.Item2 == null || !activeSet.Contains(pair.Item2.gameObject);
+        bool evaporating = (!lowerGone && pair.Item1.IsDespawning) || (!upperGone && pair.Item2.IsDespawning);
+
+        if (evaporating)
+            RetireLadder(ladder, pair, ladderCloudEvaporationHoldSeconds);
+        else
+            DespawnLadder(ladder);
+    }
+
+    void RetireLadder(GameObject ladder, (CloudPlatform lower, CloudPlatform upper) pair, float delay)
+    {
+        if (ladder == null) return;
+        _retiringLadders.Add(new RetiringLadder
         {
-            if (_ladders.TryGetValue(pair, out var ladder) && ladder != null)
-                DespawnLadder(ladder);
-            _ladders.Remove(pair);
+            ladder = ladder,
+            lower = pair.lower,
+            upper = pair.upper,
+            removeAt = Time.time + Mathf.Max(0f, delay)
+        });
+    }
+
+    void UpdateRetiringLadders()
+    {
+        for (int i = _retiringLadders.Count - 1; i >= 0; i--)
+        {
+            RetiringLadder retiring = _retiringLadders[i];
+            if (retiring.ladder != null && Time.time < retiring.removeAt)
+                continue;
+
+            if (retiring.ladder != null)
+                DespawnLadder(retiring.ladder);
+            _retiringLadders.RemoveAt(i);
         }
     }
 
@@ -279,13 +344,21 @@ public class CloudLadderController : MonoBehaviour
 
         var pair = OrderPair(a, b);
         if (_ladders.ContainsKey(pair)) return true;
+        if (TotalManagedLadderCount >= maxLadders) return false;
+        if (a.IsDespawning || b.IsDespawning) return false;
         if (!ShouldHaveLadder(a, b)) return false;
+        if (WouldNewLadderOverlapPlayer(pair.Item1, pair.Item2)) return false;
 
         bool lowerHasAbove = false, upperHasBelow = false;
         foreach (var kvp in _ladders)
         {
             if (kvp.Key.Item1 == pair.Item1) lowerHasAbove = true;
             if (kvp.Key.Item2 == pair.Item2) upperHasBelow = true;
+        }
+        foreach (var retiring in _retiringLadders)
+        {
+            if (retiring.lower == pair.Item1) lowerHasAbove = true;
+            if (retiring.upper == pair.Item2) upperHasBelow = true;
         }
         if (lowerHasAbove || upperHasBelow) return false;
 
@@ -382,7 +455,7 @@ public class CloudLadderController : MonoBehaviour
     {
         float bestY = top ? float.MinValue : float.MaxValue;
         bool found = false;
-        var colliders = platform.GetComponentsInChildren<Collider2D>();
+        var colliders = platform.BoundsColliders;
         for (int i = 0; i < colliders.Length; i++)
         {
             var col = colliders[i];
@@ -415,28 +488,7 @@ public class CloudLadderController : MonoBehaviour
     /// Public so NetworkCloudLadderController can call it on clients.</summary>
     public void UpdateLadderPosition(CloudPlatform lower, CloudPlatform upper, GameObject ladder)
     {
-        Bounds bl = lower.GetMainBounds();
-        Bounds bu = upper.GetMainBounds();
-
-        float overlapMin, overlapMax;
-        bool hasOverlap = TryGetHorizontalOverlap(lower, upper, out overlapMin, out overlapMax);
-        float centerX = (bl.center.x + bu.center.x) * 0.5f;
-        float x = hasOverlap ? Mathf.Clamp(centerX, overlapMin, overlapMax) : centerX;
-        float yMin, yMax;
-        if (ladderInsetIntoCloud > 0f)
-        {
-            float lowerTopY = GetEdgeYAtX(lower, x, true);
-            float upperBottomY = GetEdgeYAtX(upper, x, false);
-            yMin = lowerTopY - ladderInsetIntoCloud;
-            yMax = upperBottomY + ladderInsetIntoCloud;
-        }
-        else
-        {
-            yMin = bl.max.y;
-            yMax = bu.min.y;
-        }
-        float height = Mathf.Max(0.1f, yMax - yMin);
-        float y = (yMin + yMax) * 0.5f;
+        GetLadderPlacement(lower, upper, out float x, out float y, out float height);
 
         ladder.transform.position = new Vector3(x, y, ladder.transform.position.z);
         ladder.transform.localScale = Vector3.one;
@@ -505,6 +557,55 @@ public class CloudLadderController : MonoBehaviour
         }
     }
 
+    void GetLadderPlacement(CloudPlatform lower, CloudPlatform upper, out float x, out float y, out float height)
+    {
+        Bounds bl = lower.GetMainBounds();
+        Bounds bu = upper.GetMainBounds();
+
+        float overlapMin, overlapMax;
+        bool hasOverlap = TryGetHorizontalOverlap(lower, upper, out overlapMin, out overlapMax);
+        float centerX = (bl.center.x + bu.center.x) * 0.5f;
+        x = hasOverlap ? Mathf.Clamp(centerX, overlapMin, overlapMax) : centerX;
+        float yMin, yMax;
+        if (ladderInsetIntoCloud > 0f)
+        {
+            float lowerTopY = GetEdgeYAtX(lower, x, true);
+            float upperBottomY = GetEdgeYAtX(upper, x, false);
+            yMin = lowerTopY - ladderInsetIntoCloud;
+            yMax = upperBottomY + ladderInsetIntoCloud;
+        }
+        else
+        {
+            yMin = bl.max.y;
+            yMax = bu.min.y;
+        }
+        height = Mathf.Max(0.1f, yMax - yMin);
+        y = (yMin + yMax) * 0.5f;
+    }
+
+    bool WouldNewLadderOverlapPlayer(CloudPlatform lower, CloudPlatform upper)
+    {
+        GetLadderPlacement(lower, upper, out float x, out float y, out float height);
+        _ladderOverlapScratch.Clear();
+        int overlapCount = Physics2D.OverlapBox(
+            new Vector2(x, y),
+            new Vector2(ladderWidth, height),
+            0f,
+            ContactFilter2D.noFilter,
+            _ladderOverlapScratch);
+        for (int i = 0; i < overlapCount; i++)
+        {
+            Collider2D overlap = _ladderOverlapScratch[i];
+            if (overlap == null) continue;
+            if (overlap.gameObject.CompareTag("Player")) return true;
+            if (overlap.attachedRigidbody != null && overlap.attachedRigidbody.gameObject.CompareTag("Player"))
+                return true;
+            if (overlap.GetComponentInParent<PlayerControllerM>() != null)
+                return true;
+        }
+        return false;
+    }
+
     static bool TryGetPolygonEdgeY(PolygonCollider2D poly, float worldX, bool top, out float edgeY)
     {
         edgeY = top ? float.MinValue : float.MaxValue;
@@ -543,8 +644,8 @@ public class CloudLadderController : MonoBehaviour
         overlapMin = float.MaxValue;
         overlapMax = float.MinValue;
         bool found = false;
-        var lowerCols = lower.GetComponentsInChildren<Collider2D>();
-        var upperCols = upper.GetComponentsInChildren<Collider2D>();
+        var lowerCols = lower.BoundsColliders;
+        var upperCols = upper.BoundsColliders;
 
         for (int i = 0; i < lowerCols.Length; i++)
         {

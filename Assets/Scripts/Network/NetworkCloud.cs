@@ -36,6 +36,9 @@ public class NetworkCloud : NetworkBehaviour
     {
         base.OnStartServer();
 
+        if (_platform != null)
+            _platform.DespawnStarted += OnServerDespawnStarted;
+
         // Re-enable CloudPlatform for scene clouds that were active at load.
         // Pool-spawned clouds are already enabled; this specifically covers scene
         // NetworkObjects whose CloudPlatform may have been left in an indeterminate
@@ -48,6 +51,18 @@ public class NetworkCloud : NetworkBehaviour
             _rb.bodyType = RigidbodyType2D.Kinematic;
             _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         }
+    }
+
+    public override void OnStopServer()
+    {
+        if (_platform != null)
+            _platform.DespawnStarted -= OnServerDespawnStarted;
+        base.OnStopServer();
+    }
+
+    void OnServerDespawnStarted()
+    {
+        SyncDespawnVisual();
     }
 
     public override void OnStartClient()
@@ -79,5 +94,12 @@ public class NetworkCloud : NetworkBehaviour
     public void SyncScale(float scale)
     {
         transform.localScale = new Vector3(scale, scale, scale);
+    }
+
+    /// <summary>Starts the same evaporation visual on pure clients while the server owns despawn timing.</summary>
+    [ObserversRpc(ExcludeServer = true, BufferLast = true)]
+    public void SyncDespawnVisual()
+    {
+        _platform?.PlayDespawnVisualOnly();
     }
 }

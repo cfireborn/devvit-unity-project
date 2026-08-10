@@ -470,7 +470,6 @@ MonoBehaviour:
   slotIndex: -1
   pooledWorldY: 0
   pooledSourcePrefab: {fileID: 0}
-  pooledPrevOverlapEntryOnly: 0
   wasActiveAtStart: 0
   goalCompletionTrigger: {fileID: 6111946695476475350}
   postDeliveryLeaveTrigger: {fileID: 6346475968189397017}
