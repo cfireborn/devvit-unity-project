@@ -15,7 +15,7 @@ plugin_dir="${plugin_dirs[0]}"
 plugin_window="${plugin_dir}/EdgegapWindowV2.cs"
 stable_version="26.08.11-watchdog-secure"
 
-if rg -q 'cloudflare-credentials|cloudflare-tunnel\.yml|releases/latest' Server/Dockerfile; then
+if grep -Eq 'cloudflare-credentials|cloudflare-tunnel\.yml|releases/latest' Server/Dockerfile; then
   echo "ERROR: Server/Dockerfile contains a legacy credential copy or mutable download."
   exit 1
 fi
@@ -50,7 +50,7 @@ cmp -s Server/Dockerfile "${plugin_dir}/Dockerfile" || {
   echo "ERROR: Dockerfile verification failed."
   exit 1
 }
-rg -q "versions/${stable_version}/details" "${plugin_window}" || {
+grep -Fq "versions/${stable_version}/details" "${plugin_window}" || {
   echo "ERROR: Stable-version browser flow verification failed."
   exit 1
 }
