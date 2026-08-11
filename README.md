@@ -63,6 +63,8 @@ Scenes/
 Docs/Agents/MULTIPLAYER_IMPLEMENTATION_PLAN.md   ← Living design doc; read before starting network work
 Docs/Agents/AGENTS.md                            ← Coding guidelines for AI assistants
 Docs/Agents/AGENTS-MOSTRECENT.md                 ← Full technical handoff for the next agent
+Docs/EDGEGAP_SERVER_OPERATIONS.md                ← Server publishing, secrets, startup, verification, recovery
+Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md     ← Watchdog invariants and agent maintenance checks
 ```
 
 ---

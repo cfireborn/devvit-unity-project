@@ -9,6 +9,8 @@
 
 Use this document plus `Docs/Agents/AGENTS.md` to orient yourself before modifying code, build pipelines, or deployments.
 
+For human operational steps and failure recovery, use `Docs/EDGEGAP_SERVER_OPERATIONS.md`. For implementation invariants and agent audit checks, use `Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md`. This handoff is architectural context, not a substitute for either runbook.
+
 ---
 
 ## Repository Map (paths relative to project root)
@@ -25,7 +27,9 @@ Builds/
   EdgegapServer/                ← Edgegap plugin output (ServerBuild binary et al.)
   WebGL/                        ← Latest WebGL export (published to GitHub Pages)
 Docs/Agents/                    ← You are here (AGENTS, AGENTS-MOSTRECENT, plans)
-Server/                         ← Dockerfile, Cloudflare tunnel config, start script
+Server/                         ← Dockerfile and runtime start script (no tunnel credential/config)
+Docs/EDGEGAP_SERVER_OPERATIONS.md ← Human operations runbook
+Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md ← State-machine invariants and maintenance audit
 update-edgegap-dockerfile.sh    ← Copies our Dockerfile into the Edgegap plugin cache
 ```
 
@@ -64,9 +68,9 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 ### 1. Edgegap Plugin Workflow
 1. **Prerequisites**: Docker Desktop running, Edgegap Unity plugin authenticated locally, and `./update-edgegap-dockerfile.sh` run after package imports.
 2. **Build** (`Tools → Edgegap Server Hosting → Build`): Produces `Builds/EdgegapServer/ServerBuild` (Unity headless binary, supporting files, `ServerBuild_Data`, etc.).
-3. **Containerize**: The plugin copies whatever Dockerfile it finds in its package cache and wraps the build into a Docker image. Our override injects Cloudflare, start script, and tunnel config.
+3. **Containerize**: The plugin uses the Dockerfile in its package cache and wraps the build into a Docker image. Our updater replaces that ephemeral file with the secured source Dockerfile, which adds a pinned Cloudflare binary and the start script without adding tunnel credentials or config.
 4. **Upload**: Pushes the freshly built image to Edgegap's registry (you can also configure Docker Hub if desired).
-5. **Deploy**: Spins up a fleet instance. Note the deployment hostname (`*.pr.edgegap.net`) and external UDP port mapped to internal 7777. Update the inspector/Admin Menu with these values for Tugboat clients.
+5. **Select tag and Save**: After Upload, Chrome opens the existing stable Edgegap version. Select the uploaded tag and save it. Do not create a new version or paste the tunnel secret. The homepage-triggered watchdog starts the singleton deployment when a visitor needs it.
 
 ### 2. Cloudflare Tunnel + Docker Runtime
 - `Server/Dockerfile` pins cloudflared and separates the tunnel and game into unprivileged accounts. No credential is copied into the image.
@@ -75,7 +79,7 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 - `Server/Dockerfile.edgegap-original` is the plugin's stock template for comparison; do not edit it.
 
 ### 3. Dockerfile Override Script
-- The Edgegap plugin lives under `Library/PackageCache/com.edgegap.unity-servers-plugin@35356e28ab54/`. Building after a clean checkout or plugin update reverts its bundled Dockerfile.
+- The Edgegap plugin lives under `Library/PackageCache/com.edgegap.unity-servers-plugin@*/`. Building after a clean checkout or plugin update reverts its bundled Dockerfile.
 - Run `./update-edgegap-dockerfile.sh` whenever `Library/` is rebuilt. It discovers the plugin hash, installs the secured Dockerfile, and makes Upload open the stable secret-bearing Edgegap version. Select the new tag and Save; do not create a fresh version.
 
 ### 4. Address Management After Deployments
@@ -106,7 +110,7 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
   ./SampleGame
   ```
   The server starts headless and listens on the configured Tugboat port (default 7777). Editor/standalone clients can then connect to `localhost`.
-- **Verifying Cloudflare**: After containerizing, inspect the plugin log for the line that downloads `cloudflared-linux-amd64`. If missing, re-run `update-edgegap-dockerfile.sh` before rebuilding.
+- **Verifying Cloudflare**: The secured Dockerfile copies `cloudflared` from a pinned official container image; it does not download a mutable release during the build. After Upload, verify the stable Edgegap version points to the new tag, then use the homepage and the checks in `Docs/EDGEGAP_SERVER_OPERATIONS.md`.
 - **Offline fallback**: Force it by blanking the Edgegap address or setting `AdminMenuPrefs.AttemptConnection = false`. Confirm `CloudManager` + `CloudLadderController` re-enable and the player tint flips grey.
 
 ---
@@ -114,7 +118,7 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 ## Open Items / Watchlist
 1. **Automated Edgegap session discovery**: There is no `EdgegapConnector` yet. WebGL clients rely on the static Cloudflare tunnel, so scaling to multiple simultaneous deployments will require an API-driven session lookup and dynamic Tugboat host selection.
 2. **ServerBuilder tooling**: Builds currently flow through the Edgegap plugin UI. If you need CI, scriptable builds for Linux headless, or reproducible Docker contexts, add a custom `ServerBuilder` editor script or CLI pipeline.
-3. **Docs hygiene**: When you touch transports, build steps, or hosting credentials, update both `Docs/Agents/AGENTS.md` and this file immediately. They are considered the single source of truth for other agents.
-4. **Edgegap plugin hash drift**: Reconfirm the path inside `update-edgegap-dockerfile.sh` whenever you upgrade the plugin. Broken copies silently revert to the stock Dockerfile (no Cloudflare, no start script) and Bayou connections will fail over WSS.
+3. **Docs hygiene**: When you touch transports, build steps, hosting credentials, or watchdog behavior, update the two operations runbooks plus this handoff as appropriate. Do not leave conflicting procedures in older summaries.
+4. **Edgegap plugin source drift**: The updater discovers the package hash dynamically and fails closed if it cannot find exactly one plugin or patch the expected Upload flow. Do not bypass that failure; review the updated plugin source first.
 
 Keep these notes synchronized with the codebase. A future agent should be able to recreate the entire stack—editor testing, server build, container push, and deployment—using only this document plus the README.
