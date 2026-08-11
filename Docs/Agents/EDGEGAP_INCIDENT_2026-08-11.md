@@ -18,6 +18,21 @@ The uploaded immutable image tag intended for the next controlled test is `26.08
 
 Edgegap reported the Dallas container as running, but the homepage and game could not connect because the Cloudflare Tunnel connector was not healthy. The Worker's sanitized diagnostic classified the container logs as `tunnel-auth-failed`. No raw logs, tokens, or credential material were exposed publicly or written here.
 
+### Controlled recovery test later on 2026-08-11
+
+The rotated tunnel token was successfully saved as hidden `CF_TUNNEL_TOKEN` on the stable Edgegap version. A controlled homepage test was then run:
+
+1. Worker deployment creation was enabled only after both Edgegap and the diagnostic reported zero live deployments.
+2. The homepage transitioned without refresh from **Wake request sent** to **Checking server** to **Server booting**.
+3. Exactly one watchdog-tagged Chicago deployment was created. No duplicate appeared.
+4. Cloudflare changed from Down to Healthy, proving that the replacement tunnel token and connector startup worked.
+5. The public origin continued returning HTTP 503 and a direct `wss://compersion.charliefeuerborn.com` handshake failed. The homepage therefore correctly remained **Server booting**.
+6. The failed deployment was terminated, the diagnostic returned `listedCount: 0` and `liveCount: 0`, and the production Worker was redeployed with `ENABLE_DEPLOYMENTS=false`.
+
+The remaining blocker is inside the uploaded Unity/server image: Bayou was not reachable on `localhost:7771` even though the Cloudflare connector was healthy. The exact uploaded image also hit a Unity Mono assertion when run locally through Apple-Silicon x86 emulation; that local emulation failure is useful evidence but does not prove the native Edgegap amd64 host failed for the same reason. Obtain native Edgegap container logs during the next controlled launch and do not re-enable automatic creation until Bayou is verified.
+
+The watchdog cold-start interval was shortened from 60 seconds to 5 seconds, retaining three serialized failures and app-wide live-deployment reconciliation before any create call. This should begin a future cold launch in roughly 10–15 seconds without allowing concurrent creates. Edgegap enum-style lifecycle status normalization was also broadened, but the observed live response still produced `edgegap-status-unknown`; response-shape handling remains an explicit blocker to validate before the next launch.
+
 During diagnosis, the Worker was hardened to:
 
 - preserve and reschedule Durable Object alarms when repeated visitor wake requests arrive;
@@ -34,9 +49,9 @@ Seven helper tests passed before the parked Worker deployment. These tests do no
 1. Verify the production Worker still shows `ENABLE_DEPLOYMENTS=false`. If not, disable it before doing anything else.
 2. Verify Edgegap has zero live deployments across **all** versions of the `compersion` application. Stop if the result is ambiguous.
 3. In Cloudflare Zero Trust, open the remotely managed `compersion` tunnel and copy its current token. Do not display, log, screenshot, or save it in a repository.
-4. A human must replace the hidden `CF_TUNNEL_TOKEN` value on existing Edgegap version `26.08.11-watchdog-secure`. Confirm only that the secret is present; never reveal its value. This is the only intentionally manual credential step.
+4. Confirm the hidden `CF_TUNNEL_TOKEN` remains present on existing Edgegap version `26.08.11-watchdog-secure`. It was replaced successfully during the controlled test; never reveal its value.
 5. Confirm that version selects immutable image tag `26.08.11-04.35.47-UTC` and retains the 24-hour deployment lifetime.
-6. Launch exactly one controlled deployment. Prefer a single manual launch while the Worker remains disabled, so a failed test cannot cause automatic replacements.
+6. First correct and upload a server image whose native Edgegap logs show Bayou listening on `localhost:7771`. Then launch exactly one controlled deployment. Prefer a single manual launch while the Worker remains disabled, so a failed test cannot cause automatic replacements.
 7. Verify, in order: exactly one Edgegap deployment; Edgegap `READY`; one healthy Cloudflare connector; a successful public WSS handshake; homepage `Operational`; and an actual WebGL multiplayer connection.
 8. If any check fails, terminate the controlled deployment, confirm zero live deployments, leave `ENABLE_DEPLOYMENTS=false`, and record the sanitized failure. Do not retry blindly.
 9. Only after the full test passes, deliberately set `ENABLE_DEPLOYMENTS=true`, run tests, deploy the Worker, and confirm the live binding. Then use one visitor wake test after the controlled deployment has ended.

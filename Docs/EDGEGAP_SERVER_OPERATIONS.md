@@ -20,7 +20,7 @@ The stable-version rule is important: the hidden tunnel secret belongs to the Ed
 
 Keeping this version preserves its hidden `CF_TUNNEL_TOKEN`, ports, runtime policy, and the Worker's configured target. A future migration to a timeless name such as `watchdog-secure` should be treated as a coordinated configuration migration: disable automatic deployments, verify zero live deployments, create and configure the new version, transfer the secret through the dashboard, update `EDGEGAP_VERSION`, test one controlled launch, and retire the old version. Do not rename merely to match a new image date.
 
-> **Parked incident state (2026-08-11):** automatic deployment creation is disabled and live deployment count was verified as zero. The Cloudflare Tunnel token was rotated but has not yet been replaced on the Edgegap version. Do not launch a server or re-enable automation until the ordered checklist in `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md` is complete.
+> **Parked incident state (2026-08-11):** automatic deployment creation is disabled and live deployment count was verified as zero. The rotated Cloudflare Tunnel token is now saved correctly and a controlled deployment reached a Healthy Cloudflare connector, but the uploaded Unity image never exposed Bayou on `localhost:7771`; public HTTP returned 503 and WSS failed. Do not launch another server or re-enable automation until the server image/listener blocker and Edgegap lifecycle response parsing are corrected using the ordered checklist in `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md`.
 
 ## One-time credential setup
 
