@@ -1,4 +1,4 @@
-# Agent Handoff — Compersion Multiplayer (March 24, 2026)
+# Agent Handoff — Compersion Multiplayer and Story (August 11, 2026)
 
 ## Snapshot
 - **Game**: Compersion — Unity 6 (6000.2.8f1) 2D platformer published as WebGL on GitHub Pages.
@@ -7,7 +7,7 @@
 - **Hosting**: Linux headless build packaged through the Edgegap Unity plugin, fronted by a persistent Cloudflare Tunnel (`compersion.charliefeuerborn.com`) for Bayou while Tugboat uses the per-deploy Edgegap hostname.
 - **Offline mode**: Automatic fallback after `NetworkBootstrapper` waits `connectionTimeoutSeconds` (5 s default). Gameplay components expose `ActivateOfflineMode()` so the single-player loop keeps running without a server.
 
-Use this document plus `Docs/Agents/AGENTS.md` to orient yourself before modifying code, build pipelines, or deployments.
+Use this document plus `Docs/Agents/AGENTS.md` to orient yourself before modifying code, build pipelines, or deployments. Read `Docs/Agents/UNITY_EDITOR_WORKFLOW.md` before operating the Unity Editor, and read `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md` before modifying dialogue, goals, or their scene wiring.
 
 For human operational steps and failure recovery, use `Docs/EDGEGAP_SERVER_OPERATIONS.md`. For implementation invariants and agent audit checks, use `Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md`. This handoff is architectural context, not a substitute for either runbook.
 
@@ -17,7 +17,7 @@ For human operational steps and failure recovery, use `Docs/EDGEGAP_SERVER_OPERA
 ```
 Assets/
   FishNet/                      ← FishNet runtime + Bayou plugin
-  Scenes/SimpleLevel.unity      ← Only shipping scene
+  Levels/SimpleLevel.unity      ← Only enabled shipping scene
   Scripts/
     Game/                       ← GameManagerM, GameServices, quest glue
     Player/                     ← PlayerControllerM + ScriptableObjects
@@ -27,6 +27,8 @@ Builds/
   EdgegapServer/                ← Edgegap plugin output (ServerBuild binary et al.)
   WebGL/                        ← Latest WebGL export (published to GitHub Pages)
 Docs/Agents/                    ← You are here (AGENTS, AGENTS-MOSTRECENT, plans)
+  STORY_THROUGH_SECOND_GOAL.md  ← Current narrative wiring, cuts, recovery, and test checklist
+  UNITY_EDITOR_WORKFLOW.md      ← Safe Unity operation and persistence checklist
 Server/                         ← Dockerfile and runtime start script (no tunnel credential/config)
 Docs/EDGEGAP_SERVER_OPERATIONS.md ← Human operations runbook
 Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md ← State-machine invariants and maintenance audit
@@ -58,8 +60,27 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 | Player spawning & sync | `NetworkPlayerSpawner.cs`, `NetworkPlayerController.cs`, `PlayerControllerM.cs` | Server spawns a NetworkPlayer prefab per connection. Owner keeps physics active, remotes disable their `Rigidbody2D` sim and mirror visual state via 15 Hz RPCs. `PlayerControllerM` listens to `TimeManager.OnTick` when networked. |
 | Clouds | `CloudManager.cs`, `NetworkCloudManager.cs`, `CloudPlatform.cs` | Server-only simulation. Offline clouds reuse the local pool; network clouds use FishNet spawn/despawn and are not pooled. Clients receive replicated cloud objects and transforms. Offline path re-enables the original component. |
 | Ladders | `CloudLadderController.cs`, `NetworkCloudLadderController.cs` | Server builds ladders, raises events. Clients rebuild ladder geometry every `LateUpdate` from synced cloud bounds—no continuous ladder RPC stream needed. |
+| Local story progression | `InteractionTrigger.cs`, `DialogueTrigger.cs`, `GoalAssignmentTrigger.cs`, `GoalCompletionTrigger.cs`, `PlayerControllerM.cs` | Goals and dialogue progress independently in each client process. Remote player proxies cannot consume local triggers because their `PlayerControllerM` is disabled. |
+| Story scene wiring | `Assets/Levels/SimpleLevel.unity`, `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md` | Gray → Spike → Gray. COMPERSION appears before Spike; the second goal ends at Gray and opens the developer ending panel. Removed ladder-tutorial and delivery-cloud routes must stay removed. |
 | Admin overrides | `Assets/Scripts/UI/AdminMenu.cs`, `AdminMenuPrefs.cs` | Inspector fields show which address/port is active, allow overriding at runtime (saved to EditorPrefs). Includes toggles for forcing local/offline tests. |
-| Documentation | `Docs/Agents/*.md`, `Docs/Agents/MULTIPLAYER_IMPLEMENTATION_PLAN.md` | Keep these files current whenever you change transports, hosting steps, or architecture. |
+| Editor workflow | `Docs/Agents/UNITY_EDITOR_WORKFLOW.md` | One writer per Unity project; edit outside Play Mode; save, reload, inspect the diff, then test offline/host/pure-client as appropriate. |
+| Documentation | `Docs/Agents/*.md` | Keep current runbooks synchronized with implementation. `MULTIPLAYER_IMPLEMENTATION_PLAN.md` is historical and not current architecture guidance. |
+
+---
+
+## Current Story Through the Second Goal
+
+The playable story in `Assets/Levels/SimpleLevel.unity` is a local, linear sequence:
+
+`Gray opening → first letter goal → Spike completion → COMPERSION definition → Spike reply → return-to-Gray goal → Gray response → end panel and narrative link`
+
+- The fixed-ladder tutorial and ordinary-mail/delivery-cloud branch are deliberate cuts. Ladders work normally from spawn.
+- `SpikeTutorialDialogue_2.asset` is empty and retired. It is not referenced by the shipping scene; wiring it into a live chain would stall completion.
+- The end panel is created by `GameUIManager.ShowEndOfDemo()` when no authored panel is assigned and links to the narrative script.
+- Story state is not synchronized. Each local `PlayerControllerM` owns its own goals, while disabled remote proxies are rejected by `InteractionTrigger.IsAllowed()`.
+- The six serialized scene transitions passed an Editor-side persistent-listener audit. A complete post-fix host plus pure-client playthrough is still pending and must not be reported as passed until performed.
+
+The exact component layout, diagnostic file IDs, prefab-array warning, repair procedure, and runtime checklist live in `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md`.
 
 ---
 

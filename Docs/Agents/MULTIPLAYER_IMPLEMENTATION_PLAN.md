@@ -1,5 +1,7 @@
 # Fishnet Multiplayer Implementation Plan
 
+> **Historical document — do not implement from this plan.** This file records an earlier migration design and contains obsolete transport, cloud-sync, ladder-sync, delivery, and deployment steps. For current architecture use `Docs/Agents/AGENTS-MOSTRECENT.md`; for Unity operation use `Docs/Agents/UNITY_EDITOR_WORKFLOW.md`; for the current local story chain use `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md`. In particular, do not reintroduce the removed delivery-cloud/postbox story branch or treat the ladder work below as unfinished.
+
 ## ⚠️ IMPORTANT: Always Support Offline / Single-Player Mode
 
 **Every feature added to this project must work in all three runtime modes:**
@@ -90,9 +92,9 @@ Transform the Compersion Unity 2D platformer into a multiplayer game using Fishn
 
 ---
 
-## Remaining Work
+## Historical Remaining Work (Superseded)
 
-### Phase 3.5 — Ladder Sync *(next up)*
+### Phase 3.5 — Ladder Sync *(historical; completed with a different architecture)*
 **Goal**: Ladders that appear on the host also appear on all clients
 
 The `CloudLadderController` is not networked. Ladders currently only appear on the server/host.

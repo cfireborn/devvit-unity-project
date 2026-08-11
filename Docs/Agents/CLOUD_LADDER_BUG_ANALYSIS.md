@@ -227,5 +227,5 @@ Cache native height in the prefab's `CloudPlatform` component itself, or measure
 | `Assets/Scripts/Network/NetworkCloudManager.cs` | Server enables CloudManager, client disables |
 | `Assets/Scripts/Network/NetworkCloudLadderController.cs` | Client rebuilds ladder geometry each LateUpdate |
 | `Assets/Scripts/Network/NetworkCloud.cs` | Sets `wasActiveAtStart`, disables CloudPlatform on pure clients |
-| `Assets/Scenes/SimpleLevel.unity` | Cloud_1 at (-1.34, -0.52), Cloud_2 — both `isMoving=0`, `canBuildLadder=1` |
+| `Assets/Levels/SimpleLevel.unity` | Cloud_1 at (-1.34, -0.52), Cloud_2 — both `isMoving=0`, `canBuildLadder=1` |
 | `Assets/Scene/Clouds/CloudManagerSettings_Basic.asset` | `minVerticalGap` not set here — default 0.5f in CloudLadderController Inspector |

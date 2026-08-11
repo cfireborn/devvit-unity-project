@@ -21,7 +21,7 @@ A 2D Unity platformer published as WebGL on GitHub Pages. Players parkour across
 ### Opening the project
 
 1. Open in Unity Hub, select the project root
-2. Open `Assets/Scenes/SimpleLevel.unity`
+2. Open `Assets/Levels/SimpleLevel.unity`
 3. Press Play in the main editor window — it starts as **host** (server + client)
 4. Open `Window → Multiplayer Play Mode` and activate a virtual player — it starts as a **pure client**
 
@@ -58,14 +58,20 @@ Assets/Scripts/
     CloudLadderController.cs    ← Creates/destroys ladders between qualifying cloud pairs
     CloudNoSpawnZone.cs         ← Blocks cloud spawning or entry in a region
     LadderTrigger.cs            ← Player interaction zone on ladder colliders
-Scenes/
-  SimpleLevel.unity             ← The only shipped scene
-Docs/Agents/MULTIPLAYER_IMPLEMENTATION_PLAN.md   ← Living design doc; read before starting network work
+Assets/Levels/
+  SimpleLevel.unity             ← The only enabled shipping scene
 Docs/Agents/AGENTS.md                            ← Coding guidelines for AI assistants
 Docs/Agents/AGENTS-MOSTRECENT.md                 ← Full technical handoff for the next agent
+Docs/Agents/UNITY_EDITOR_WORKFLOW.md              ← Safe Unity editing, saving, and testing workflow
+Docs/Agents/STORY_THROUGH_SECOND_GOAL.md          ← Current narrative wiring and recovery guide
+Docs/Agents/MULTIPLAYER_IMPLEMENTATION_PLAN.md   ← Historical plan; not current architecture guidance
 Docs/EDGEGAP_SERVER_OPERATIONS.md                ← Server publishing, secrets, startup, verification, recovery
 Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md     ← Watchdog invariants and agent maintenance checks
 ```
+
+### Current playable story
+
+The implemented story is a local Gray → Spike → Gray delivery loop. `COMPERSION` appears before Spike's reply; finishing the return delivery opens a lighthearted developer message with a button to the narrative script. The fixed-ladder tutorial and delivery-cloud/postbox branch were deliberately removed. See the [story implementation and recovery runbook](Docs/Agents/STORY_THROUGH_SECOND_GOAL.md) for the exact sequence and the [Unity Editor workflow](Docs/Agents/UNITY_EDITOR_WORKFLOW.md) before changing scene or dialogue assets.
 
 ---
 
@@ -227,7 +233,7 @@ Player tuning (jump force, speed, glide drag) lives in a `PlayerSettingsM` Scrip
 
 ## Editing the Scene
 
-The only scene is `SimpleLevel.unity`. Key GameObjects:
+The only enabled shipping scene is `Assets/Levels/SimpleLevel.unity`. Test, demo, or recovery scenes may also exist. Key GameObjects:
 
 | GameObject | Notes |
 |---|---|
