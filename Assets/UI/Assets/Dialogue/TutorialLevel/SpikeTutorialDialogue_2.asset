@@ -12,16 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 416957903ce8daa4cbf8b3a61dc43588, type: 3}
   m_Name: SpikeTutorialDialogue_2
   m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
-  steps:
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: Also—you're not exclusively Gray's mail squirrel, are you?
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
-    text: ...
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: I have some ordinary mail for the marked postbox.
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: You can take that or Gray's letter first. I don't care.
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
-    text: ...
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: That sounded too eager. Forget I said anything.
+  steps: []

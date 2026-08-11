@@ -272,16 +272,17 @@ Build with `File → Build Settings → WebGL → Build`, then publish the gener
 #### Prerequisites (one-time)
 
 - Docker Desktop running
-- `Server/cloudflare-credentials.json` present (git-ignored — see Cloudflare Tunnel section below)
+- Run `./update-edgegap-dockerfile.sh` after any Unity package reimport
 - Logged in to the Edgegap plugin (`Tools → Edgegap Server Hosting`)
 
 #### Deploy steps (every release)
 
 1. Open **Tools → Edgegap Server Hosting**
 2. Click **Build** — compiles the Linux dedicated server binary to `Builds/EdgegapServer/`
-3. Click **Containerize** — runs `docker build` using `Server/Dockerfile`, which installs cloudflared and bakes in the tunnel credentials
-4. Click **Upload** (or Push) — pushes the image to Edgegap's registry
-5. Click **Deploy** — starts a new deployment; wait for status to show **Running**
+3. Click **Containerize** — builds the secured image with pinned cloudflared; no credential is baked into it
+4. Click **Upload** (or Push) — pushes the image and opens the stable `26.08.11-watchdog-secure` version in Chrome
+5. Select the newly uploaded Docker tag and click **Save**. The hidden `CF_TUNNEL_TOKEN` remains attached automatically; never paste it again
+6. Let the homepage watchdog deploy on demand, or use **Deploy** for a deliberate manual test
 6. In the deployment details, note the **server hostname** (e.g. `abc123.pr.edgegap.net`) and the **external UDP port** mapped to internal port `7777`
 
 #### Connecting the Unity editor to the deployed server
@@ -322,17 +323,9 @@ In the **NetworkBootstrapper** Inspector:
 
 The tunnel `compersion` (ID `391101e6-0e49-42af-8656-31d145f588fb`) routes `wss://compersion.charliefeuerborn.com` → `ws://localhost:7771` (Bayou) inside the container. The stable domain survives Edgegap redeployments — clients always connect to the same address.
 
-To set up from scratch on a new machine:
-```bash
-brew install cloudflared
-cloudflared tunnel login
-cloudflared tunnel create compersion
-cloudflared tunnel route dns compersion compersion.charliefeuerborn.com
-cp ~/.cloudflared/<new-tunnel-id>.json Server/cloudflare-credentials.json
-# Update tunnel ID in Server/cloudflare-tunnel.yml to match
-```
-
-`Server/cloudflare-credentials.json` is git-ignored (contains tunnel secret). Keep a copy in `~/.cloudflared/` — that's where cloudflared stores it by default.
+The remotely managed `compersion` tunnel token is stored once as the hidden
+`CF_TUNNEL_TOKEN` variable on the stable Edgegap version. It is injected only
+at deployment time. Never place tunnel JSON, YAML, or token values in this repo.
 
 ### Testing the WebGL build locally
 

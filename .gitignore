@@ -102,6 +102,10 @@ InitTestScene*.unity*
 
 # Cloudflare Tunnel credentials — contains tunnel secret, do not commit
 Server/cloudflare-credentials.json
+Server/cloudflare-tunnel.yml
+
+# Edgegap plugin stores the local API credential in this asset.
+Assets/EdgegapSettings.asset
 
 # Unity test runner artifacts
 Assets/Resources/PerformanceTestRunInfo.json

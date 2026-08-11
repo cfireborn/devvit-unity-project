@@ -88,14 +88,14 @@ See `AGENTS-MOSTRECENT.md` in this same folder for the in-depth architecture bri
 
 - **Deployment target**: Linux dedicated server built via the Edgegap Unity plugin (`Tools → Edgegap Server Hosting`). Build → Containerize → Upload → Deploy writes binaries to `Builds/EdgegapServer/` and bakes them into a Docker image.
 - **Networking split**: Tugboat UDP clients connect directly to the hostname Edgegap assigns per deployment (update `edgegapTugboatAddress` + port in `NetworkBootstrapper`). WebGL/Bayou clients stay on the stable Cloudflare Tunnel domain `compersion.charliefeuerborn.com:443`.
-- **Cloudflare tunnel**: `Server/cloudflare-credentials.json` (gitignored) plus `Server/cloudflare-tunnel.yml` instruct `cloudflared`—started by `Server/start.sh`—to forward wss:// traffic to the Bayou transport inside the container (ws://localhost:7771). Keep a copy of the credentials in `~/.cloudflared/` and refresh them if the tunnel is recreated.
+- **Cloudflare tunnel**: the remotely managed tunnel injects hidden `CF_TUNNEL_TOKEN` into the stable Edgegap version. `Server/start.sh` keeps it isolated from Unity and forwards WSS traffic to Bayou on localhost:7771.
 - **Server folder**: `Server/Dockerfile` installs `cloudflared`, copies tunnel config + start script, exposes `7777/udp`, and runs the headless build as PID 1. Legacy helpers (`nginx.conf`, `stunnel.conf`) are unused now that Cloudflare handles TLS; keep them only for reference.
 
 ---
 
 ## Linux Server Build & Deployment Checklist
 
-1. **Prereqs**: Unity 6.0.0f2+, FishNet 4.6.22 already imported, Docker Desktop running, Edgegap plugin logged in, and tunnel credentials placed at `Server/cloudflare-credentials.json`.
+1. **Prereqs**: Unity 6.0.0f2+, FishNet 4.6.22 already imported, Docker Desktop running, Edgegap plugin logged in locally, and `./update-edgegap-dockerfile.sh` completed.
 2. **Build**: In Unity, open `Tools → Edgegap Server Hosting` and click **Build** to emit `ServerBuild` under `Builds/EdgegapServer/`.
 3. **Containerize**: Click **Containerize**—Edgegap's plugin copies `Server/Dockerfile` into its package cache and runs `docker build`. Confirm the log shows Cloudflare binaries getting installed.
 4. **Upload & Deploy**: Use **Upload** (push to Edgegap registry) followed by **Deploy**. Record the deployment hostname + UDP port and update the `NetworkBootstrapper` inspector (or Admin Menu) before playtesting.
@@ -115,6 +115,5 @@ See `AGENTS-MOSTRECENT.md` in this same folder for the in-depth architecture bri
 ## Edgegap Plugin Dockerfile Override
 
 - Unity stores packages under `Library/PackageCache/`, so updating Unity or nuking `Library/` causes the Edgegap plugin to revert to its stock Dockerfile (no Cloudflare tunnel, no start script).
-- Run `./update-edgegap-dockerfile.sh` after every package reimport. It copies `Server/Dockerfile` into `Library/PackageCache/com.edgegap.unity-servers-plugin@35356e28ab54/Editor/Dockerfile` so container builds keep launching `cloudflared` and `Server/start.sh`.
-- If the plugin updates, its hash suffix (`@35356e28ab54`) will change. Update the script's `PLUGIN_DIR` constant accordingly or the copy step will fail.
+- Run `./update-edgegap-dockerfile.sh` after every package reimport. It discovers the active plugin cache, installs the secured Dockerfile, and patches Upload to open the stable Edgegap version so its hidden tunnel secret is retained.
 - Treat the copied Dockerfile as ephemeral—**edit the source in `Server/Dockerfile` only**, then re-run the script to fan out the change.
