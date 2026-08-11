@@ -48,7 +48,7 @@ The first command should print nothing. The second may match the updater's delib
 
 ## Stable Edgegap Version Workflow
 
-The stable Edgegap version is `26.08.11-watchdog-secure`. The hidden `CF_TUNNEL_TOKEN` is configured on this version once. New server builds update this version's Docker tag; they do not create a new Edgegap version. The Worker continues to request the stable version name, so normal image updates need no Worker configuration change.
+The stable Edgegap version is `26.08.11-watchdog-secure`. Its date records the secured watchdog/tunnel profile baseline created on 2026-08-11; it is not the Unity image build date. The hidden `CF_TUNNEL_TOKEN` is configured on this version once. New server builds update this version's immutable, date-bearing Docker tag; they do not create a new Edgegap version. The Worker continues to request the stable version name, so normal image updates need no Worker configuration change. Renaming it is a coordinated profile migration requiring a new secret-bearing version and Worker target change, not a routine build step.
 
 Normal upload flow:
 

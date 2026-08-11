@@ -12,7 +12,7 @@ Verified before handoff on 2026-08-11:
 - The Cloudflare Tunnel token was rotated in Cloudflare, but the replacement value was **not** entered into Edgegap. The hidden `CF_TUNNEL_TOKEN` on stable version `26.08.11-watchdog-secure` is therefore expected to be stale/invalid until a human replaces it.
 - Do not launch a server until the Edgegap secret has been replaced. Do not re-enable the watchdog merely to test the current secret.
 
-The uploaded immutable image tag intended for the next controlled test is `26.08.11-04.35.47-UTC`. The Edgegap version remains `26.08.11-watchdog-secure`; selecting an image tag on that version affects future deployments only.
+The uploaded immutable image tag intended for the next controlled test is `26.08.11-04.35.47-UTC`. The Edgegap version remains `26.08.11-watchdog-secure`; its date identifies the secured watchdog/tunnel profile baseline, not the current Unity build. Selecting a newer date-bearing image tag on that version affects future deployments only.
 
 ## Incident finding
 

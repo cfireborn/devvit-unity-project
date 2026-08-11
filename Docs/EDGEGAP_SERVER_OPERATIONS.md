@@ -14,6 +14,12 @@ There is one production game server and one Cloudflare Tunnel hostname:
 
 The stable-version rule is important: the hidden tunnel secret belongs to the Edgegap version. Reusing the version preserves the secret; creating a new version does not reliably inherit it.
 
+### Why the stable version contains `26.08.11`
+
+`26.08.11-watchdog-secure` names the deployment-profile baseline created when the secured watchdog/tunnel architecture was introduced on 2026-08-11. It is not the Unity server build date and should not be incremented for daily builds. The selected immutable Docker image tag carries the build date instead—for example, a build uploaded on 2026-08-12 should use a tag such as `26.08.12-HH.MM.SS-UTC` while the Edgegap version remains `26.08.11-watchdog-secure`.
+
+Keeping this version preserves its hidden `CF_TUNNEL_TOKEN`, ports, runtime policy, and the Worker's configured target. A future migration to a timeless name such as `watchdog-secure` should be treated as a coordinated configuration migration: disable automatic deployments, verify zero live deployments, create and configure the new version, transfer the secret through the dashboard, update `EDGEGAP_VERSION`, test one controlled launch, and retire the old version. Do not rename merely to match a new image date.
+
 > **Parked incident state (2026-08-11):** automatic deployment creation is disabled and live deployment count was verified as zero. The Cloudflare Tunnel token was rotated but has not yet been replaced on the Edgegap version. Do not launch a server or re-enable automation until the ordered checklist in `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md` is complete.
 
 ## One-time credential setup
