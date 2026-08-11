@@ -59,12 +59,14 @@ public class NetworkCloudManager : NetworkBehaviour
     {
         _cloudManager._onCloudActivated = (go, scale) =>
         {
-            go.transform.SetParent(null);  // FishNet requires root-level NetworkObject at Spawn
             var nob = go.GetComponent<NetworkObject>();
             if (nob != null)
             {
                 if (!nob.IsSceneObject)
+                {
+                    go.transform.SetParent(null);  // Runtime-spawned NetworkObjects must be root-level.
                     InstanceFinder.ServerManager.Spawn(nob);
+                }
                 if (nob.IsSpawned)
                 {
                     var nc = go.GetComponent<NetworkCloud>();

@@ -4,8 +4,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG SERVER_BUILD_PATH=Builds/EdgegapServer
 
 COPY ${SERVER_BUILD_PATH}              /root/build/
-COPY Server/cloudflare-credentials.json /etc/cloudflared/credentials.json
-COPY Server/cloudflare-tunnel.yml       /etc/cloudflared/config.yml
 COPY Server/start.sh                    /root/start.sh
 
 WORKDIR /root/

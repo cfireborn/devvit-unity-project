@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f354c717ddcb44cd8e4057de96edd00, type: 3}
   m_Name: EdgegapSettings
   m_EditorClassIdentifier: Assembly-CSharp::EdgegapSettings
-  apiKey: 3c8987eb-75cf-47b1-8559-3d5bdcbd6867
+  apiKey:
   appName: compersion
   versionName: latest
   portName: game-ws

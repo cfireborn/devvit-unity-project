@@ -119,6 +119,11 @@ public class CloudManager : MonoBehaviour
         CloudPlatform[] sceneClouds = Object.FindObjectsByType<CloudPlatform>(FindObjectsSortMode.None);
         foreach (CloudPlatform cloud in sceneClouds)
         {
+            // A live runtime instance may still exist when network startup falls back to
+            // offline mode. Keep anything already owned by a prefab pool out of the
+            // scene-cloud collection so it can still return to that pool normally.
+            if (cloud.pooledSourcePrefab != null) continue;
+
             if (!_nonPooled.Contains(cloud.gameObject))
                 _nonPooled.Add(cloud.gameObject);
 
@@ -155,13 +160,17 @@ public class CloudManager : MonoBehaviour
             gameServices.onPlayerDeregistered += OnPlayerDeregisteredFromServices;
         }
 
-        foreach (var cloud in _active)
+        for (int i = 0; i < _active.Count; i++)
         {
-            if (cloud != null)
+            var cloud = _active[i];
+            if (cloud == null || !ActivateNonPooledCloud(cloud))
             {
-                ActivateNonPooledCloud(cloud);
-                _onCloudActivated?.Invoke(cloud, cloud.transform.localScale.x);
+                _active.RemoveAt(i);
+                i--;
+                continue;
             }
+
+            _onCloudActivated?.Invoke(cloud, cloud.transform.localScale.x);
         }
 
         var sceneZones = Object.FindObjectsByType<CloudNoSpawnZone>(FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -876,6 +885,8 @@ public class CloudManager : MonoBehaviour
     public void DeactivateCloud(GameObject cloud)
     {
         if (cloud == null) return;
+        var platform = GetCloudPlatform(cloud);
+        if (platform != null && platform.isPersistent) return;
 
         if (_nonPooled.Contains(cloud))
         {

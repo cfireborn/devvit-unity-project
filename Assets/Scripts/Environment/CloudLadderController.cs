@@ -50,7 +50,7 @@ public class CloudLadderController : MonoBehaviour
     public float ladderInsetIntoCloud = 0.2f;
     [Tooltip("How long a ladder remains usable after a connected cloud begins its evaporation animation.")]
     [Min(0f)]
-    public float ladderCloudEvaporationHoldSeconds = 1f;
+    public float ladderCloudEvaporationHoldSeconds = 1.25f;
 
     // Injected by NetworkCloudLadderController before CloudLadderController is enabled.
     internal Action<GameObject, CloudPlatform, CloudPlatform> _onLadderActivated;
