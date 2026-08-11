@@ -14,9 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
   steps:
   - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: Oh also! You're not just Gray's mailmain right? I have some normal mail
-      it'd be super
+    text: Also—you're not exclusively Gray's mail squirrel, are you?
   - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
     text: ...
   - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: No I don't care which one you do first, you can choose
+    text: I have some ordinary mail for the marked postbox.
+  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+    text: You can take that or Gray's letter first. I don't care.
+  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+    text: ...
+  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+    text: That sounded too eager. Forget I said anything.

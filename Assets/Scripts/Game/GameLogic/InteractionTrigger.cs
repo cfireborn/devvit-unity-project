@@ -128,8 +128,11 @@ public class InteractionTrigger : ActivationTriggerBase
 
     bool IsAllowed(Collider2D other)
     {
-        if (string.IsNullOrEmpty(requiredTag)) return true;
-        return other.CompareTag(requiredTag);
+        if (!string.IsNullOrEmpty(requiredTag) && !other.CompareTag(requiredTag))
+            return false;
+
+        var player = other.GetComponentInParent<PlayerControllerM>();
+        return player == null || player.enabled;
     }
 
     void TryActivate(Vector2 contactPoint)

@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 416957903ce8daa4cbf8b3a61dc43588, type: 3}
+  m_Name: GrayReturnDialogue
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
+  steps:
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: You're back! Good timing—I'm trying a few new arrangements for future
+      deliveries.
+  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+    text: ...
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: Spike wrote back?
+  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+    text: ...
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: It just says... "Thanks."
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: That's it? Thanks?
+  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+    text: ...
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: No, no, that's a perfectly normal answer. A concise answer. Efficient.
+      Very Spike.
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: Do you think they hated the flower? Was the flower too much? Maybe the
+      letter was too much. Maybe I should go talk to them.
+  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+    text: ......
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: Or maybe showing up in person is more intense. I could wait. I could
+      not wait.
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: I'm going to make tea and decide whether that counts as a decision.
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: Thanks for taking it, Hermes. Seriously.

@@ -14,20 +14,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
   steps:
   - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: Oh it's you again Hermes, what's up?
+    text: Oh. It's you. Gray's mail squirrel, right?
   - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
     text: ...
   - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: Gray sent me letter?? I mean uh... that's cool, thanks for delivering it
-      I guess
+    text: Gray sent me a letter?
   - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: ... Are they this sweet all the time?
+    text: I mean—sure. Fine. That's... normal mail.
   - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
     text: ...
   - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: Ah you would know I suppose. Huh? No I don't have letter ready to send
-      back I didn't even know you were coming to deliver this one
+    text: Stop looking at me like that.
+  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+    text: Are they always this thoughtful?
   - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
     text: ...
   - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: Yeah hang on, here
+    text: Right. You'd know.
+  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+    text: Wait. Don't leave. I should write back.
+  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+    text: There. Take it before I decide this was a terrible idea.

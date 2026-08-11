@@ -18,8 +18,11 @@ public sealed class GameUIManager : MonoBehaviour
     [SerializeField] InventoryMenuUI inventoryMenu;
     [SerializeField] TMP_Text completedGoalsCountText;
     [SerializeField] Button inventoryOpenButton;
+    [SerializeField] GameObject endOfDemoPanel;
+    [SerializeField] string narrativeScriptUrl = "https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr";
 
     int _gameplaySuspendCount;
+    bool _endOfDemoShown;
     GameServices _gameServices;
     PlayerControllerM _boundPlayer;
     public bool IsGameplaySuspended => _gameplaySuspendCount > 0;
@@ -369,5 +372,80 @@ public sealed class GameUIManager : MonoBehaviour
     {
         if (inventoryMenu == null) return;
         inventoryMenu.Close();
+    }
+
+    public void ShowEndOfDemo()
+    {
+        if (_endOfDemoShown) return;
+
+        if (endOfDemoPanel == null)
+        {
+            Canvas canvas = GetComponentInParent<Canvas>();
+            if (canvas == null)
+                canvas = FindFirstObjectByType<Canvas>();
+            if (canvas != null)
+                endOfDemoPanel = BuildDefaultEndOfDemoPanel(canvas.transform);
+        }
+
+        if (endOfDemoPanel != null)
+        {
+            endOfDemoPanel.SetActive(true);
+            _endOfDemoShown = true;
+            PushGameplaySuspend();
+        }
+    }
+
+    public void OpenNarrativeScript()
+    {
+        if (!string.IsNullOrWhiteSpace(narrativeScriptUrl))
+            Application.OpenURL(narrativeScriptUrl);
+    }
+
+    GameObject BuildDefaultEndOfDemoPanel(Transform canvasRoot)
+    {
+        var overlay = new GameObject("EndOfDemoPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        overlay.transform.SetParent(canvasRoot, false);
+        StretchFull(overlay.GetComponent<RectTransform>());
+        var overlayImage = overlay.GetComponent<Image>();
+        overlayImage.color = new Color(0.04f, 0.07f, 0.12f, 0.94f);
+        overlayImage.raycastTarget = true;
+
+        var message = new GameObject("Message", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        message.transform.SetParent(overlay.transform, false);
+        var messageRect = message.GetComponent<RectTransform>();
+        messageRect.anchorMin = new Vector2(0.15f, 0.38f);
+        messageRect.anchorMax = new Vector2(0.85f, 0.7f);
+        messageRect.offsetMin = Vector2.zero;
+        messageRect.offsetMax = Vector2.zero;
+        var messageText = message.GetComponent<TextMeshProUGUI>();
+        messageText.text = "That's all we've built—for now.\n\nSorry to leave Hermes mid-route. Thanks sincerely for flying with us; the rest of the story is waiting in the narrative script.";
+        messageText.fontSize = 24f;
+        messageText.alignment = TextAlignmentOptions.Center;
+        messageText.enableAutoSizing = true;
+        messageText.fontSizeMin = 16f;
+        messageText.fontSizeMax = 28f;
+        ApplyDefaultTmpFont(messageText);
+
+        var buttonObject = new GameObject("NarrativeScriptButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(overlay.transform, false);
+        var buttonRect = buttonObject.GetComponent<RectTransform>();
+        buttonRect.anchorMin = new Vector2(0.5f, 0.27f);
+        buttonRect.anchorMax = new Vector2(0.5f, 0.27f);
+        buttonRect.pivot = new Vector2(0.5f, 0.5f);
+        buttonRect.sizeDelta = new Vector2(300f, 56f);
+        buttonRect.anchoredPosition = Vector2.zero;
+        buttonObject.GetComponent<Image>().color = new Color(0.32f, 0.58f, 0.78f, 1f);
+        buttonObject.GetComponent<Button>().onClick.AddListener(OpenNarrativeScript);
+
+        var label = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        label.transform.SetParent(buttonObject.transform, false);
+        StretchFull(label.GetComponent<RectTransform>());
+        var labelText = label.GetComponent<TextMeshProUGUI>();
+        labelText.text = "Read the narrative script";
+        labelText.fontSize = 19f;
+        labelText.alignment = TextAlignmentOptions.Center;
+        ApplyDefaultTmpFont(labelText);
+
+        return overlay;
     }
 }
