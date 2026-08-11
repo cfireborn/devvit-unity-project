@@ -40,16 +40,16 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 ---
 
 ## Runtime Modes & Network Flow
-1. **Host (server + local client)** — Default for the main Unity editor window (when `editorStartAsHost` is checked). `NetworkBootstrapper` starts the server, then dials itself via Tugboat using `_tugboatAddress`/`_tugboatPort`.
-2. **Remote client** — Multiplayer Play Mode (MPPM) virtual players, standalone builds, and WebGL. `SetClientTransport<T>()` chooses Tugboat or Bayou based on build target or Admin Menu overrides, then `TryConnectClient` handles validation + timeout coroutine.
-3. **Offline single-player** — Triggered when no server responds or validation fails. `GameManagerM.ActivateOfflineMode()` spawns the player, re-enables `CloudManager` + `CloudLadderController`, and applies a grey tint. Every NetworkBehaviour that disables gameplay code must expose an `ActivateOfflineMode()` hook so this path is complete.
+1. **Editor host (server + local client)** — The main Unity Editor hosts only when `useLocal`, `editorStartAsHost`, and `CurrentPlayer.IsMainEditor` are all true. It starts Tugboat server transport and then dials its local target.
+2. **Clients and standalone startup** — MPPM virtual players and WebGL are clients. Non-WebGL standalone builds currently call both `TryStartServer` and `TryConnectClient`; the connection target still depends on `useLocal`, so do not describe every standalone as either a pure client or a local host without checking its build target and overrides.
+3. **Offline single-player** — Triggered when no server responds or validation fails. `GameManagerM.ActivateOfflineMode()` spawns the player, re-enables `CloudManager` + `CloudLadderController`, and applies a grey tint. Wrappers that remain attached offline need a safe `ActivateOfflineMode()` path. The player path instead uses `NetworkPlayerSpawner.ActivateOfflineMode()` to strip FishNet components, including `NetworkPlayerController`, before explicitly re-enabling `PlayerControllerM`.
 
 **Address resolution** happens once in `NetworkBootstrapper.Start()`:
-- `useLocal` defaults to true for Editor / Standalone / Server, false for WebGL. Admin Menu toggles can override it at runtime via `AdminMenuPrefs.UseLocalOverride`.
+- `useLocal` defaults to true for Editor, macOS standalone, and dedicated-server builds. It defaults to false for WebGL and Windows/Linux non-server standalone builds. `AdminMenuPrefs.UseLocalOverride` can override that resolved default.
 - `_bayouAddress` defaults to `edgegapAddress` (Cloudflare tunnel). `_tugboatAddress` falls back to the same domain unless a deployment-specific `edgegapTugboatAddress` is filled in.
 - Inspector fields exist for local + Edgegap addresses/ports so designers can swap targets without recompiling.
 
-**Key principle**: never read `IsServerStarted`/`IsClientStarted` inside `Update` or `FixedUpdate` on a `NetworkBehaviour`. Cache `_serverRunning/_clientRunning` booleans in lifecycle callbacks and consult those everywhere else. See `NetworkCloudManager`, `NetworkCloudLadderController`, and `NetworkPlayerController` for the canonical pattern.
+**Key principle**: never read `IsServerStarted`/`IsClientStarted` inside `Update` or `FixedUpdate` on a `NetworkBehaviour`. Cache `_serverRunning/_clientRunning` booleans in lifecycle callbacks and consult those everywhere else. See `NetworkCloudManager` and `NetworkCloudLadderController` for the canonical cached-flag pattern. `NetworkPlayerController` is a different ownership-driven wrapper and uses `IsSpawned` in `Update`.
 
 ---
 
@@ -62,7 +62,7 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 | Ladders | `CloudLadderController.cs`, `NetworkCloudLadderController.cs` | Server builds ladders, raises events. Clients rebuild ladder geometry every `LateUpdate` from synced cloud bounds—no continuous ladder RPC stream needed. |
 | Local story progression | `InteractionTrigger.cs`, `DialogueTrigger.cs`, `GoalAssignmentTrigger.cs`, `GoalCompletionTrigger.cs`, `PlayerControllerM.cs` | Goals and dialogue progress independently in each client process. Remote player proxies cannot consume local triggers because their `PlayerControllerM` is disabled. |
 | Story scene wiring | `Assets/Levels/SimpleLevel.unity`, `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md` | Gray → Spike → Gray. COMPERSION appears before Spike; the second goal ends at Gray and opens the developer ending panel. Removed ladder-tutorial and delivery-cloud routes must stay removed. |
-| Admin overrides | `Assets/Scripts/UI/AdminMenu.cs`, `AdminMenuPrefs.cs` | Inspector fields show which address/port is active, allow overriding at runtime (saved to EditorPrefs). Includes toggles for forcing local/offline tests. |
+| Admin overrides | `Assets/Scripts/UI/AdminMenu.cs`, `AdminMenuPrefs.cs` | Inspector fields show which address/port is active and allow runtime overrides saved to EditorPrefs. `AttemptConnection` gates WebGL only; Editor offline tests require an invalid/unreachable active endpoint. |
 | Editor workflow | `Docs/Agents/UNITY_EDITOR_WORKFLOW.md` | One writer per Unity project; edit outside Play Mode; save, reload, inspect the diff, then test offline/host/pure-client as appropriate. |
 | Documentation | `Docs/Agents/*.md` | Keep current runbooks synchronized with implementation. `MULTIPLAYER_IMPLEMENTATION_PLAN.md` is historical and not current architecture guidance. |
 
@@ -132,7 +132,7 @@ The exact component layout, diagnostic file IDs, prefab-array warning, repair pr
   ```
   The server starts headless and listens on the configured Tugboat port (default 7777). Editor/standalone clients can then connect to `localhost`.
 - **Verifying Cloudflare**: The secured Dockerfile copies `cloudflared` from a pinned official container image; it does not download a mutable release during the build. After **Upload image and Create app version** completes, verify the stable Edgegap version points to the new tag, then use the homepage and the checks in `Docs/EDGEGAP_SERVER_OPERATIONS.md`.
-- **Offline fallback**: Force it by blanking the Edgegap address or setting `AdminMenuPrefs.AttemptConnection = false`. Confirm `CloudManager` + `CloudLadderController` re-enable and the player tint flips grey.
+- **Offline fallback**: In WebGL, set `AdminMenuPrefs.AttemptConnection = false` for immediate offline startup. In Editor, select the intended local/Edgegap mode and use an invalid or unreachable active address/port so validation or the timeout triggers fallback. Confirm `CloudManager` + `CloudLadderController` re-enable and the player tint flips grey.
 
 ---
 

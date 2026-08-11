@@ -81,10 +81,10 @@ Before changing dialogue or goal progression, read `STORY_THROUGH_SECOND_GOAL.md
 
 ## Runtime Modes & Architecture Quick Reference
 
-- **Three modes always matter**: host (server+client), remote client, and offline fallback triggered by `NetworkBootstrapper` after `connectionTimeoutSeconds`. Every NetworkBehaviour must either use cached `_serverRunning/_clientRunning` flags or supply an `ActivateOfflineMode()` path so the scene survives when FishNet shuts down.
-- **Wrapper pattern**: gameplay scripts live in `Assets/Scripts/Game|Player|Environment`. Network wrappers in `Assets/Scripts/Network` disable those components in `Awake()`, re-enable on the server in `OnStartServer()`, and provide offline delegates. Follow the existing `NetworkCloudManager` / `NetworkCloudLadderController` template.
+- **Three modes always matter**: host (server+client), remote client, and offline fallback triggered by `NetworkBootstrapper` after `connectionTimeoutSeconds`. A network wrapper that remains attached in offline mode must use safe cached lifecycle flags and/or provide an `ActivateOfflineMode()` path. The player is the deliberate exception: `NetworkPlayerSpawner.ActivateOfflineMode()` destroys FishNet components, including `NetworkPlayerController`, then explicitly re-enables `PlayerControllerM`.
+- **Cloud/ladder wrapper pattern**: gameplay scripts live in `Assets/Scripts/Environment`; their network wrappers in `Assets/Scripts/Network` disable the local simulation in `Awake()`, re-enable it on the server in `OnStartServer()`, and provide offline delegates. Follow `NetworkCloudManager` / `NetworkCloudLadderController` for those server-authoritative systems. The player path is different: `PlayerControllerM` uses FishNet's `TimeManager.OnTick`, and `NetworkPlayerController` enables it for the owning client, not the server.
 - **FishNet transports**: Multipass hosts Tugboat (UDP, editor/standalone) and Bayou (WebGL via WebSocket). `NetworkBootstrapper` selects which sub-transport to use per build target and exposes `edgegap*` inspector fields that the in-game Admin Menu can override at runtime.
-- **Testing loop**: Main Unity editor window runs as host, Multiplayer Play Mode (MPPM) virtual players spawn as pure clients, and offline mode can be forced by toggling `AdminMenuPrefs.AttemptConnection`/`UseLocalOverride` or by disconnecting the server.
+- **Testing loop**: In local mode, the main Unity Editor is a host only when `editorStartAsHost` is enabled and it is the MPPM main Editor; MPPM virtual players are clients. `AdminMenuPrefs.AttemptConnection` is checked only by WebGL. To force Editor offline fallback, point the active local/Edgegap configuration at an invalid or unreachable endpoint and let validation/timeout fail.
 
 ---
 
@@ -101,7 +101,7 @@ The human build, credential, verification, and recovery procedure is `Docs/EDGEG
 
 ## Linux Server Build & Deployment Checklist
 
-1. **Prereqs**: Unity 6.0.0f2+, FishNet 4.6.22 already imported, Docker Desktop running, Edgegap plugin logged in locally, and `./update-edgegap-dockerfile.sh` completed.
+1. **Prereqs**: the project-recorded Unity version (`6000.2.8f1` at this handoff), FishNet 4.6.22 already imported, Docker Desktop running, Edgegap plugin logged in locally, and `./update-edgegap-dockerfile.sh` completed. Do not upgrade Unity as part of a release operation.
 2. **Build**: In Unity, open `Tools → Edgegap Server Hosting` and click **Build** to emit `ServerBuild` under `Builds/EdgegapServer/`.
 3. **Containerize**: Click **Containerize**—the plugin builds with the secured Dockerfile that the updater installed in its package cache. Confirm the log shows the pinned Cloudflare image stage.
 4. **Upload & select tag**: Click **Upload image and Create app version** to push the image. The updater patches this stock action so Chrome opens the existing stable Edgegap version; select the new tag and click **Save**. Do not create a version or manually deploy as part of a normal image update. A homepage visit triggers the singleton watchdog deployment when needed.

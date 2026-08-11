@@ -1,34 +1,51 @@
-# Mobile Controls Setup Guide - FIXED VERSION
+# Mobile Controls Setup Guide
 
-## The Problem You Were Having
+## Current Shipping Baseline
+
+As serialized in `Assets/UI/UI.prefab`:
+
+- `MobileInputManager.autoCreateTouchReceiver` is enabled.
+- `VirtualJoystick.useDynamicPosition` is enabled.
+- `VirtualJoystick.useScreenZones` is disabled.
+- `MobileInputManager.showOnDesktopForTesting` and `forceEnableOnWebGL` are enabled.
+
+The automatic full-screen receiver therefore lets the dynamic joystick activate anywhere in the Game view. `DialogueUI` also advances on any primary touch/click while mobile controls are active, so the same touch can move the joystick and advance an open dialogue.
+
+The steps below describe an **optional zoned configuration**, not the current shipping baseline. Enabling `useScreenZones` limits joystick activation to the bottom zone, but it does not yet stop `DialogueUI` from reacting to that bottom-zone touch.
+
+## The Problem This Setup Addresses
 
 Unity's UI event system only detects touches on visible UI elements (Images, Buttons, etc.). If your BigCircle is small, touches outside it won't be detected. This breaks screen zones!
 
-## The Solution: Full-Screen Touch Receiver
+## The Intended Zoned Setup
 
-Use an **invisible full-screen panel** that receives ALL touches, then forwards them to VirtualJoystick.
+Use the existing invisible full-screen receiver to forward touches to `VirtualJoystick`, then enable `useScreenZones` to restrict joystick activation. The receiver solves touch coverage; the setting performs the zoning.
 
 ---
 
-## Step-by-Step Setup (5 Minutes)
+## Step-by-Step Optional Setup
 
-### 1. Create UI Hierarchy
+The shipping prefab already has `autoCreateTouchReceiver` enabled. In that mode, `MobileInputManager` creates `TouchReceiver_Auto` directly under the Canvas at runtime. Do not also author a receiver in the scene.
+
+If you prefer an explicit scene-authored receiver, first disable `autoCreateTouchReceiver`, then follow steps 1–2. Otherwise skip directly to step 3.
+
+### 1. Create an explicit UI hierarchy (only when auto-create is disabled)
 
 In your Canvas, create this structure:
 
 ```
 Canvas
-├── MobileUI (GameObject)
-│   ├── TouchReceiver (GameObject) ← NEW! This receives all touches
-│   └── VirtualJoystick (GameObject)
-│       ├── BigCircle (Image)
-│       └── SmallCircle (Image - child of BigCircle)
+├── TouchReceiver (GameObject) ← NEW! First Canvas child; receives all touches
+└── MobileUI (GameObject)
+    └── VirtualJoystick (GameObject)
+        ├── BigCircle (Image)
+        └── SmallCircle (Image - child of BigCircle)
 ```
 
-### 2. Setup TouchReceiver
+### 2. Set up the explicit TouchReceiver
 
 **Create the TouchReceiver GameObject:**
-1. Right-click on MobileUI → Create Empty
+1. Right-click directly on the Canvas → Create Empty
 2. Rename it to "TouchReceiver"
 3. Add **MobileTouchReceiver.cs** component
 4. Add **Image** component (if not auto-added)
@@ -48,9 +65,9 @@ Canvas
   - Virtual Joystick: Drag VirtualJoystick GameObject here (or leave empty for auto-find)
   - Auto Configure On Start: ✅ Checked (handles setup automatically)
 
-**Important:** In the Hierarchy, drag TouchReceiver to be the **FIRST child** of MobileUI (above VirtualJoystick). This ensures it's behind other UI elements.
+**Important:** Keep TouchReceiver directly under the Canvas and make it the **FIRST Canvas child**. `MobileUI`/`InputAndUIManager` has a fixed-size RectTransform in the current prefab, so a stretched child beneath it would cover only that small parent instead of the screen. First-sibling placement keeps the receiver behind other Canvas UI.
 
-### 3. Configure VirtualJoystick
+### 3. Enable optional joystick zoning
 
 **On the VirtualJoystick GameObject:**
 - **Use Screen Zones**: ✅ Checked
@@ -60,14 +77,15 @@ Canvas
 
 **Important:** BigCircle position doesn't matter anymore! It will move dynamically.
 
-### 4. Setup MobileInputManager
+### 4. Verify MobileInputManager
 
 On your MobileUI GameObject (or wherever):
 - Add **MobileInputManager.cs** if not already there
 - Virtual Joystick: Reference the VirtualJoystick GameObject
 - Mobile UI Container: Reference the MobileUI GameObject
 - **Force Enable On WebGL**: ✅ Checked
-- **Show On Desktop For Testing**: ✅ Checked (for Unity Editor testing)
+- **Show On Desktop For Testing**: ✅ Checked (current prefab baseline; disable for a production configuration that should hide mobile UI on desktop)
+- **Auto Create Touch Receiver**: ✅ Checked when using the shipping automatic setup; unchecked only when using the explicit receiver from steps 1–2
 
 ### 5. Test in Unity Editor
 
@@ -84,21 +102,21 @@ On your MobileUI GameObject (or wherever):
 
 ---
 
-## Hierarchy Visual
+## Explicit-Receiver Hierarchy Visual
 
-Your final hierarchy should look like this:
+When auto-create is disabled and you intentionally author the receiver, the hierarchy should look like this:
 
 ```
 Canvas
   GraphicRaycaster ← Must be present!
 
+  TouchReceiver (GameObject) ← First Canvas child (bottom of render order)
+    MobileTouchReceiver.cs
+    Image (Color: transparent, Raycast Target: ON)
+    RectTransform (Anchors: Stretch, Offsets: 0)
+
   MobileUI (GameObject)
     MobileInputManager ← Manages mobile detection
-
-    TouchReceiver (GameObject) ← First child (bottom of render order)
-      MobileTouchReceiver.cs
-      Image (Color: transparent, Raycast Target: ON)
-      RectTransform (Anchors: Stretch, Offsets: 0)
 
     VirtualJoystick (GameObject)
       VirtualJoystick.cs
@@ -123,7 +141,7 @@ Is touch over BigCircle's small bounds? NO
 Nothing happens! ❌
 ```
 
-### With TouchReceiver (Fixed):
+### With TouchReceiver and `useScreenZones` enabled:
 ```
 Touch at (100, 500) ← Top of screen
   ↓
@@ -135,8 +153,10 @@ VirtualJoystick checks: IsInJoystickZone(500)?
   ↓
 Y position 500 > Screen.height * 0.33? YES (top zone)
   ↓
-Ignores touch (for dialogue instead) ✅
+Ignores touch for joystick activation
 ```
+
+`DialogueUI` still sees the primary touch independently; “ignored by the joystick” does not currently mean “dialogue-only.”
 
 ---
 
@@ -157,7 +177,7 @@ Ignores touch (for dialogue instead) ✅
 
 ### Issue: TouchReceiver blocks other UI
 **Fix:**
-- Make sure TouchReceiver is FIRST child of MobileUI (in Hierarchy, drag to top)
+- Make sure TouchReceiver is the FIRST direct child of the Canvas (in Hierarchy, drag to top)
 - This puts it behind other UI elements in render order
 - Other UI elements will receive clicks first
 
@@ -192,15 +212,16 @@ Before testing:
 - [ ] TouchReceiver is full-screen (anchors: stretch/stretch)
 - [ ] TouchReceiver Image has raycastTarget = true
 - [ ] TouchReceiver Image is transparent (alpha = 0)
-- [ ] TouchReceiver is FIRST child in MobileUI hierarchy
+- [ ] Automatic `TouchReceiver_Auto` or the explicit TouchReceiver is the first direct child of the Canvas; do not keep both
 - [ ] VirtualJoystick has "Use Screen Zones" enabled
 - [ ] MobileInputManager is configured with references
 
-After setup:
+After enabling the optional zoned setup:
 - [ ] Touch bottom of screen → joystick appears
 - [ ] Touch top of screen → joystick does NOT appear
 - [ ] Drag in bottom zone → player moves
 - [ ] Tap top zone → dialogue advances (when dialogue showing)
+- [ ] While dialogue is open, confirm and record that a bottom-zone touch may also advance it; this is the known limitation above
 
 ---
 
@@ -209,44 +230,19 @@ After setup:
 1. **TouchReceiver is full-screen** → Receives ALL touches
 2. **TouchReceiver forwards to VirtualJoystick** → Centralized input handling
 3. **VirtualJoystick checks zones** → Bottom = joystick, Top = ignore
-4. **DialogueUI checks zones** → Top = advance, Bottom = ignore
-5. **Result: Clean separation** → No conflicts! ✅
+4. **DialogueUI does not currently check zones** → Any primary touch/click may advance an open dialogue
+5. **Result** → Joystick activation is zoned correctly, but dialogue input still needs an explicit zone check before the controls are fully isolated
 
 ---
 
-## Alternative: Script-Only Setup (No Manual Setup)
+## Existing Automatic Setup
 
-If you want to avoid manual setup, you can create everything in code:
+`MobileInputManager` already implements `CreateTouchReceiver()` and calls it from `Start()` when `autoCreateTouchReceiver` is enabled and mobile controls are active. Do not paste in another `Start()` or `CreateTouchReceiver()`; duplicate methods will cause compilation errors.
 
-```csharp
-// In MobileInputManager.Start():
-void Start()
-{
-    if (Application.isPlaying)
-    {
-        CreateTouchReceiver();
-    }
-}
+To use the existing automatic path:
 
-void CreateTouchReceiver()
-{
-    GameObject touchReceiverObj = new GameObject("TouchReceiver");
-    touchReceiverObj.transform.SetParent(transform, false);
-    touchReceiverObj.transform.SetAsFirstSibling();
-
-    RectTransform rect = touchReceiverObj.AddComponent<RectTransform>();
-    rect.anchorMin = Vector2.zero;
-    rect.anchorMax = Vector2.one;
-    rect.offsetMin = Vector2.zero;
-    rect.offsetMax = Vector2.zero;
-
-    Image img = touchReceiverObj.AddComponent<Image>();
-    img.color = new Color(0, 0, 0, 0);
-    img.raycastTarget = true;
-
-    MobileTouchReceiver receiver = touchReceiverObj.AddComponent<MobileTouchReceiver>();
-    // VirtualJoystick will be auto-found
-}
-```
-
-Add this to MobileInputManager if you want automatic creation!
+1. Keep `autoCreateTouchReceiver` enabled on `MobileInputManager`.
+2. Enter Play Mode and confirm a runtime `TouchReceiver_Auto` appears directly under the Canvas.
+3. Confirm it is behind interactive UI and that its transparent `Image` receives raycasts.
+4. Configure `VirtualJoystick.useScreenZones` independently according to the behavior you want.
+5. Test with dialogue open, because dialogue touch filtering is still independent of the joystick setting.

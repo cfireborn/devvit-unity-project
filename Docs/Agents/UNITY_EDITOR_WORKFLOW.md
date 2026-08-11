@@ -52,7 +52,7 @@ Changes made to ordinary scene instances in Play Mode are generally reverted whe
 
 Before editing:
 
-1. Stop Play Mode with `Edit -> Play Mode -> Play` if the toolbar or shortcut is ambiguous.
+1. Stop Play Mode with the toolbar Play control or Command-P.
 2. Wait for runtime clones to disappear.
 3. Wait for script compilation and asset import to finish.
 4. Confirm the Hierarchy contains the authored scene rather than runtime clones.
@@ -168,15 +168,15 @@ Use the Admin Menu connection settings or an unreachable endpoint to trigger the
 - clouds and ladders run locally
 - dialogue, goals, and UI work without FishNet services running
 
-### Main Editor host
+### Main Editor host (local mode)
 
-The main Editor normally starts as host: server plus owning local client. Test local gameplay and watch for server-only physics accidentally consuming local triggers.
+With the default local configuration, the MPPM main Editor starts as host when `editorStartAsHost` is enabled. In Edgegap mode it is a client, not a host. Test local-host gameplay and watch for server-only physics accidentally consuming local triggers.
 
 ### Multiplayer Play Mode pure client
 
 Open `Window -> Multiplayer Play Mode`, enable a virtual player, and enter Play Mode from the main Editor.
 
-- Main Editor: host.
+- Main Editor: host when testing with the default local configuration.
 - Virtual player: pure client.
 - Keep the host window responsive; it owns server simulation.
 - Test different quest progress on each window rather than moving both players together.
@@ -202,7 +202,7 @@ For the current narrative, use `STORY_THROUGH_SECOND_GOAL.md` as the detailed ch
 The Simulator tab may emulate a mobile device. Dialogue advances through the configured input action or the existing keyboard/touch fallbacks. Keep these distinctions in mind:
 
 - A mouse click in the Simulator may be treated as mobile touch input.
-- Joystick touches are intentionally excluded from dialogue advancement.
+- `DialogueUI` currently advances on any primary touch/click while mobile controls are active. It does not consult `VirtualJoystick.IsScreenPositionOverJoystick`, so a joystick-zone touch may also advance an open dialogue. Treat that as a known input issue, not evidence that the story event chain fired out of order.
 - If keyboard input appears dead, click the Game/Simulator view once to give it focus.
 - Do not diagnose network failure from an unfocused host window that has stopped processing expected input.
 

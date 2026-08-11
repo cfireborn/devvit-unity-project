@@ -159,16 +159,16 @@ Every narrative transition has exactly one effective persistent listener:
 
 | Source event | Target call | State change after the call |
 |---|---|---|
-| Gray opening `onDialogueComplete` | First assignment `EnableGoal()` | First goal is generated, added, and made primary. |
+| Gray opening `onDialogueComplete` | First assignment `EnableGoal()` | First goal is generated/wired immediately, then added and made primary after the 1.5-second give-item animation wait. |
 | Spike first completion `onCompletionSucceeded` | COMPERSION `TriggerNow()` | First goal is already removed before the title opens. |
 | COMPERSION `onDialogueComplete` | Spike reply `TriggerNow()` | Shared dialogue panel closes and reopens for Spike. |
-| Spike reply `onDialogueComplete` | Return assignment `EnableGoal()` | Return goal is generated and points to Gray. |
+| Spike reply `onDialogueComplete` | Return assignment `EnableGoal()` | Return goal is generated/wired immediately, then added and made primary after the expected one-frame yield. |
 | Gray return completion `onCompletionSucceeded` | Gray return dialogue `TriggerNow()` | Second goal is removed before Gray responds. |
 | Gray return dialogue `onDialogueComplete` | `GameUIManager.ShowEndOfDemo()` | The terminal local overlay opens and gameplay input is suspended. |
 
 All six calls are runtime-only, zero-argument persistent calls. `TriggerNow` is serialized against the base `InteractionTrigger` type even when the target component is a `DialogueTrigger`; that inherited-method target is valid.
 
-`GoalCompletionTrigger` removes the active goal before invoking its success event. `GoalAssignmentTrigger` wires its generated goal to the completion trigger before it adds the goal to the player. This ordering is why the old arrow clears before the next dialogue and the new arrow is valid as soon as Spike finishes speaking.
+`GoalCompletionTrigger` removes the active goal before invoking its success event. `GoalAssignmentTrigger` generates and wires its goal before adding it to the player, but the configured animation wait defers the actual add/primary operation. The old arrow therefore clears before the next dialogue; the first new arrow appears after 1.5 seconds, and the return arrow appears on the frame after Spike finishes speaking.
 
 ## Why Story Progress Is Local in Multiplayer
 
@@ -206,6 +206,12 @@ All story `DialogueTrigger.activationDelaySeconds` values are `0`. A delayed tri
 
 `DialogueTrigger.ShowDialogue` subscribes to the shared completion event before it calls `DialogueUI.ShowDialogue`. An empty `DialogueInstance` closes immediately without invoking `onDialogueComplete`, so the subscribing trigger never advances the story.
 
+### Require registered local UI and player services
+
+The active scene must contain `GameServices` and an active `DialogueUI`. `DialogueUI.Start()` registers itself with `GameServices`; this must finish before a story dialogue is triggered. If `GameServices.GetDialogueUI()` is null, `DialogueTrigger` shows nothing, but `InteractionTrigger` can still consume its single use.
+
+Goal assignment also requires `GameServices.GetPlayer()` to return the local enabled `PlayerControllerM`. `EnableGoal()` returns without adding anything when the local player is not registered. Confirm both registrations before diagnosing the event wiring.
+
 ### Goal assignments are enabled before they are called
 
 The first-letter and return `GoalAssignmentTrigger` components are enabled at scene baseline. They do not react to colliders by themselves. Keeping them enabled avoids relying on coroutine behavior from a disabled component when the item-give animation is used.
@@ -221,7 +227,7 @@ The first-letter and return `GoalAssignmentTrigger` components are enabled at sc
 
 ### Goal HUD baseline
 
-The goal indicator root in `Assets/UI/UI.prefab` is active. It hides or updates itself based on the local primary goal. The goal-selection overlay remains inactive because this sequence does not present a choice.
+The goal indicator root in `Assets/UI/UI.prefab` is active. It hides or updates itself based on the local primary goal. The goal-selection overlay starts inactive and is not presented automatically by this sequence. The active direction-indicator button can still open it manually, even when only one goal exists.
 
 ## End-of-Demo Panel
 
@@ -276,7 +282,7 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 ### Offline or host pass
 
 - [ ] Gray's opening appears once.
-- [ ] Completing it creates `Deliver Gray's Letter to Spike`.
+- [ ] Completing it queues `Deliver Gray's Letter to Spike`; the goal appears after the 1.5-second give-item animation wait.
 - [ ] The goal indicator points to Spike.
 - [ ] No fixed ladder tutorial dialogue or forced ladder build occurs.
 - [ ] Reaching Spike clears the first goal.
@@ -301,7 +307,14 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] Each player independently receives the return goal.
 - [ ] One player finishing Gray does not finish the other's goal or show the other's end panel.
 - [ ] Remote proxy colliders do not trigger local NPC interactions.
-- [ ] Dedicated-server logs show no story dialogue, goal assignment, or end-panel activation.
+
+### Separate dedicated-server pass
+
+This requires a dedicated server process; it is not part of the host-plus-MPPM topology.
+
+- [ ] Connect a client and move its observed proxy through the NPC areas.
+- [ ] The server emits no `AddGoal:` or `GoalCompletionTrigger: completing goal:` messages for that proxy.
+- [ ] If a test harness inspects state, no server-side story goal is created and no end panel is activated.
 
 ### Late client
 
@@ -314,9 +327,10 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 | Symptom | Most likely cause | First repair check |
 |---|---|---|
 | Spike speaks before COMPERSION | Spike completion still enables/calls the reply directly | Its only success call must be COMPERSION `TriggerNow()`. |
-| COMPERSION never appears | Wrong title asset, empty asset, disabled GameObject, or missing completion listener | Component may be disabled, but its GameObject and asset must be active/non-empty. |
+| COMPERSION never appears | Wrong/empty title asset, disabled GameObject, missing listener, or unregistered `DialogueUI` | Component may be disabled, but its GameObject and asset must be active/non-empty; verify `GameServices.GetDialogueUI()`. |
 | Dialogue opens twice | `set_enabled(true)` plus `TriggerNow`, a nonzero delay, or overlapping triggers | Remove enable calls; use one immediate `TriggerNow`. |
 | Return goal is missing | Spike reply completion is empty, return assignment is disabled, or it targets the wrong Gray completion | Verify reply -> root Spike assignment `EnableGoal`; assignment -> Gray root completion. |
+| A goal never appears after dialogue | The local player was not registered when `EnableGoal()` ran | Verify `GameServices.GetPlayer()` returns the local enabled `PlayerControllerM` before the dialogue completes. |
 | Return goal points to Spike | Return assignment references Spike's completion or old prefab override | Reassign it to Gray's root `GoalCompletionTrigger`. |
 | Gray starts the first quest again | Gray root completion still contains the old reset/enable/assignment loop | Effective success list must contain only Gray-return `TriggerNow`. |
 | Gray receives the goal but says nothing | Gray return trigger is missing/empty or completion targets the wrong duplicate dialogue | Use the disabled Gray root dialogue with `GrayReturnDialogue`. |

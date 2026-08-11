@@ -4,7 +4,7 @@ A 2D Unity platformer published as WebGL on GitHub Pages. Players parkour across
 
 **Engine:** Unity 6 (6000.2.8f1)
 **Networking:** FishNet 4.6.22 (Tugboat UDP for editor testing, Bayou WebSocket for WebGL production)
-**Deployment:** WebGL → GitHub Pages + Linux dedicated server → Edgegap cloud hosting (in progress)
+**Deployment:** WebGL → GitHub Pages + Linux dedicated server → Edgegap cloud hosting
 
 **Publishing target:** Devvit exporting and runtime bridge integration are retired. Use Unity's normal WebGL build and publish the generated `Builds/WebGL` directory through GitHub Pages. The old Devvit tooling has been removed.
 
@@ -22,7 +22,7 @@ A 2D Unity platformer published as WebGL on GitHub Pages. Players parkour across
 
 1. Open in Unity Hub, select the project root
 2. Open `Assets/Levels/SimpleLevel.unity`
-3. Press Play in the main editor window — it starts as **host** (server + client)
+3. With the default local configuration, press Play in the main Editor window — it starts as **host** (server + client)
 4. Open `Window → Multiplayer Play Mode` and activate a virtual player — it starts as a **pure client**
 
 Both should connect and see each other moving.
@@ -71,7 +71,7 @@ Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md     ← Watchdog invariants and age
 
 ### Current playable story
 
-The implemented story is a local Gray → Spike → Gray delivery loop. `COMPERSION` appears before Spike's reply; finishing the return delivery opens a lighthearted developer message with a button to the narrative script. The fixed-ladder tutorial and delivery-cloud/postbox branch were deliberately removed. See the [story implementation and recovery runbook](Docs/Agents/STORY_THROUGH_SECOND_GOAL.md) for the exact sequence and the [Unity Editor workflow](Docs/Agents/UNITY_EDITOR_WORKFLOW.md) before changing scene or dialogue assets.
+The implemented story is a local Gray → Spike → Gray delivery loop. `COMPERSION` appears before Spike's reply; the return delivery opens Gray's final dialogue, and completing that dialogue opens a lighthearted developer message with a button to the narrative script. The fixed-ladder tutorial and delivery-cloud/postbox branch were deliberately removed. See the [story implementation and recovery runbook](Docs/Agents/STORY_THROUGH_SECOND_GOAL.md) for the exact sequence and the [Unity Editor workflow](Docs/Agents/UNITY_EDITOR_WORKFLOW.md) before changing scene or dialogue assets.
 
 ---
 
@@ -199,7 +199,7 @@ In a networked session, `NetworkCloudLadderController.Awake()` disables `CloudLa
 
 ## Architecture Pattern
 
-Game logic scripts have zero FishNet coupling. All network operations live in companion NetworkBehaviour wrapper scripts. Delegates injected by the wrapper bridge the two layers at runtime.
+Cloud and ladder gameplay scripts have zero FishNet coupling; their network operations live in companion `NetworkBehaviour` wrappers, with injected delegates bridging the layers at runtime. `PlayerControllerM` is the deliberate exception: it imports FishNet and uses `InstanceFinder.TimeManager.OnTick` for networked physics, while `NetworkPlayerController` enables it only for the owning client.
 
 | Game Logic Script | Network Wrapper | Bridge mechanism |
 |---|---|---|
@@ -300,7 +300,7 @@ After each deploy, update **NetworkBootstrapper** in the Inspector:
 - **Edgegap Tugboat Address** → the deployment hostname (e.g. `abc123.pr.edgegap.net`)
 - **Edgegap Tugboat Port** → the external UDP port from the deployment details
 
-Press Play in the editor — the main window connects as host via Tugboat UDP directly to Edgegap. Virtual players (MPPM) connect as clients the same way.
+With **Use Local** disabled, press Play in the Editor—the main window connects to Edgegap as a Tugboat client. MPPM virtual players connect as clients the same way. The main Editor starts as a host only for local mode when `editorStartAsHost` is enabled.
 
 WebGL players connect automatically via Cloudflare Tunnel (`compersion.charliefeuerborn.com:443`) — no inspector changes needed there between deploys.
 
@@ -345,4 +345,4 @@ Then open `http://localhost:8080/compersion` in a browser.
 
 ### Editor multi-client testing
 
-`Window → Multiplayer Play Mode`. Main editor window = host. Each virtual player = a pure client connecting to localhost.
+`Window → Multiplayer Play Mode`. With the default local configuration, the main Editor window is the host and each virtual player is a pure client connecting to localhost.
