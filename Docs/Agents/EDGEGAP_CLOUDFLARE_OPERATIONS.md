@@ -22,10 +22,12 @@ Do not infer live Cloudflare, Edgegap, tunnel, or deployment state from Git alon
 4. A non-idempotent create attempt gets a unique `wd-*` tag and a durable pending-attempt reservation before the API call. An ambiguous outcome opens the circuit; it is not blindly retried.
 5. Circuit-open state stops Durable Object alarms. Multiple live deployments, uncertain stop/create outcomes, deterministic configuration/authentication errors, repeated status errors, timeouts, and hourly/daily caps require manual review.
 6. A page visit begins checking. After the first failed check, Durable Object alarms continue once per minute until healthy or circuit-open. This continuation is intentional: visitors do not need to keep the page open, but an incident is not initiated by a cron schedule.
-7. Do not rename the Durable Object singleton (`compersion-primary-v3`) casually. A new name creates fresh state and can forget a live incident or deployment reservation. Reconcile Edgegap first if a state reset or namespace change is necessary.
+7. Do not rename the Durable Object singleton (`compersion-primary-v4`) casually. A new name creates fresh state and can forget a live incident or deployment reservation. Reconcile Edgegap first if a state reset or namespace change is necessary.
 8. Do not run a second connector for the same remotely managed Cloudflare Tunnel on a developer machine or another host. Multiple connectors can load-balance traffic and violate the single-server assumption.
 
 The current configured guardrails are three failed health checks, a 60-second minimum check interval, a 15-minute deployment cooldown, five minutes to confirm stop, ten minutes for replacement readiness, and caps of three attempts per hour and six per day. Read `edgegap-watchdog/wrangler.jsonc` before relying on these values; it is the source of truth.
+
+The service was deliberately parked on 2026-08-11 with the live Worker binding `ENABLE_DEPLOYMENTS=false` and zero live Edgegap deployments. Read `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md` before resuming or re-enabling deployment creation.
 
 ## Secret Boundaries
 

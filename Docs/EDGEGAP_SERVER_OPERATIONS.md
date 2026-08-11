@@ -14,6 +14,8 @@ There is one production game server and one Cloudflare Tunnel hostname:
 
 The stable-version rule is important: the hidden tunnel secret belongs to the Edgegap version. Reusing the version preserves the secret; creating a new version does not reliably inherit it.
 
+> **Parked incident state (2026-08-11):** automatic deployment creation is disabled and live deployment count was verified as zero. The Cloudflare Tunnel token was rotated but has not yet been replaced on the Edgegap version. Do not launch a server or re-enable automation until the ordered checklist in `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md` is complete.
+
 ## One-time credential setup
 
 Two different credentials exist and must never be put in Git, a Docker image, a Unity asset, browser JavaScript, screenshots, or documentation:
