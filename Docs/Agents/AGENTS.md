@@ -88,7 +88,7 @@ See `AGENTS-MOSTRECENT.md` in this same folder for the in-depth architecture bri
 
 The human build, credential, verification, and recovery procedure is `Docs/EDGEGAP_SERVER_OPERATIONS.md`. The deeper implementation invariants and agent audit checklist are in `Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md`. Read both before changing the server image, Edgegap version, tunnel, or watchdog.
 
-- **Deployment target**: Linux dedicated server built via the Edgegap Unity plugin (`Tools → Edgegap Server Hosting`). Build → Containerize → Upload creates and pushes the image; selecting its tag on the existing stable version prepares it for the visitor-triggered watchdog.
+- **Deployment target**: Linux dedicated server built via the Edgegap Unity plugin (`Tools → Edgegap Server Hosting`). Build → Containerize → **Upload image and Create app version** creates and pushes the image; despite the stock button label, our patch opens the existing stable version, where selecting its tag prepares it for the visitor-triggered watchdog.
 - **Networking split**: Tugboat UDP clients connect directly to the hostname Edgegap assigns per deployment (update `edgegapTugboatAddress` + port in `NetworkBootstrapper`). WebGL/Bayou clients stay on the stable Cloudflare Tunnel domain `compersion.charliefeuerborn.com:443`.
 - **Cloudflare tunnel**: the remotely managed tunnel injects hidden `CF_TUNNEL_TOKEN` into the stable Edgegap version. `Server/start.sh` keeps it isolated from Unity and forwards WSS traffic to Bayou on localhost:7771.
 - **Server folder**: `Server/Dockerfile` copies a pinned `cloudflared` binary and the start script, exposes `7777/udp`, and runs a small supervisor that launches the tunnel and game under separate unprivileged users. No tunnel config or credential is copied into the image. Legacy helpers (`nginx.conf`, `stunnel.conf`) are unused now that Cloudflare handles TLS; keep them only for reference.
@@ -100,7 +100,7 @@ The human build, credential, verification, and recovery procedure is `Docs/EDGEG
 1. **Prereqs**: Unity 6.0.0f2+, FishNet 4.6.22 already imported, Docker Desktop running, Edgegap plugin logged in locally, and `./update-edgegap-dockerfile.sh` completed.
 2. **Build**: In Unity, open `Tools → Edgegap Server Hosting` and click **Build** to emit `ServerBuild` under `Builds/EdgegapServer/`.
 3. **Containerize**: Click **Containerize**—the plugin builds with the secured Dockerfile that the updater installed in its package cache. Confirm the log shows the pinned Cloudflare image stage.
-4. **Upload & select tag**: Use **Upload** to push the image. Chrome opens the existing stable Edgegap version; select the new tag and click **Save**. Do not create a version or manually deploy as part of a normal image update. A homepage visit triggers the singleton watchdog deployment when needed.
+4. **Upload & select tag**: Click **Upload image and Create app version** to push the image. The updater patches this stock action so Chrome opens the existing stable Edgegap version; select the new tag and click **Save**. Do not create a version or manually deploy as part of a normal image update. A homepage visit triggers the singleton watchdog deployment when needed.
 5. **Connect**: Editor/standalone clients use Tugboat + the fresh hostname; WebGL stays pointed at the Cloudflare address. If no server responds within five seconds, offline mode automatically re-enables gameplay components.
 
 ---
@@ -117,6 +117,6 @@ The human build, credential, verification, and recovery procedure is `Docs/EDGEG
 ## Edgegap Plugin Dockerfile Override
 
 - Unity stores packages under `Library/PackageCache/`, so updating Unity or nuking `Library/` causes the Edgegap plugin to revert to its stock Dockerfile (no Cloudflare tunnel, no start script).
-- Run `./update-edgegap-dockerfile.sh` after every package reimport. It discovers the active plugin cache, installs the secured Dockerfile, and patches Upload to open the stable Edgegap version so its hidden tunnel secret is retained.
+- Run `./update-edgegap-dockerfile.sh` after every package reimport. It discovers the active plugin cache, installs the secured Dockerfile, and patches the **Upload image and Create app version** action to open the stable Edgegap version so its hidden tunnel secret is retained.
 - Treat the copied Dockerfile as ephemeral—**edit the source in `Server/Dockerfile` only**, then re-run the script to fan out the change.
 - Do not bypass a failed updater. It deliberately stops when the plugin cache is ambiguous or the plugin's upload source has drifted.

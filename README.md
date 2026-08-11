@@ -282,10 +282,10 @@ Build with `File → Build Settings → WebGL → Build`, then publish the gener
 1. Open **Tools → Edgegap Server Hosting**
 2. Click **Build** — compiles the Linux dedicated server binary to `Builds/EdgegapServer/`
 3. Click **Containerize** — builds the secured image with pinned cloudflared; no credential is baked into it
-4. Click **Upload** (or Push) — pushes the image and opens the stable `26.08.11-watchdog-secure` version in Chrome
+4. Click **Upload image and Create app version** — despite the stock label, our updater patches this action to push the image and open the existing stable `26.08.11-watchdog-secure` version in Chrome; do not create a new version
 5. Select the newly uploaded Docker tag and click **Save**. The hidden `CF_TUNNEL_TOKEN` remains attached automatically; never paste it again
 6. Let the homepage watchdog deploy on demand, or use **Deploy** for a deliberate manual test
-6. In the deployment details, note the **server hostname** (e.g. `abc123.pr.edgegap.net`) and the **external UDP port** mapped to internal port `7777`
+7. In the deployment details, note the **server hostname** (e.g. `abc123.pr.edgegap.net`) and the **external UDP port** mapped to internal port `7777`
 
 #### Connecting the Unity editor to the deployed server
 

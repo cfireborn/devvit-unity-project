@@ -63,13 +63,15 @@ Run this script after deleting `Library/`, reimporting packages, or updating the
 2. In Unity, open **Tools → Edgegap Server Hosting**.
 3. Use **Build** to create the Linux headless build under `Builds/EdgegapServer/`.
 4. Use **Containerize** and wait for the image build to complete.
-5. Use **Upload** and wait for the registry push to complete.
+5. Click **Upload image and Create app version** and wait for the registry push to complete. This is the plugin's stock button label; with our updater applied, the button uploads the image but does not lead the operator through creating a new version.
 6. Chrome should open the details page for `26.08.11-watchdog-secure`.
 7. On that existing version, choose the newly uploaded Docker tag and click **Save**.
 
 Do not create a new version and do not paste `CF_TUNNEL_TOKEN` again. Do not manually deploy merely to finish an image update: the homepage/watchdog flow is responsible for starting the one production deployment when a visitor needs it.
 
 If Chrome opens Edgegap's “create version” page instead of the stable version details page, close it without saving and rerun `./update-edgegap-dockerfile.sh`.
+
+For UI automation, target the exact button label **Upload image and Create app version**, click it once only after Containerize succeeds, then verify the opened URL is the details page for `26.08.11-watchdog-secure`. If the browser opens any create-version page, stop the automation without entering or saving data.
 
 ## What the container does
 
@@ -141,7 +143,7 @@ Open the project in Unity and wait for package import. If more than one matching
 
 ### Chrome opens the wrong Edgegap page
 
-Do not create a version. Rerun the updater and repeat Upload. A plugin update may have changed `EdgegapWindowV2.cs`; review the new plugin implementation before changing the updater's exact patch.
+Do not create a version. Rerun the updater and repeat **Upload image and Create app version**. A plugin update may have changed `EdgegapWindowV2.cs`; review the new plugin implementation before changing the updater's exact patch.
 
 ### Edgegap is `READY`, but Cloudflare Tunnel is disconnected
 

@@ -53,10 +53,12 @@ Normal upload flow:
 1. Open Unity and allow package import to finish.
 2. From the project root, run `./update-edgegap-dockerfile.sh`.
 3. Confirm the script says the secured Dockerfile was installed and names the stable version.
-4. In `Tools -> Edgegap Server Hosting`, run **Build**, **Containerize**, then **Upload**.
+4. In `Tools -> Edgegap Server Hosting`, run **Build**, **Containerize**, then click **Upload image and Create app version**. Despite that stock label, the updater patches the post-upload browser destination; it uploads the image and opens the existing stable version rather than asking the operator to create one.
 5. After upload, Chrome should open the stable version's details page, not a create-version page.
 6. Select the newly uploaded Docker tag on that existing stable version and click **Save**. Do not create a fresh version and do not paste the tunnel secret again.
 7. Let the visitor-triggered watchdog start the next deployment when multiplayer is needed. If a live server already exists, changing its version configuration does not mutate the running container.
+
+UI automation must locate the exact accessible label **Upload image and Create app version**, invoke it only once after successful containerization, and assert that Chrome opens the `26.08.11-watchdog-secure` details URL. A create-version URL is a hard stop, not a page to complete.
 
 The Unity plugin cache under `Library/PackageCache` is disposable and untracked. `update-edgegap-dockerfile.sh` dynamically requires exactly one `com.edgegap.unity-servers-plugin@*/Editor` directory, copies `Server/Dockerfile` there, and applies an exact source patch to `EdgegapWindowV2.cs`. It verifies both results and intentionally fails if package source drift makes the patch ambiguous. Edit only the source Dockerfile/script, never the cached copies. Re-run the updater after deleting `Library`, changing Unity/package versions, or reimporting packages.
 
@@ -113,7 +115,7 @@ Never perform a destructive outage test against active players without explicit 
 
 | Symptom | Likely cause | Safe first checks |
 |---|---|---|
-| Upload opens “create version” | Plugin cache was rebuilt or updater patch drifted | Re-run updater; verify exactly one cache and stable details URL. |
+| **Upload image and Create app version** opens “create version” | Plugin cache was rebuilt or updater patch drifted | Re-run updater; verify exactly one cache and stable details URL. Do not complete the create form. |
 | Stable version asks for tunnel secret again | A new Edgegap version was created instead of updating the stable version | Stop before pasting; return to `26.08.11-watchdog-secure` and update only its Docker tag. |
 | Edgegap is READY, tunnel is Down | Missing/invalid hidden token, old image digest, `cloudflared` startup failure, or a second connector conflict | Check version secret presence, selected tag/digest, container logs, and Cloudflare connector list without revealing the token. |
 | Tunnel is healthy, WebSocket is down | Published hostname/service mapping, Bayou listener on localhost:7771, Unity startup, or protocol mismatch | Check Cloudflare public-hostname route and Unity/Bayou logs. |
