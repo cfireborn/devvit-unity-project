@@ -106,12 +106,12 @@ The homepage at `https://ramborngames.github.io/` does three things when loaded:
 
 The public wake and status routes accept only the configured homepage origin in browser CORS requests. No API or admin credential is sent to the browser.
 
-The Worker and its Durable Object serialize all visitor wakes. A check is accepted at most once per configured minimum interval (currently 60 seconds), so many simultaneous visitors do not create many deployments. After the first failed public health check, Durable Object alarms continue the incident even if the visitor leaves.
+The Worker and its Durable Object serialize all visitor wakes. A check is accepted at most once per configured minimum interval (currently five seconds), so many simultaneous visitors do not create many deployments. After the first failed public health check, Durable Object alarms continue the incident even if the visitor leaves.
 
 With the current configuration, three failed health checks are required before deployment recovery. The watchdog then reconciles all live deployments for the Edgegap application:
 
-- no live deployment: create one replacement;
-- exactly one unhealthy live deployment: request its stop, wait for a confirmed terminal state, then create one replacement;
+- no live deployment: create one server;
+- exactly one unhealthy live deployment: leave it untouched, open the circuit, and require manual review; the watchdog never automatically stops or restarts it;
 - more than one live deployment: open the circuit and require manual review.
 
 The replacement must become Edgegap `READY` and pass the public WebSocket check within 10 minutes. Startup attempt caps, a 15-minute deployment cooldown, unique attempt tags, and an ambiguity circuit breaker prevent an infinite server-creation loop.
@@ -125,7 +125,7 @@ The homepage status changes without a refresh:
 | **Operational** | The public WebSocket accepted a connection. |
 | **Wake request sent** | The Worker durably scheduled the visitor-initiated check, but the socket is not yet available. |
 | **Checking server** | The watchdog is checking health or waiting for the failure threshold. |
-| **Restarting server** | An existing unhealthy singleton is being stopped. |
+| **Restarting server** | Legacy state only; current policy never automatically stops or restarts an existing server. |
 | **Server booting** | Edgegap is creating or starting the replacement. |
 | **Startup needs attention** | The watchdog circuit is open, or the browser could not obtain a successful recovery result. |
 

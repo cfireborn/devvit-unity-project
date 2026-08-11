@@ -71,7 +71,11 @@ public class AdminMenu : MonoBehaviour
     // ── Debug log capture ─────────────────────────────────────────
     readonly List<string> _logLines = new();
     const int MaxLogLines = 200;
+    const float DebugLogBottomThreshold = 0.01f;
     bool _logDirty;
+    bool _followNewestLog = true;
+    bool _scrollToNewestWhenVisible;
+    bool _debugLogPositionInitialized;
 
 
     void Awake()
@@ -115,16 +119,31 @@ public class AdminMenu : MonoBehaviour
         if (adminPanel.activeSelf)
             RefreshAddressDisplay();
 
+        bool debugScrollIsVisible = debugLogScroll != null
+            && debugLogScroll.gameObject.activeInHierarchy;
+
+        // Remember the user's position even while the panel is later hidden.
+        // A pending auto-scroll owns the position until its post-layout update.
+        if (debugScrollIsVisible && !_scrollToNewestWhenVisible)
+            CaptureDebugLogFollowState();
+
         // ── Rebuild debug log text ─────────────────────────────────
         if (_logDirty && debugLogText != null)
         {
             debugLogText.text = string.Join("\n", _logLines);
             _logDirty = false;
-            if (debugLogScroll != null)
-            {
-                Canvas.ForceUpdateCanvases();
-                debugLogScroll.verticalNormalizedPosition = 0f;
-            }
+            if (debugLogScroll != null && _followNewestLog)
+                _scrollToNewestWhenVisible = true;
+        }
+
+        // Inactive ContentSizeFitters do not rebuild reliable bounds. Defer the
+        // jump until the panel is visible, then apply it after layout updates.
+        if (_scrollToNewestWhenVisible && debugScrollIsVisible)
+        {
+            Canvas.ForceUpdateCanvases();
+            debugLogScroll.verticalNormalizedPosition = 0f;
+            _scrollToNewestWhenVisible = false;
+            _debugLogPositionInitialized = true;
         }
     }
 
@@ -132,8 +151,14 @@ public class AdminMenu : MonoBehaviour
 
     public void TogglePanel()
     {
-        adminPanel.SetActive(!adminPanel.activeSelf);
-        if (adminPanel.activeSelf)
+        bool opening = !adminPanel.activeSelf;
+        if (!opening)
+            CaptureDebugLogFollowState();
+        else if (_logDirty && _followNewestLog)
+            _scrollToNewestWhenVisible = true;
+
+        adminPanel.SetActive(opening);
+        if (opening)
         {
             PopulateEdgegapInputs();
             if (debugLogPanel != null)
@@ -144,7 +169,14 @@ public class AdminMenu : MonoBehaviour
     public void ToggleDebugLog()
     {
         if (debugLogPanel != null)
-            debugLogPanel.SetActive(!debugLogPanel.activeSelf);
+        {
+            bool opening = !debugLogPanel.activeSelf;
+            if (!opening)
+                CaptureDebugLogFollowState();
+            else if (_logDirty && _followNewestLog)
+                _scrollToNewestWhenVisible = true;
+            debugLogPanel.SetActive(opening);
+        }
     }
 
     // ── Connection controls ───────────────────────────────────────
@@ -288,6 +320,17 @@ public class AdminMenu : MonoBehaviour
     }
 
     // ── Internals ─────────────────────────────────────────────────
+
+    void CaptureDebugLogFollowState()
+    {
+        if (debugLogScroll != null
+            && debugLogScroll.gameObject.activeInHierarchy
+            && _debugLogPositionInitialized
+            && !_scrollToNewestWhenVisible)
+        {
+            _followNewestLog = debugLogScroll.verticalNormalizedPosition <= DebugLogBottomThreshold;
+        }
+    }
 
     // Populates the input fields with current effective values (override > inspector).
     // Call when panel opens so fields show the right starting values.
