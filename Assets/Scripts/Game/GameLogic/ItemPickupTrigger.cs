@@ -11,7 +11,7 @@ public class ItemPickupTrigger : InteractionTrigger
     public Goal goal;
 
     protected override bool CanInvokeInteraction() =>
-        OptionalGameplayFeatures.DeliveryAndGoalSystemEnabled;
+        OptionalGameplayFeatures.GoalSystemEnabled;
 
     protected override void OnInteractInvoked(GameObject source, Vector2 contactPoint)
     {

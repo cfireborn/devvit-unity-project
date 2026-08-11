@@ -35,6 +35,8 @@ public class RandomCloudDeliveryGoalTrigger : GoalAssignmentTrigger
 
     protected override bool CanEnableGoal()
     {
+        if (!OptionalGameplayFeatures.DeliveryAndGoalSystemEnabled)
+            return false;
         if (manuallySetGoal)
             return goal != null;
         if (string.IsNullOrWhiteSpace(generatedGoalDisplayName))
