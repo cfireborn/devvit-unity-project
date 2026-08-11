@@ -78,7 +78,7 @@ The homepage sends `POST https://compersion.charliefeuerborn.com/watchdog/wake` 
 Important limits:
 
 - CORS restricts browser origins but is not authentication. Rate-control both `/watchdog/wake` and `/watchdog/status`, while allowing the documented 10-second status polling cadence.
-- The public WebSocket handshake proves the tunnel/listener accepts a connection; it does not prove game-state correctness. An application-aware readiness endpoint would be stronger.
+- The public WebSocket handshake is the intentional health contract, matching website commit `763e6fb`. It proves the tunnel/Bayou listener accepts a connection without requiring a Unity HTTP readiness endpoint. It does not prove game-state correctness, so retain the real game-client smoke test.
 - The homepage's first label is based on wake acceptance plus its own socket probe. Durable state from `/watchdog/status` becomes authoritative during follow-up.
 - Hidden/background tabs skip UI polling iterations, but the Durable Object alarms continue server-side.
 

@@ -105,6 +105,7 @@ The exact component layout, diagnostic file IDs, prefab-array warning, repair pr
 
 ### 4. Address Management After Deployments
 - WebGL/Bayou clients always hit `edgegapAddress` (default `compersion.charliefeuerborn.com`) on port `edgegapBayouPort` (443). The Cloudflare tunnel routes them into the running container regardless of deployment.
+- Homepage and watchdog health intentionally use a direct handshake to that same WSS address, matching website commit `763e6fb`; no separate Unity HTTP readiness endpoint is required.
 - WebGL attempts this connection automatically on a fresh session. Set `AdminMenuPrefs.AttemptConnection` false only when deliberately testing offline fallback.
 - Tugboat clients (editor, standalone, macOS) must be pointed at the deploy-specific hostname/port pair that Edgegap displays after each launch. Update either the `NetworkBootstrapper` inspector or the Admin Menu overrides before testing.
 - Local testing flips `useLocal` on and uses `localAddress`, `localTugboatPort` (7777), and `localBayouPort` (7771).

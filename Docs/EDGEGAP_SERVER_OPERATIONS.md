@@ -143,6 +143,8 @@ The browser polls every 10 seconds for the first two minutes and every 20 second
 
 The homepage probe proves that Bayou accepts a WebSocket handshake. It does not prove gameplay state, authentication, or Tugboat UDP. A real game-client smoke test is the final verification.
 
+No separate Unity HTTP readiness endpoint is required or planned. Both the homepage and watchdog intentionally use the direct `wss://compersion.charliefeuerborn.com` handshake introduced by website commit `763e6fb`. Keep this contract unless the architecture is deliberately redesigned; do not block image publishing on implementing another endpoint.
+
 ## Failure recovery
 
 ### `update-edgegap-dockerfile.sh` cannot find one plugin
