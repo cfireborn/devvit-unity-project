@@ -155,7 +155,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: ActiveAddressText
+  m_text: VersionText
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1761,6 +1761,7 @@ MonoBehaviour:
   inventoryOpenButton: {fileID: 6648832136993975267}
   endOfDemoPanel: {fileID: 0}
   narrativeScriptUrl: https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr
+  mailingListUrl: https://forms.gle/hxLfkX4au94oon1B8
 --- !u!1 &1807190982906916009
 GameObject:
   m_ObjectHideFlags: 0
@@ -1905,8 +1906,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 751.08, y: 831.92}
+  m_AnchoredPosition: {x: -0.00012207031, y: -0.00012207031}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &2238478839227433173
 CanvasRenderer:
@@ -2017,7 +2018,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
   m_HorizontalFit: 2
   m_VerticalFit: 2
@@ -3329,8 +3330,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 855644310860442276}
   m_HandleRect: {fileID: 1449159629173147077}
   m_Direction: 2
-  m_Value: 0
-  m_Size: 0.9999844
+  m_Value: 1
+  m_Size: 0.19464621
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -3369,7 +3370,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.000091552734, y: -0.00021362305}
+  m_AnchoredPosition: {x: 0.000030517578, y: -0.000061035156}
   m_SizeDelta: {x: 0, y: 831.92}
   m_Pivot: {x: 0, y: 1}
 --- !u!23 &8773672262104334776
@@ -4783,7 +4784,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 7338508149759182203}
   m_Direction: 0
   m_Value: 1
-  m_Size: 1
+  m_Size: 0.22341499
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -5632,7 +5633,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &7459293062081270511
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6420,9 +6421,9 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 7459293062081270511}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 50, y: -13.3}
   m_SizeDelta: {x: 93.4, y: 26.6}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3646749831563531550

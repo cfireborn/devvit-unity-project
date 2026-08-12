@@ -1,6 +1,6 @@
 # Story Through the Second Goal — Implementation and Recovery Runbook
 
-Last reconciled with `Assets/Levels/SimpleLevel.unity` and the supporting scripts on 2026-08-11.
+Last reconciled with `Assets/Levels/SimpleLevel.unity` and the supporting scripts on 2026-08-12.
 
 This document is the source of truth for the playable narrative from game start through the end of the Second Story Goal. It is written for designers, programmers, and future agents who need to understand, test, repair, or extend the sequence without accidentally reintroducing the removed tutorial branches.
 
@@ -26,7 +26,7 @@ The streamlined story is linear:
 6. Completing Spike's dialogue creates `Return Spike's Reply to Gray`.
 7. Reaching Gray completes the second goal and opens Gray's return dialogue.
 8. Completing Gray's dialogue opens the end-of-demo panel.
-9. The panel apologizes for the unfinished game, thanks the player, and links to the narrative script.
+9. The panel apologizes for the unfinished game, thanks the player, and links to both the narrative script and the studio mailing list.
 
 [Read the full narrative script](https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr).
 
@@ -60,7 +60,7 @@ The old delivery-cloud classes and prefabs may remain in the repository for futu
 | Local-player trigger filtering | `Assets/Scripts/Game/GameLogic/InteractionTrigger.cs` |
 | Local goal list and primary goal | `Assets/Scripts/Player/PlayerControllerM.cs` |
 | Goal HUD | `Assets/UI/UI.prefab` |
-| End panel and narrative URL | `Assets/Scripts/UI/GameUIManager.cs` |
+| End panel and external URLs | `Assets/Scripts/UI/GameUIManager.cs` |
 
 `SpikeTutorialDialogue_2.asset` is an empty retired asset. It is not referenced by `SimpleLevel`. Do not assign it to a live `DialogueTrigger`: `DialogueUI` closes an empty instance without raising the completion event, which stalls any chain waiting for that dialogue to finish.
 
@@ -238,13 +238,13 @@ Current behavior:
 - It is idempotent; repeated calls do not stack input suspension.
 - If no panel is assigned in the Inspector, it constructs `EndOfDemoPanel` under the active Canvas at runtime.
 - The message gives a light developer apology and thanks the player.
-- The button label is `Read the narrative script`.
-- The click calls `GameUIManager.OpenNarrativeScript()`, which calls `Application.OpenURL` with the Google Doc URL.
+- The first button is `Read the narrative script`; it calls `GameUIManager.OpenNarrativeScript()` with the Google Doc URL.
+- The second button is `Join the mailing list`; it calls `GameUIManager.OpenMailingList()` with `https://forms.gle/hxLfkX4au94oon1B8`.
 - Gameplay input is suspended while the terminal panel is visible.
 - The runtime fallback intentionally has no close button; it is the terminal state of the implemented demo.
-- `Assets/UI/UI.prefab` does not currently serialize the optional panel or URL fields. The null panel and code initializer are therefore part of the working fallback. If the prefab is saved after those fields are assigned, preserve the exact URL and an inactive authored panel.
+- `Assets/UI/UI.prefab` keeps the optional panel null and serializes both external URLs. The null panel therefore selects the working runtime fallback. If an authored panel is assigned later, preserve both exact URLs and keep that panel inactive at baseline.
 
-If a designer replaces the runtime fallback with authored UI, assign the panel to `GameUIManager.endOfDemoPanel`, start it inactive, and wire its button to `GameUIManager.OpenNarrativeScript`. Preserve the idempotent `ShowEndOfDemo` entry point.
+If a designer replaces the runtime fallback with authored UI, assign the panel to `GameUIManager.endOfDemoPanel`, start it inactive, and wire its buttons to `GameUIManager.OpenNarrativeScript` and `GameUIManager.OpenMailingList`. Preserve the idempotent `ShowEndOfDemo` entry point.
 
 ## Unity Editor Repair Procedure
 
@@ -296,6 +296,7 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] Finishing it opens the developer ending panel.
 - [ ] Movement remains suspended and a second `ShowEndOfDemo()` call does not duplicate the panel or suspend count.
 - [ ] The narrative button opens the expected Google Doc from a user click.
+- [ ] The mailing-list button opens `https://forms.gle/hxLfkX4au94oon1B8` from a user click.
 - [ ] No Console exception, missing-reference warning, or duplicate-listener symptom appears.
 
 ### Host plus one remote client
@@ -335,7 +336,7 @@ This requires a dedicated server process; it is not part of the host-plus-MPPM t
 | Gray starts the first quest again | Gray root completion still contains the old reset/enable/assignment loop | Effective success list must contain only Gray-return `TriggerNow`. |
 | Gray receives the goal but says nothing | Gray return trigger is missing/empty or completion targets the wrong duplicate dialogue | Use the disabled Gray root dialogue with `GrayReturnDialogue`. |
 | End panel does not appear | Gray dialogue completion does not target the scene `GameUIManager`, or the dialogue never completes | Verify `ShowEndOfDemo` persistent target and non-empty Gray asset. |
-| End button does nothing | Button was custom-authored without `OpenNarrativeScript`, or popup blocking was caused by a non-user call | Use direct button click -> `OpenNarrativeScript`. |
+| An end-panel button does nothing | A custom-authored button is missing its matching URL method, or popup blocking was caused by a non-user call | Wire direct clicks to `OpenNarrativeScript` and `OpenMailingList`, respectively. |
 | Goal arrow is absent | Goal HUD root inactive or the assigned goal was not made primary | Keep GoalIndicator active and `makePrimaryGoalOnReceive` enabled. |
 | Postbox/cloud mail returns | Random delivery component or delivery-cloud scene instance was restored | Remove it and keep delivery feature flag false. |
 | A remote player advances my story | Local-player guard regressed or remote `PlayerControllerM` is enabled | Audit `InteractionTrigger.IsAllowed` and `NetworkPlayerController`. |

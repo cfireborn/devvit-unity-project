@@ -72,11 +72,11 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 
 The playable story in `Assets/Levels/SimpleLevel.unity` is a local, linear sequence:
 
-`Gray opening → first letter goal → Spike completion → COMPERSION definition → Spike reply → return-to-Gray goal → Gray response → end panel and narrative link`
+`Gray opening → first letter goal → Spike completion → COMPERSION definition → Spike reply → return-to-Gray goal → Gray response → end panel with narrative and mailing-list links`
 
 - The fixed-ladder tutorial and ordinary-mail/delivery-cloud branch are deliberate cuts. Ladders work normally from spawn.
 - `SpikeTutorialDialogue_2.asset` is empty and retired. It is not referenced by the shipping scene; wiring it into a live chain would stall completion.
-- The end panel is created by `GameUIManager.ShowEndOfDemo()` when no authored panel is assigned and links to the narrative script.
+- The end panel is created by `GameUIManager.ShowEndOfDemo()` when no authored panel is assigned and links to both the narrative script and studio mailing list.
 - Story state is not synchronized. Each local `PlayerControllerM` owns its own goals, while disabled remote proxies are rejected by `InteractionTrigger.IsAllowed()`.
 - The six serialized scene transitions passed an Editor-side persistent-listener audit. A complete post-fix host plus pure-client playthrough is still pending and must not be reported as passed until performed.
 

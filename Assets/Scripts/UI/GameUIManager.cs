@@ -20,6 +20,7 @@ public sealed class GameUIManager : MonoBehaviour
     [SerializeField] Button inventoryOpenButton;
     [SerializeField] GameObject endOfDemoPanel;
     [SerializeField] string narrativeScriptUrl = "https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr";
+    [SerializeField] string mailingListUrl = "https://forms.gle/hxLfkX4au94oon1B8";
 
     int _gameplaySuspendCount;
     bool _endOfDemoShown;
@@ -401,6 +402,12 @@ public sealed class GameUIManager : MonoBehaviour
             Application.OpenURL(narrativeScriptUrl);
     }
 
+    public void OpenMailingList()
+    {
+        if (!string.IsNullOrWhiteSpace(mailingListUrl))
+            Application.OpenURL(mailingListUrl);
+    }
+
     GameObject BuildDefaultEndOfDemoPanel(Transform canvasRoot)
     {
         var overlay = new GameObject("EndOfDemoPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -418,7 +425,7 @@ public sealed class GameUIManager : MonoBehaviour
         messageRect.offsetMin = Vector2.zero;
         messageRect.offsetMax = Vector2.zero;
         var messageText = message.GetComponent<TextMeshProUGUI>();
-        messageText.text = "That's all we've built—for now.\n\nSorry to leave Hermes mid-route. Thanks sincerely for flying with us; the rest of the story is waiting in the narrative script.";
+        messageText.text = "That's all we've built for now.\n\nSorry to leave Hermes mid-route. Thanks for playing; the rest of the story is waiting in the narrative script.";
         messageText.fontSize = 24f;
         messageText.alignment = TextAlignmentOptions.Center;
         messageText.enableAutoSizing = true;
@@ -445,6 +452,26 @@ public sealed class GameUIManager : MonoBehaviour
         labelText.fontSize = 19f;
         labelText.alignment = TextAlignmentOptions.Center;
         ApplyDefaultTmpFont(labelText);
+
+        var mailingListButtonObject = new GameObject("MailingListButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        mailingListButtonObject.transform.SetParent(overlay.transform, false);
+        var mailingListButtonRect = mailingListButtonObject.GetComponent<RectTransform>();
+        mailingListButtonRect.anchorMin = new Vector2(0.5f, 0.19f);
+        mailingListButtonRect.anchorMax = new Vector2(0.5f, 0.19f);
+        mailingListButtonRect.pivot = new Vector2(0.5f, 0.5f);
+        mailingListButtonRect.sizeDelta = new Vector2(300f, 56f);
+        mailingListButtonRect.anchoredPosition = Vector2.zero;
+        mailingListButtonObject.GetComponent<Image>().color = new Color(0.32f, 0.58f, 0.78f, 1f);
+        mailingListButtonObject.GetComponent<Button>().onClick.AddListener(OpenMailingList);
+
+        var mailingListLabel = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        mailingListLabel.transform.SetParent(mailingListButtonObject.transform, false);
+        StretchFull(mailingListLabel.GetComponent<RectTransform>());
+        var mailingListLabelText = mailingListLabel.GetComponent<TextMeshProUGUI>();
+        mailingListLabelText.text = "Join the mailing list";
+        mailingListLabelText.fontSize = 19f;
+        mailingListLabelText.alignment = TextAlignmentOptions.Center;
+        ApplyDefaultTmpFont(mailingListLabelText);
 
         return overlay;
     }
