@@ -62,7 +62,7 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 | Ladders | `CloudLadderController.cs`, `NetworkCloudLadderController.cs` | Server builds ladders, raises events. Clients rebuild ladder geometry every `LateUpdate` from synced cloud bounds—no continuous ladder RPC stream needed. |
 | Local story progression | `InteractionTrigger.cs`, `DialogueTrigger.cs`, `GoalAssignmentTrigger.cs`, `GoalCompletionTrigger.cs`, `PlayerControllerM.cs` | Goals and dialogue progress independently in each client process. Remote player proxies cannot consume local triggers because their `PlayerControllerM` is disabled. |
 | Story scene wiring | `Assets/Levels/SimpleLevel.unity`, `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md` | Gray → Spike → Gray. COMPERSION appears before Spike; the second goal ends at Gray and opens the developer ending panel. Removed ladder-tutorial and delivery-cloud routes must stay removed. |
-| Admin overrides | `Assets/Scripts/UI/AdminMenu.cs`, `AdminMenuPrefs.cs` | Inspector fields show which address/port is active and allow runtime overrides saved to EditorPrefs. `AttemptConnection` gates WebGL only; Editor offline tests require an invalid/unreachable active endpoint. |
+| Admin overrides | `Assets/Scripts/UI/AdminMenu.cs`, `AdminMenuPrefs.cs` | Inspector fields show which address/port is active and allow runtime overrides. The ordered story-checkpoint array applies exact local snapshots and teleports for fast Gray/Spike/end-panel regression testing. `AttemptConnection` gates WebGL only; Editor offline tests require an invalid/unreachable active endpoint. |
 | Editor workflow | `Docs/Agents/UNITY_EDITOR_WORKFLOW.md` | One writer per Unity project; edit outside Play Mode; save, reload, inspect the diff, then test offline/host/pure-client as appropriate. |
 | Documentation | `Docs/Agents/*.md` | Keep current runbooks synchronized with implementation. `MULTIPLAYER_IMPLEMENTATION_PLAN.md` is historical and not current architecture guidance. |
 
@@ -78,6 +78,7 @@ The playable story in `Assets/Levels/SimpleLevel.unity` is a local, linear seque
 - `SpikeTutorialDialogue_2.asset` is empty and retired. It is not referenced by the shipping scene; wiring it into a live chain would stall completion.
 - The end panel is created by `GameUIManager.ShowEndOfDemo()` when no authored panel is assigned. Each external-link button grays after use but stays clickable; once both have been pressed, `Keep exploring` appears and resumes gameplay.
 - Story state is not synchronized. Each local `PlayerControllerM` owns its own goals, while disabled remote proxies are rejected by `InteractionTrigger.IsAllowed()`.
+- The Admin Menu exposes six ordered story checkpoints: spawn before Gray, Gray with the first letter, Spike before delivery, Spike with the reply, Gray before return, and the ending UI. Previous/Apply/Next replace the local story snapshot; they do not replay narrative UnityEvents or affect another client.
 - The six serialized scene transitions passed an Editor-side persistent-listener audit. A complete post-fix host plus pure-client playthrough is still pending and must not be reported as passed until performed.
 
 The exact component layout, diagnostic file IDs, prefab-array warning, repair procedure, and runtime checklist live in `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md`.

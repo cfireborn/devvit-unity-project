@@ -9,6 +9,7 @@ using UnityEngine.UI;
 /// </summary>
 public sealed class GameUIManager : MonoBehaviour
 {
+    static readonly Color EndLinkDefaultColor = new(0.32f, 0.58f, 0.78f, 1f);
     public static GameUIManager Instance { get; private set; }
 
     [Header("Optional explicit refs (resolved under this root when null)")]
@@ -397,9 +398,11 @@ public sealed class GameUIManager : MonoBehaviour
         if (endOfDemoPanel != null)
         {
             endOfDemoPanel.SetActive(true);
+            endOfDemoPanel.transform.SetAsLastSibling();
             _endOfDemoShown = true;
             _endOfDemoSuspendHeld = true;
             PushGameplaySuspend();
+            adminMenu?.BringToFrontIfOpen();
         }
     }
 
@@ -411,6 +414,38 @@ public sealed class GameUIManager : MonoBehaviour
         if (endOfDemoPanel != null)
             endOfDemoPanel.SetActive(false);
         PopGameplaySuspend();
+    }
+
+    /// <summary>Closes transient overlays before a story checkpoint is applied.</summary>
+    public void CloseTransientUiForStoryCheckpoint()
+    {
+        inventoryMenu?.Close();
+        goalSelectionUI?.Close();
+        _gameServices?.GetDialogueUI()?.CancelDialogue();
+    }
+
+    /// <summary>
+    /// Hides and fully resets the ending overlay while releasing only the suspend it owns.
+    /// This deliberately bypasses the player-facing two-link close gate for admin checkpoint travel.
+    /// </summary>
+    public void ResetEndOfDemoForStoryCheckpoint()
+    {
+        if (_endOfDemoSuspendHeld)
+        {
+            _endOfDemoSuspendHeld = false;
+            PopGameplaySuspend();
+        }
+
+        _endOfDemoShown = false;
+        _narrativeScriptPressed = false;
+        _mailingListPressed = false;
+        if (_narrativeScriptButtonImage != null)
+            _narrativeScriptButtonImage.color = EndLinkDefaultColor;
+        if (_mailingListButtonImage != null)
+            _mailingListButtonImage.color = EndLinkDefaultColor;
+        if (endOfDemoPanel != null)
+            endOfDemoPanel.SetActive(false);
+        RefreshEndOfDemoCloseButton();
     }
 
     public void OpenNarrativeScript()
@@ -473,7 +508,7 @@ public sealed class GameUIManager : MonoBehaviour
         buttonRect.sizeDelta = new Vector2(300f, 56f);
         buttonRect.anchoredPosition = Vector2.zero;
         _narrativeScriptButtonImage = buttonObject.GetComponent<Image>();
-        _narrativeScriptButtonImage.color = new Color(0.32f, 0.58f, 0.78f, 1f);
+        _narrativeScriptButtonImage.color = EndLinkDefaultColor;
         buttonObject.GetComponent<Button>().onClick.AddListener(OpenNarrativeScript);
 
         var label = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -494,7 +529,7 @@ public sealed class GameUIManager : MonoBehaviour
         mailingListButtonRect.sizeDelta = new Vector2(300f, 56f);
         mailingListButtonRect.anchoredPosition = Vector2.zero;
         _mailingListButtonImage = mailingListButtonObject.GetComponent<Image>();
-        _mailingListButtonImage.color = new Color(0.32f, 0.58f, 0.78f, 1f);
+        _mailingListButtonImage.color = EndLinkDefaultColor;
         mailingListButtonObject.GetComponent<Button>().onClick.AddListener(OpenMailingList);
 
         var mailingListLabel = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));

@@ -26,18 +26,14 @@ public class DialogueTrigger : InteractionTrigger
         var ui = gs != null ? gs.GetDialogueUI() : null;
         if (ui != null && dialogueInstance != null)
         {
-            UnityAction handler = null;
-            handler = () =>
+            ui.ShowDialogue(dialogueInstance, () =>
             {
-                ui.onDialogueComplete.RemoveListener(handler);
                 var uiManager = GameUIManager.Instance != null
                     ? GameUIManager.Instance
                     : FindFirstObjectByType<GameUIManager>();
                 uiManager?.ApplyGameplayInputFromSuspendCount();
                 onDialogueComplete?.Invoke();
-            };
-            ui.onDialogueComplete.AddListener(handler);
-            ui.ShowDialogue(dialogueInstance);
+            });
         }
     }
 }

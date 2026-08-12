@@ -2972,6 +2972,10 @@ PrefabInstance:
       propertyPath: goalCountLabel
       value: 
       objectReference: {fileID: 0}
+    - target: {fileID: 6718046060481137668, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
+      propertyPath: screenEdgeInset
+      value: 0.186
+      objectReference: {fileID: 0}
     - target: {fileID: 7234085131030660540, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_Size
       value: 1

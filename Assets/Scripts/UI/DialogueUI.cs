@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
@@ -25,6 +26,7 @@ public class DialogueUI : MonoBehaviour
     bool _isShowing;
     bool _pushedGameplaySuspend;
     InputAction _subscribedAdvanceAction;
+    Action _sessionCompletion;
 
     void Start()
     {
@@ -96,7 +98,13 @@ public class DialogueUI : MonoBehaviour
         GameUIManager.Instance != null ? GameUIManager.Instance : FindFirstObjectByType<GameUIManager>();
 
     /// <summary>Show dialogue. First step is displayed immediately.</summary>
-    public void ShowDialogue(DialogueInstance instance)
+    public void ShowDialogue(DialogueInstance instance) => ShowDialogue(instance, null);
+
+    /// <summary>
+    /// Show dialogue with a completion callback owned by this specific session.
+    /// Replacing or cancelling the dialogue discards the callback without invoking it.
+    /// </summary>
+    public void ShowDialogue(DialogueInstance instance, Action onComplete)
     {
         if (_isShowing)
             CloseDialogue();
@@ -111,6 +119,7 @@ public class DialogueUI : MonoBehaviour
         _stepIndex = 0;
         _isShowing = true;
         _pushedGameplaySuspend = false;
+        _sessionCompletion = onComplete;
 
         if (dialoguePanel != null)
             dialoguePanel.SetActive(true);
@@ -148,7 +157,9 @@ public class DialogueUI : MonoBehaviour
         _stepIndex++;
         if (_stepIndex >= _currentInstance.steps.Length)
         {
+            Action sessionCompletion = _sessionCompletion;
             CloseDialogue();
+            sessionCompletion?.Invoke();
             onDialogueComplete?.Invoke();
             return;
         }
@@ -170,6 +181,9 @@ public class DialogueUI : MonoBehaviour
             dialogueText.text = step.text ?? "";
     }
 
+    /// <summary>Close the current dialogue without advancing its story completion callback.</summary>
+    public void CancelDialogue() => CloseDialogue();
+
     void CloseDialogue()
     {
         if (_pushedGameplaySuspend)
@@ -180,6 +194,7 @@ public class DialogueUI : MonoBehaviour
 
         _isShowing = false;
         _currentInstance = null;
+        _sessionCompletion = null;
 
         if (_subscribedAdvanceAction != null)
         {

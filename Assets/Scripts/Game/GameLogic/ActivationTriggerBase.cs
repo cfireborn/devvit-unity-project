@@ -101,6 +101,17 @@ public class ActivationTriggerBase : MonoBehaviour
         _used = false;
     }
 
+    /// <summary>
+    /// Applies an exact activation snapshot without firing gameplay events.
+    /// Used by deterministic story checkpoints when moving both forward and backward.
+    /// </summary>
+    public virtual void ApplyCheckpointActivationState(bool consumed, bool componentEnabled)
+    {
+        CancelActivation();
+        _used = consumed;
+        enabled = componentEnabled;
+    }
+
     protected virtual void OnDestroy()
     {
         CancelActivation();

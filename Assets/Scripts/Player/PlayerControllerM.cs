@@ -554,6 +554,20 @@ public class PlayerControllerM : MonoBehaviour
     }
 
     /// <summary>
+    /// Atomically replaces local story progress without replaying goal animations or completion events.
+    /// The admin story-checkpoint debugger intentionally supports one active narrative delivery at a time.
+    /// </summary>
+    public void ApplyStoryCheckpointGoals(Goal activeGoal, int completedGoalsCount)
+    {
+        goals.Clear();
+        if (activeGoal != null)
+            goals.Add(activeGoal);
+        primaryGoal = activeGoal;
+        _completedGoalsCount = Mathf.Max(0, completedGoalsCount);
+        CompletedGoalsCountChanged?.Invoke();
+    }
+
+    /// <summary>
     /// Called by the GameManager (or InteractionTrigger) when the goal trigger fires.
     /// </summary>
     public void OnGoalTriggered(GameObject source, Vector2 contactPoint)

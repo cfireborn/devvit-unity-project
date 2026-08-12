@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -16,6 +17,40 @@ using UnityEngine.UI;
 /// </summary>
 public class AdminMenu : MonoBehaviour
 {
+    public enum StoryStage
+    {
+        BeforeGray,
+        FirstLetterActive,
+        ReturnLetterActive,
+        Ending
+    }
+
+    public enum StoryTeleportAnchor
+    {
+        Spawn,
+        Gray,
+        Spike,
+        Ending
+    }
+
+    [Serializable]
+    public sealed class StoryCheckpointDefinition
+    {
+        public string label;
+        public StoryStage stage;
+        public StoryTeleportAnchor teleportAnchor;
+        [Tooltip("World-space offset from the resolved marker. Keep approach checkpoints outside auto-enter trigger colliders.")]
+        public Vector2 teleportOffset;
+
+        public StoryCheckpointDefinition(string label, StoryStage stage, StoryTeleportAnchor teleportAnchor, Vector2 teleportOffset)
+        {
+            this.label = label;
+            this.stage = stage;
+            this.teleportAnchor = teleportAnchor;
+            this.teleportOffset = teleportOffset;
+        }
+    }
+
     [Header("Panel")]
     [Tooltip("The root GameObject of the admin panel to show/hide.")]
     [SerializeField] GameObject adminPanel;
@@ -58,6 +93,32 @@ public class AdminMenu : MonoBehaviour
     [SerializeField] TMP_Text debugLogText;
     [SerializeField] ScrollRect debugLogScroll;
 
+    [Header("Story Checkpoints")]
+    [Tooltip("Ordered debugger snapshots used by Previous/Apply/Next. Stage determines exact trigger and goal state; anchor + offset determine the local-player teleport.")]
+    [SerializeField] StoryCheckpointDefinition[] storyCheckpoints =
+    {
+        new("Spawn - Before Gray", StoryStage.BeforeGray, StoryTeleportAnchor.Spawn, Vector2.zero),
+        new("Gray - Letter for Spike", StoryStage.FirstLetterActive, StoryTeleportAnchor.Gray, new Vector2(1.25f, 0f)),
+        new("Spike - Before delivery", StoryStage.FirstLetterActive, StoryTeleportAnchor.Spike, new Vector2(-1.25f, 0f)),
+        new("Spike - Reply for Gray", StoryStage.ReturnLetterActive, StoryTeleportAnchor.Spike, new Vector2(1.25f, 0f)),
+        new("Gray - Before return", StoryStage.ReturnLetterActive, StoryTeleportAnchor.Gray, new Vector2(-1.25f, 0f)),
+        new("Ending - Thank-you UI", StoryStage.Ending, StoryTeleportAnchor.Ending, new Vector2(1.25f, 0f))
+    };
+    [Tooltip("Optional scene marker override. Falls back to NetworkPlayerSpawner.SpawnPoint.")]
+    [SerializeField] Transform storySpawnMarker;
+    [Tooltip("Optional platform-relative marker override. Falls back to Gray's opening trigger.")]
+    [SerializeField] Transform storyGrayMarker;
+    [Tooltip("Optional platform-relative marker override. Falls back to Spike's first completion trigger.")]
+    [SerializeField] Transform storySpikeMarker;
+    [Tooltip("Optional ending marker override. Falls back to the Gray marker.")]
+    [SerializeField] Transform storyEndingMarker;
+    [Header("Story Checkpoint UI (all optional; runtime fallback when incomplete)")]
+    [SerializeField] GameObject storyCheckpointControlsRoot;
+    [SerializeField] TMP_Text storyCheckpointLabel;
+    [SerializeField] Button previousStoryCheckpointButton;
+    [SerializeField] Button applyStoryCheckpointButton;
+    [SerializeField] Button nextStoryCheckpointButton;
+
     // ── Iaapa-style fading status text ───────────────────────────
     // Pattern from VideoController.cs:
     //   Color.white - (invisibleMagenta * (1-t)) → starts GREEN, fades to WHITE
@@ -76,6 +137,26 @@ public class AdminMenu : MonoBehaviour
     bool _followNewestLog = true;
     bool _scrollToNewestWhenVisible;
     bool _debugLogPositionInitialized;
+    int _storyCheckpointIndex;
+    bool _storyCheckpointAppliedThisSession;
+    TMP_Text _storyCheckpointLabel;
+    Button _previousStoryCheckpointButton;
+    Button _nextStoryCheckpointButton;
+    bool _usingAuthoredStoryCheckpointControls;
+
+    sealed class StorySpine
+    {
+        public DialogueTrigger grayOpening;
+        public GoalAssignmentTrigger firstAssignment;
+        public GoalCompletionTrigger spikeCompletion;
+        public DialogueTrigger compersionTitle;
+        public DialogueTrigger spikeReply;
+        public GoalAssignmentTrigger returnAssignment;
+        public GoalCompletionTrigger grayCompletion;
+        public DialogueTrigger grayReturn;
+        public GameServices gameServices;
+        public GameUIManager gameUI;
+    }
 
 
     void Awake()
@@ -96,12 +177,22 @@ public class AdminMenu : MonoBehaviour
         if (debugLogPanel != null)
             debugLogPanel.SetActive(wasOpen);
 
+        EnsureStoryCheckpointControls();
+        if (wasOpen)
+            BringToFrontIfOpen();
+
         Application.logMessageReceived += OnLogMessage;
     }
 
     void OnDestroy()
     {
         Application.logMessageReceived -= OnLogMessage;
+        if (_usingAuthoredStoryCheckpointControls)
+        {
+            previousStoryCheckpointButton.onClick.RemoveListener(PreviousStoryCheckpoint);
+            applyStoryCheckpointButton.onClick.RemoveListener(ApplySelectedStoryCheckpoint);
+            nextStoryCheckpointButton.onClick.RemoveListener(NextStoryCheckpoint);
+        }
     }
 
     void Update()
@@ -160,10 +251,343 @@ public class AdminMenu : MonoBehaviour
         adminPanel.SetActive(opening);
         if (opening)
         {
+            if (!_storyCheckpointAppliedThisSession)
+                SelectCheckpointFromCurrentProgress();
+            BringToFrontIfOpen();
             PopulateEdgegapInputs();
             if (debugLogPanel != null)
                 debugLogPanel.SetActive(true);
         }
+    }
+
+    /// <summary>
+    /// Places the admin panel in its own high-sorting nested canvas so the ending overlay cannot cover or intercept it.
+    /// </summary>
+    public void BringToFrontIfOpen()
+    {
+        if (adminPanel == null || !adminPanel.activeInHierarchy) return;
+
+        Canvas priorityCanvas = adminPanel.GetComponent<Canvas>();
+        if (priorityCanvas == null)
+            priorityCanvas = adminPanel.AddComponent<Canvas>();
+        priorityCanvas.overrideSorting = true;
+        priorityCanvas.sortingOrder = 32000;
+        if (adminPanel.GetComponent<GraphicRaycaster>() == null)
+            adminPanel.AddComponent<GraphicRaycaster>();
+        adminPanel.transform.SetAsLastSibling();
+    }
+
+    // ── Story checkpoint controls ────────────────────────────────
+
+    public void PreviousStoryCheckpoint()
+    {
+        if (storyCheckpoints == null || storyCheckpoints.Length == 0) return;
+        _storyCheckpointIndex = Mathf.Max(0, _storyCheckpointIndex - 1);
+        ApplySelectedStoryCheckpoint();
+    }
+
+    public void NextStoryCheckpoint()
+    {
+        if (storyCheckpoints == null || storyCheckpoints.Length == 0) return;
+        _storyCheckpointIndex = Mathf.Min(storyCheckpoints.Length - 1, _storyCheckpointIndex + 1);
+        ApplySelectedStoryCheckpoint();
+    }
+
+    public void ApplySelectedStoryCheckpoint()
+    {
+        if (storyCheckpoints == null || storyCheckpoints.Length == 0)
+        {
+            ShowStatus("No story checkpoints configured.", isError: true);
+            return;
+        }
+
+        _storyCheckpointIndex = Mathf.Clamp(_storyCheckpointIndex, 0, storyCheckpoints.Length - 1);
+        StoryCheckpointDefinition checkpoint = storyCheckpoints[_storyCheckpointIndex];
+        if (checkpoint == null)
+        {
+            ShowStatus($"Story checkpoint {_storyCheckpointIndex + 1} is null.", isError: true);
+            return;
+        }
+        if (!TryResolveStorySpine(out StorySpine spine, out string error))
+        {
+            ShowStatus(error, isError: true);
+            return;
+        }
+
+        PlayerControllerM player = spine.gameServices.GetPlayer();
+        if (player == null || !player.enabled)
+        {
+            ShowStatus("Local player is not ready yet; wait for spawn and retry.", isError: true);
+            return;
+        }
+
+        Transform marker = ResolveStoryTeleportMarker(checkpoint.teleportAnchor, spine);
+        if (marker == null)
+        {
+            ShowStatus($"No teleport marker resolved for {checkpoint.teleportAnchor}.", isError: true);
+            return;
+        }
+
+        bool afterGray = checkpoint.stage >= StoryStage.FirstLetterActive;
+        bool afterSpike = checkpoint.stage >= StoryStage.ReturnLetterActive;
+        bool atEnding = checkpoint.stage >= StoryStage.Ending;
+
+        Goal activeGoal = null;
+        int completedGoals = 0;
+        if (checkpoint.stage == StoryStage.FirstLetterActive)
+            activeGoal = spine.firstAssignment.PrepareGoalForCheckpoint();
+        else if (checkpoint.stage == StoryStage.ReturnLetterActive)
+        {
+            activeGoal = spine.returnAssignment.PrepareGoalForCheckpoint();
+            completedGoals = 1;
+        }
+        else if (atEnding)
+            completedGoals = 2;
+
+        if ((checkpoint.stage == StoryStage.FirstLetterActive || checkpoint.stage == StoryStage.ReturnLetterActive)
+            && activeGoal == null)
+        {
+            ShowStatus("Checkpoint goal could not be prepared; story scene wiring is incomplete.", isError: true);
+            return;
+        }
+
+        // Apply a snapshot transaction. Never replay the authored UnityEvent chain: doing so would
+        // run dialogue, animation delays, and goal-completion side effects during backward travel.
+        // All fallible resolution/preparation happens above so a failed checkpoint leaves play state intact.
+        spine.gameUI.CloseTransientUiForStoryCheckpoint();
+        spine.gameUI.ResetEndOfDemoForStoryCheckpoint();
+
+        spine.grayOpening.ApplyCheckpointActivationState(afterGray, componentEnabled: true);
+        spine.firstAssignment.ApplyCheckpointActivationState(afterGray, componentEnabled: !afterGray);
+        spine.spikeCompletion.ApplyCheckpointActivationState(afterSpike, componentEnabled: true);
+        spine.compersionTitle.ApplyCheckpointActivationState(afterSpike, componentEnabled: false);
+        spine.spikeReply.ApplyCheckpointActivationState(afterSpike, componentEnabled: false);
+        spine.returnAssignment.ApplyCheckpointActivationState(afterSpike, componentEnabled: !afterSpike);
+        spine.grayCompletion.ApplyCheckpointActivationState(atEnding, componentEnabled: true);
+        spine.grayReturn.ApplyCheckpointActivationState(atEnding, componentEnabled: false);
+
+        player.ApplyStoryCheckpointGoals(activeGoal, completedGoals);
+        Vector3 destination = marker.position + (Vector3)checkpoint.teleportOffset;
+        player.ResetForRespawn(destination);
+        Physics2D.SyncTransforms();
+
+        if (atEnding)
+            spine.gameUI.ShowEndOfDemo();
+
+        _storyCheckpointAppliedThisSession = true;
+        UpdateStoryCheckpointControls();
+        BringToFrontIfOpen();
+        ShowStatus($"Story {_storyCheckpointIndex + 1}/{storyCheckpoints.Length}: {checkpoint.label}", isError: false);
+    }
+
+    bool TryResolveStorySpine(out StorySpine spine, out string error)
+    {
+        spine = new StorySpine
+        {
+            gameServices = FindFirstObjectByType<GameServices>(),
+            gameUI = GameUIManager.Instance != null ? GameUIManager.Instance : FindFirstObjectByType<GameUIManager>(),
+            grayOpening = FindDialogueTrigger("KoiTutorialDialogue"),
+            compersionTitle = FindDialogueTrigger("CompersionTitleDialogue"),
+            spikeReply = FindDialogueTrigger("SpikeTutorialDialogue_1"),
+            grayReturn = FindDialogueTrigger("GrayReturnDialogue"),
+            firstAssignment = FindGoalAssignment("Deliver Gray's Letter to Spike", "Deliver Letter to Spike"),
+            returnAssignment = FindGoalAssignment("Return Spike's Reply to Gray")
+        };
+        spine.spikeCompletion = spine.firstAssignment != null ? spine.firstAssignment.completionTrigger : null;
+        spine.grayCompletion = spine.returnAssignment != null ? spine.returnAssignment.completionTrigger : null;
+
+        var missing = new List<string>();
+        if (spine.gameServices == null) missing.Add("GameServices");
+        if (spine.gameUI == null) missing.Add("GameUIManager");
+        if (spine.grayOpening == null) missing.Add("Gray opening dialogue");
+        if (spine.firstAssignment == null) missing.Add("first letter assignment");
+        if (spine.spikeCompletion == null) missing.Add("Spike completion");
+        if (spine.compersionTitle == null) missing.Add("COMPERSION title");
+        if (spine.spikeReply == null) missing.Add("Spike reply");
+        if (spine.returnAssignment == null) missing.Add("return letter assignment");
+        if (spine.grayCompletion == null) missing.Add("Gray return completion");
+        if (spine.grayReturn == null) missing.Add("Gray return dialogue");
+
+        error = missing.Count == 0
+            ? null
+            : $"Story checkpoint unavailable; missing {string.Join(", ", missing)}.";
+        return missing.Count == 0;
+    }
+
+    static DialogueTrigger FindDialogueTrigger(string dialogueAssetName)
+    {
+        foreach (DialogueTrigger trigger in FindObjectsByType<DialogueTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (trigger.dialogueInstance != null
+                && string.Equals(trigger.dialogueInstance.name, dialogueAssetName, StringComparison.Ordinal))
+                return trigger;
+        }
+        return null;
+    }
+
+    static GoalAssignmentTrigger FindGoalAssignment(params string[] displayNames)
+    {
+        foreach (GoalAssignmentTrigger assignment in FindObjectsByType<GoalAssignmentTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            foreach (string displayName in displayNames)
+            {
+                if (string.Equals(assignment.generatedGoalDisplayName?.Trim(), displayName, StringComparison.Ordinal))
+                    return assignment;
+            }
+        }
+        return null;
+    }
+
+    Transform ResolveStoryTeleportMarker(StoryTeleportAnchor anchor, StorySpine spine)
+    {
+        switch (anchor)
+        {
+            case StoryTeleportAnchor.Spawn:
+                if (storySpawnMarker != null) return storySpawnMarker;
+                NetworkPlayerSpawner spawner = FindFirstObjectByType<NetworkPlayerSpawner>();
+                return spawner != null ? spawner.SpawnPoint : null;
+            case StoryTeleportAnchor.Gray:
+                return storyGrayMarker != null ? storyGrayMarker : spine.grayOpening.transform;
+            case StoryTeleportAnchor.Spike:
+                return storySpikeMarker != null ? storySpikeMarker : spine.spikeCompletion.transform;
+            case StoryTeleportAnchor.Ending:
+                if (storyEndingMarker != null) return storyEndingMarker;
+                return storyGrayMarker != null ? storyGrayMarker : spine.grayOpening.transform;
+            default:
+                return null;
+        }
+    }
+
+    void SelectCheckpointFromCurrentProgress()
+    {
+        GameServices services = FindFirstObjectByType<GameServices>();
+        PlayerControllerM player = services != null ? services.GetPlayer() : null;
+        if (player == null || storyCheckpoints == null || storyCheckpoints.Length == 0)
+        {
+            UpdateStoryCheckpointControls();
+            return;
+        }
+
+        StoryStage inferredStage = player.CompletedGoalsCount >= 2
+            ? StoryStage.Ending
+            : player.CompletedGoalsCount >= 1
+                ? StoryStage.ReturnLetterActive
+                : player.Goals.Count > 0 ? StoryStage.FirstLetterActive : StoryStage.BeforeGray;
+        for (int i = 0; i < storyCheckpoints.Length; i++)
+        {
+            if (storyCheckpoints[i] != null && storyCheckpoints[i].stage == inferredStage)
+            {
+                _storyCheckpointIndex = i;
+                break;
+            }
+        }
+        UpdateStoryCheckpointControls();
+    }
+
+    void EnsureStoryCheckpointControls()
+    {
+        if (adminPanel == null || _storyCheckpointLabel != null) return;
+
+        if (storyCheckpointLabel != null
+            && previousStoryCheckpointButton != null
+            && applyStoryCheckpointButton != null
+            && nextStoryCheckpointButton != null)
+        {
+            _storyCheckpointLabel = storyCheckpointLabel;
+            _previousStoryCheckpointButton = previousStoryCheckpointButton;
+            _nextStoryCheckpointButton = nextStoryCheckpointButton;
+            previousStoryCheckpointButton.onClick.AddListener(PreviousStoryCheckpoint);
+            applyStoryCheckpointButton.onClick.AddListener(ApplySelectedStoryCheckpoint);
+            nextStoryCheckpointButton.onClick.AddListener(NextStoryCheckpoint);
+            if (storyCheckpointControlsRoot != null)
+                storyCheckpointControlsRoot.SetActive(true);
+            _usingAuthoredStoryCheckpointControls = true;
+            UpdateStoryCheckpointControls();
+            return;
+        }
+
+        if (storyCheckpointControlsRoot != null)
+            storyCheckpointControlsRoot.SetActive(false);
+
+        var root = new GameObject("StoryCheckpointControls", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        root.transform.SetParent(adminPanel.transform, false);
+        var rootRect = root.GetComponent<RectTransform>();
+        rootRect.anchorMin = new Vector2(0f, 0f);
+        rootRect.anchorMax = new Vector2(1f, 0f);
+        rootRect.pivot = new Vector2(0.5f, 0f);
+        rootRect.sizeDelta = new Vector2(-20f, 88f);
+        rootRect.anchoredPosition = new Vector2(0f, 18f);
+        root.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.14f, 0.92f);
+
+        var labelObject = new GameObject("CheckpointLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(root.transform, false);
+        var labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0f, 0.48f);
+        labelRect.anchorMax = new Vector2(1f, 1f);
+        labelRect.offsetMin = new Vector2(8f, 0f);
+        labelRect.offsetMax = new Vector2(-8f, -3f);
+        _storyCheckpointLabel = labelObject.GetComponent<TextMeshProUGUI>();
+        _storyCheckpointLabel.fontSize = 13f;
+        _storyCheckpointLabel.enableAutoSizing = true;
+        _storyCheckpointLabel.fontSizeMin = 9f;
+        _storyCheckpointLabel.fontSizeMax = 14f;
+        _storyCheckpointLabel.alignment = TextAlignmentOptions.Center;
+        if (TMP_Settings.defaultFontAsset != null)
+            _storyCheckpointLabel.font = TMP_Settings.defaultFontAsset;
+
+        _previousStoryCheckpointButton = BuildStoryButton(root.transform, "PreviousButton", "< Previous", new Vector2(0.01f, 0.04f), new Vector2(0.33f, 0.45f), PreviousStoryCheckpoint);
+        BuildStoryButton(root.transform, "ApplyButton", "Apply", new Vector2(0.34f, 0.04f), new Vector2(0.66f, 0.45f), ApplySelectedStoryCheckpoint);
+        _nextStoryCheckpointButton = BuildStoryButton(root.transform, "NextButton", "Next >", new Vector2(0.67f, 0.04f), new Vector2(0.99f, 0.45f), NextStoryCheckpoint);
+        UpdateStoryCheckpointControls();
+    }
+
+    static Button BuildStoryButton(Transform parent, string objectName, string label, Vector2 anchorMin, Vector2 anchorMax, UnityEngine.Events.UnityAction action)
+    {
+        var buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(parent, false);
+        var rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        buttonObject.GetComponent<Image>().color = new Color(0.24f, 0.34f, 0.48f, 1f);
+        Button button = buttonObject.GetComponent<Button>();
+        button.onClick.AddListener(action);
+
+        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(buttonObject.transform, false);
+        var labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        var text = labelObject.GetComponent<TextMeshProUGUI>();
+        text.text = label;
+        text.fontSize = 12f;
+        text.alignment = TextAlignmentOptions.Center;
+        if (TMP_Settings.defaultFontAsset != null)
+            text.font = TMP_Settings.defaultFontAsset;
+        return button;
+    }
+
+    void UpdateStoryCheckpointControls()
+    {
+        int count = storyCheckpoints != null ? storyCheckpoints.Length : 0;
+        if (count > 0)
+            _storyCheckpointIndex = Mathf.Clamp(_storyCheckpointIndex, 0, count - 1);
+        if (_storyCheckpointLabel != null)
+        {
+            string label = count > 0 && storyCheckpoints[_storyCheckpointIndex] != null
+                ? storyCheckpoints[_storyCheckpointIndex].label
+                : "No story checkpoints";
+            _storyCheckpointLabel.text = count > 0
+                ? $"Story {_storyCheckpointIndex + 1}/{count}: {label}"
+                : label;
+        }
+        if (_previousStoryCheckpointButton != null)
+            _previousStoryCheckpointButton.interactable = count > 0 && _storyCheckpointIndex > 0;
+        if (_nextStoryCheckpointButton != null)
+            _nextStoryCheckpointButton.interactable = count > 0 && _storyCheckpointIndex < count - 1;
     }
 
     public void ToggleDebugLog()

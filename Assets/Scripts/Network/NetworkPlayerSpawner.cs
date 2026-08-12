@@ -22,6 +22,9 @@ public class NetworkPlayerSpawner : MonoBehaviour
     [Tooltip("Where to spawn players. If unset, spawns at world origin.")]
     [SerializeField] private Transform spawnPoint;
 
+    /// <summary>Read-only spawn marker used by local admin teleports.</summary>
+    public Transform SpawnPoint => spawnPoint;
+
     void Start()
     {
         var nm = InstanceFinder.NetworkManager;

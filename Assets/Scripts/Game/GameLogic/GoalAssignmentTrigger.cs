@@ -65,6 +65,24 @@ public class GoalAssignmentTrigger : ActivationTriggerBase
         base.OnDestroy();
     }
 
+    /// <summary>
+    /// Returns the authored or cached generated goal without assigning it or firing animation/events.
+    /// Story checkpoints use this to construct an exact player snapshot.
+    /// </summary>
+    public Goal PrepareGoalForCheckpoint() => ResolveGoalForAssignment();
+
+    /// <summary>
+    /// Cancels both activation delay and the optional goal-give animation before applying a checkpoint snapshot.
+    /// </summary>
+    public override void ApplyCheckpointActivationState(bool consumed, bool componentEnabled)
+    {
+        StopAllCoroutines();
+        _enableGoalRoutineRunning = false;
+        if (enableGoalAnimator != null && !string.IsNullOrEmpty(enableGoalTrigger))
+            enableGoalAnimator.ResetTrigger(enableGoalTrigger);
+        base.ApplyCheckpointActivationState(consumed, componentEnabled);
+    }
+
     /// <summary>Add the goal to the player. Call from dialogue complete, UnityEvents, etc.</summary>
     public virtual void EnableGoal()
     {

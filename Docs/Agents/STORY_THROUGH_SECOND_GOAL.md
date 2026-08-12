@@ -196,15 +196,15 @@ There is no save system or reconnect resume. Reloading the scene/process restart
 
 COMPERSION, Spike's reply, and Gray's return dialogue components stay disabled. Their GameObjects stay active. The preceding event calls `TriggerNow()` directly.
 
-Do not wire both `set_enabled(true)` and `TriggerNow()`. A disabled `InteractionTrigger` may retain an overlapping collider. Its `OnEnable()` path deliberately reprocesses that overlap, so enabling it while Hermes is still standing at the NPC can auto-open the dialogue; the explicit call then opens it again and leaves a stale completion listener.
+Do not wire both `set_enabled(true)` and `TriggerNow()`. A disabled `InteractionTrigger` may retain an overlapping collider. Its `OnEnable()` path deliberately reprocesses that overlap, so enabling it while Hermes is still standing at the NPC can auto-open the dialogue; the explicit call then replaces that first dialogue session and produces duplicate visible behavior even though per-session callbacks no longer leak.
 
 ### Keep dialogue delays at zero
 
-All story `DialogueTrigger.activationDelaySeconds` values are `0`. A delayed trigger may fire after a different dialogue has opened. `DialogueUI.ShowDialogue` closes the previous dialogue but does not emit a cancellation completion for that previous trigger, so its listener can survive and react to a later dialogue completion.
+All story `DialogueTrigger.activationDelaySeconds` values are `0`. A delayed trigger may fire after a different dialogue has opened and replace the dialogue the player is currently reading. `DialogueUI` now discards the replaced session's completion callback safely, but the player-facing interruption still breaks the intended sequence.
 
 ### Every live dialogue asset needs at least one step
 
-`DialogueTrigger.ShowDialogue` subscribes to the shared completion event before it calls `DialogueUI.ShowDialogue`. An empty `DialogueInstance` closes immediately without invoking `onDialogueComplete`, so the subscribing trigger never advances the story.
+`DialogueTrigger.ShowDialogue` gives `DialogueUI` a completion callback scoped to that dialogue session. An empty `DialogueInstance` closes immediately without invoking the callback, so the trigger never advances the story. Unlike the former shared-event subscription, it does not leave a callback behind to react to another dialogue.
 
 ### Require registered local UI and player services
 
@@ -245,6 +245,42 @@ Current behavior:
 - `Assets/UI/UI.prefab` keeps the optional panel null and serializes both external URLs. The null panel therefore selects the working runtime fallback. If an authored panel is assigned later, preserve both exact URLs and keep that panel inactive at baseline.
 
 If a designer replaces the runtime fallback with authored UI, assign the panel to `GameUIManager.endOfDemoPanel` and start it inactive. That authored panel must also reproduce the visited-color and close-visibility bindings currently populated by `BuildDefaultEndOfDemoPanel`; wiring only the three public methods is not enough to show the gate correctly. Preserve the guarded `ShowEndOfDemo` and `CloseEndOfDemo` state transitions so each visible interval owns exactly one gameplay suspension.
+
+## Admin Story Checkpoints
+
+`AdminMenu.storyCheckpoints` is the ordered, Inspector-editable navigation list. Its defaults are:
+
+| Index | Label | Exact local story snapshot | Teleport anchor |
+|---:|---|---|---|
+| 0 | Spawn - Before Gray | No goals, count 0; every story milestone unconsumed | Spawn |
+| 1 | Gray - Letter for Spike | First goal active/primary, count 0; Gray opening and assignment consumed | Gray |
+| 2 | Spike - Before delivery | Same state as index 1 | Spike |
+| 3 | Spike - Reply for Gray | Return goal active/primary, count 1; Gray and Spike milestones consumed | Spike |
+| 4 | Gray - Before return | Same state as index 3 | Gray |
+| 5 | Ending - Thank-you UI | No goals, count 2; every milestone consumed; ending overlay shown with both links unpressed | Ending/Gray |
+
+Previous and Next immediately apply the adjacent entry; Apply reapplies the selected entry. Application is an exact transaction rather than event replay:
+
+1. Resolve `GameServices.GetPlayer()` and require its local enabled `PlayerControllerM`. Never search for an arbitrary player because it could be a remote proxy.
+2. Resolve all eight semantic story components by dialogue asset or generated-goal display name, then prepare the cached goal required by the target stage.
+3. Close inventory, goal selection, and active dialogue through their owner APIs. Reset only the ending panel's own suspension.
+4. Cancel activation delays and goal-animation coroutines; replace every trigger's consumed/enabled state with the stage snapshot.
+5. Atomically replace the player's one active narrative goal, primary goal, and completed count without firing assignment/completion events.
+6. Teleport through `PlayerControllerM.ResetForRespawn`, which clears movement and calls the owner-authoritative FishNet `NetworkTransform.Teleport()`.
+7. Show the ending panel only for the terminal checkpoint, then raise the Admin Panel above it using a nested high-sorting Canvas.
+
+This changes only the current process's story state. The owner teleport replicates normally so other players see the move, while no quest state or ownership is synchronized. On a dedicated server, `GameServices` has no enabled local player, so applying a checkpoint fails without changing story state.
+
+Critical failure points:
+
+- Keep approach markers outside auto-enter colliders. The fallback uses story trigger transforms plus offsets; authored platform-relative marker children are more reliable if level art or collider sizes change.
+- Do not call `EnableGoal`, `CompleteGoal`, or a story UnityEvent from a checkpoint. Those paths replay dialogue/animation side effects and cannot safely travel backward.
+- `DialogueUI` owns a per-session completion callback. Cancelling or replacing dialogue discards that callback; do not restore shared anonymous completion listeners, which could fire a stale transition later.
+- `GoalAssignmentTrigger.ApplyCheckpointActivationState` stops its animation coroutine and resets the animator trigger. Removing that reset lets a delayed goal reappear after a backward jump.
+- The array derives trigger state from `StoryStage`. Adding a genuinely new narrative milestone requires extending stage-to-snapshot logic, not merely inserting a differently named entry.
+- The optional authored UI requires label plus Previous, Apply, and Next buttons. Partially assigned controls intentionally fall back to runtime UI.
+
+Recommended regression matrix: apply each of the six entries from every other entry (36 transitions), apply each entry twice, apply during Gray's 1.5-second item animation, apply during dialogue, and apply Ending while Admin is open. Verify exact goal/count state, no late goal assignment, no stale dialogue transition, correct teleport, and Admin clickable over Ending.
 
 ## Unity Editor Repair Procedure
 
@@ -302,6 +338,12 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] `Keep exploring` hides the panel and restores movement; repeated close attempts never underflow or release another modal's gameplay suspension.
 - [ ] If `ShowEndOfDemo()` is called again after closing, the panel takes one new suspension, both links remain gray/clickable, and `Keep exploring` is immediately available.
 - [ ] No Console exception, missing-reference warning, or duplicate-listener symptom appears.
+- [ ] Open Admin with backtick, then traverse all six story checkpoints forward and backward.
+- [ ] Previous/Next teleports to the intended local Gray/Spike/spawn region and restores exact active goal/count state.
+- [ ] Apply during Gray's item-give wait; no delayed first goal appears after jumping backward.
+- [ ] Apply during dialogue; completing a later dialogue does not fire the cancelled dialogue's transition.
+- [ ] At Ending, Admin remains above and clickable over the end overlay.
+- [ ] Jumping backward from Ending hides/resets the overlay and restores movement without releasing another modal's suspension.
 
 ### Host plus one remote client
 
@@ -312,6 +354,8 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] Each player independently receives the return goal.
 - [ ] One player finishing Gray does not finish the other's goal or show the other's end panel.
 - [ ] Remote proxy colliders do not trigger local NPC interactions.
+- [ ] Applying a story checkpoint on one client changes only that client's goal/dialogue/end state.
+- [ ] The checkpoint teleport is visible to the other client but does not teleport the other player's character.
 
 ### Separate dedicated-server pass
 

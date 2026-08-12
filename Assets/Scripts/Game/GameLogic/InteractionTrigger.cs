@@ -201,6 +201,14 @@ public class InteractionTrigger : ActivationTriggerBase
         _lastInteractTime = 0f;
     }
 
+    /// <summary>Clears overlap/input state, then applies an exact consumed/enabled checkpoint snapshot.</summary>
+    public override void ApplyCheckpointActivationState(bool consumed, bool componentEnabled)
+    {
+        ResetTrigger();
+        _used = consumed;
+        enabled = componentEnabled;
+    }
+
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.cyan;

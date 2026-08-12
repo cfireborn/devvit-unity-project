@@ -82,6 +82,22 @@ The character instances are nested prefab variants with scene overrides. A chang
 
 Before pressing **Apply**, decide whether every prefab instance should receive the change. Story progression wiring is scene-specific and normally remains a scene override. Do not apply it to the shared base character prefab.
 
+## Admin Story Checkpoint UI
+
+`AdminMenu` contains an ordered `Story Checkpoints` array and optional authored-UI fields. The game remains usable without Editor setup: when the four required UI references are incomplete, it creates a compact Previous/Apply/Next row under `AdminPanel` at runtime.
+
+To replace the fallback with authored controls:
+
+1. Exit Play Mode and open `Assets/UI/UI.prefab` in Prefab Mode.
+2. Under `AdminPanel`, create a root panel, one TMP label, and three Buttons named for Previous, Apply, and Next.
+3. On `AdminMenu`, assign `Story Checkpoint Controls Root`, `Story Checkpoint Label`, and all three Button fields.
+4. Leave each Button's persistent `OnClick` list empty. `AdminMenu.Awake()` attaches and later removes the runtime listeners.
+5. Save the prefab, exit Prefab Mode, reopen `SimpleLevel`, and enter Play Mode.
+
+All four label/button references must be assigned to select the authored UI. A partially assigned authored root is hidden and the fallback row is created, preventing duplicate controls. The root field itself is optional when the label and all three buttons are assigned.
+
+The four optional marker fields are separate. If left empty, Spawn resolves from `NetworkPlayerSpawner.SpawnPoint`, Gray resolves from the opening trigger, Spike resolves from the first completion trigger, and Ending resolves from Gray. For precise landing positions, add platform-relative empty transforms outside the NPC trigger colliders and assign them as Gray, Spike, and Ending markers. Each array entry's `Teleport Offset` is an additional world-space adjustment.
+
 Use **Revert** only for the exact property you intend to restore. Reverting an entire prefab instance can erase unrelated scene positioning, artwork, or event overrides.
 
 ## Working with Duplicate Components
