@@ -240,11 +240,11 @@ Current behavior:
 - The message gives a light developer apology and thanks the player.
 - The first button is `Read the narrative script`; it calls `GameUIManager.OpenNarrativeScript()` with the Google Doc URL.
 - The second button is `Join the mailing list`; it calls `GameUIManager.OpenMailingList()` with `https://forms.gle/hxLfkX4au94oon1B8`.
-- Gameplay input is suspended while the terminal panel is visible.
-- The runtime fallback intentionally has no close button; it is the terminal state of the implemented demo.
+- Gameplay input is suspended only while the end panel is visible.
+- `Keep exploring` calls `GameUIManager.CloseEndOfDemo()`, hides the panel, and releases exactly the panel's own gameplay suspension so the player can continue moving around after the story ends.
 - `Assets/UI/UI.prefab` keeps the optional panel null and serializes both external URLs. The null panel therefore selects the working runtime fallback. If an authored panel is assigned later, preserve both exact URLs and keep that panel inactive at baseline.
 
-If a designer replaces the runtime fallback with authored UI, assign the panel to `GameUIManager.endOfDemoPanel`, start it inactive, and wire its buttons to `GameUIManager.OpenNarrativeScript` and `GameUIManager.OpenMailingList`. Preserve the idempotent `ShowEndOfDemo` entry point.
+If a designer replaces the runtime fallback with authored UI, assign the panel to `GameUIManager.endOfDemoPanel`, start it inactive, and wire its buttons to `GameUIManager.OpenNarrativeScript`, `GameUIManager.OpenMailingList`, and `GameUIManager.CloseEndOfDemo`. Preserve the guarded `ShowEndOfDemo` and `CloseEndOfDemo` state transitions so each visible interval owns exactly one gameplay suspension.
 
 ## Unity Editor Repair Procedure
 
@@ -297,6 +297,7 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] Movement remains suspended and a second `ShowEndOfDemo()` call does not duplicate the panel or suspend count.
 - [ ] The narrative button opens the expected Google Doc from a user click.
 - [ ] The mailing-list button opens `https://forms.gle/hxLfkX4au94oon1B8` from a user click.
+- [ ] `Keep exploring` hides the panel and restores movement; clicking/reopening/closing repeatedly never underflows or leaks gameplay suspension.
 - [ ] No Console exception, missing-reference warning, or duplicate-listener symptom appears.
 
 ### Host plus one remote client

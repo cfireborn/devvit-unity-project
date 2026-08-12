@@ -71,7 +71,7 @@ Docs/Agents/EDGEGAP_CLOUDFLARE_OPERATIONS.md     ← Watchdog invariants and age
 
 ### Current playable story
 
-The implemented story is a local Gray → Spike → Gray delivery loop. `COMPERSION` appears before Spike's reply; the return delivery opens Gray's final dialogue, and completing that dialogue opens a lighthearted developer message with buttons for the narrative script and studio mailing list. The fixed-ladder tutorial and delivery-cloud/postbox branch were deliberately removed. See the [story implementation and recovery runbook](Docs/Agents/STORY_THROUGH_SECOND_GOAL.md) for the exact sequence and the [Unity Editor workflow](Docs/Agents/UNITY_EDITOR_WORKFLOW.md) before changing scene or dialogue assets.
+The implemented story is a local Gray → Spike → Gray delivery loop. `COMPERSION` appears before Spike's reply; the return delivery opens Gray's final dialogue, and completing that dialogue opens a lighthearted developer message with buttons for the narrative script, studio mailing list, and returning to free exploration. The fixed-ladder tutorial and delivery-cloud/postbox branch were deliberately removed. See the [story implementation and recovery runbook](Docs/Agents/STORY_THROUGH_SECOND_GOAL.md) for the exact sequence and the [Unity Editor workflow](Docs/Agents/UNITY_EDITOR_WORKFLOW.md) before changing scene or dialogue assets.
 
 ---
 

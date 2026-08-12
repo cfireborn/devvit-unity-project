@@ -396,6 +396,15 @@ public sealed class GameUIManager : MonoBehaviour
         }
     }
 
+    public void CloseEndOfDemo()
+    {
+        if (!_endOfDemoShown) return;
+        _endOfDemoShown = false;
+        if (endOfDemoPanel != null)
+            endOfDemoPanel.SetActive(false);
+        PopGameplaySuspend();
+    }
+
     public void OpenNarrativeScript()
     {
         if (!string.IsNullOrWhiteSpace(narrativeScriptUrl))
@@ -472,6 +481,26 @@ public sealed class GameUIManager : MonoBehaviour
         mailingListLabelText.fontSize = 19f;
         mailingListLabelText.alignment = TextAlignmentOptions.Center;
         ApplyDefaultTmpFont(mailingListLabelText);
+
+        var closeButtonObject = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        closeButtonObject.transform.SetParent(overlay.transform, false);
+        var closeButtonRect = closeButtonObject.GetComponent<RectTransform>();
+        closeButtonRect.anchorMin = new Vector2(0.5f, 0.11f);
+        closeButtonRect.anchorMax = new Vector2(0.5f, 0.11f);
+        closeButtonRect.pivot = new Vector2(0.5f, 0.5f);
+        closeButtonRect.sizeDelta = new Vector2(300f, 56f);
+        closeButtonRect.anchoredPosition = Vector2.zero;
+        closeButtonObject.GetComponent<Image>().color = new Color(0.3f, 0.35f, 0.45f, 1f);
+        closeButtonObject.GetComponent<Button>().onClick.AddListener(CloseEndOfDemo);
+
+        var closeLabel = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        closeLabel.transform.SetParent(closeButtonObject.transform, false);
+        StretchFull(closeLabel.GetComponent<RectTransform>());
+        var closeLabelText = closeLabel.GetComponent<TextMeshProUGUI>();
+        closeLabelText.text = "Keep exploring";
+        closeLabelText.fontSize = 19f;
+        closeLabelText.alignment = TextAlignmentOptions.Center;
+        ApplyDefaultTmpFont(closeLabelText);
 
         return overlay;
     }
