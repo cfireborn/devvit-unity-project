@@ -238,13 +238,13 @@ Current behavior:
 - It is idempotent; repeated calls do not stack input suspension.
 - If no panel is assigned in the Inspector, it constructs `EndOfDemoPanel` under the active Canvas at runtime.
 - The message gives a light developer apology and thanks the player.
-- The first button is `Read the narrative script`; it calls `GameUIManager.OpenNarrativeScript()` with the Google Doc URL.
-- The second button is `Join the mailing list`; it calls `GameUIManager.OpenMailingList()` with `https://forms.gle/hxLfkX4au94oon1B8`.
+- The first button is `Read the narrative script`; it calls `GameUIManager.OpenNarrativeScript()` with the Google Doc URL, then turns gray while remaining clickable.
+- The second button is `Join the mailing list`; it calls `GameUIManager.OpenMailingList()` with `https://forms.gle/hxLfkX4au94oon1B8`, then turns gray while remaining clickable.
 - Gameplay input is suspended only while the end panel is visible.
-- `Keep exploring` calls `GameUIManager.CloseEndOfDemo()`, hides the panel, and releases exactly the panel's own gameplay suspension so the player can continue moving around after the story ends.
+- `Keep exploring` is hidden until both link buttons have each been pressed at least once. It then calls `GameUIManager.CloseEndOfDemo()`, hides the panel, and releases exactly the panel's own gameplay suspension so the player can continue moving around after the story ends.
 - `Assets/UI/UI.prefab` keeps the optional panel null and serializes both external URLs. The null panel therefore selects the working runtime fallback. If an authored panel is assigned later, preserve both exact URLs and keep that panel inactive at baseline.
 
-If a designer replaces the runtime fallback with authored UI, assign the panel to `GameUIManager.endOfDemoPanel`, start it inactive, and wire its buttons to `GameUIManager.OpenNarrativeScript`, `GameUIManager.OpenMailingList`, and `GameUIManager.CloseEndOfDemo`. Preserve the guarded `ShowEndOfDemo` and `CloseEndOfDemo` state transitions so each visible interval owns exactly one gameplay suspension.
+If a designer replaces the runtime fallback with authored UI, assign the panel to `GameUIManager.endOfDemoPanel` and start it inactive. That authored panel must also reproduce the visited-color and close-visibility bindings currently populated by `BuildDefaultEndOfDemoPanel`; wiring only the three public methods is not enough to show the gate correctly. Preserve the guarded `ShowEndOfDemo` and `CloseEndOfDemo` state transitions so each visible interval owns exactly one gameplay suspension.
 
 ## Unity Editor Repair Procedure
 
@@ -295,9 +295,12 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] `GrayReturnDialogue` plays exactly once.
 - [ ] Finishing it opens the developer ending panel.
 - [ ] Movement remains suspended and a second `ShowEndOfDemo()` call does not duplicate the panel or suspend count.
-- [ ] The narrative button opens the expected Google Doc from a user click.
-- [ ] The mailing-list button opens `https://forms.gle/hxLfkX4au94oon1B8` from a user click.
-- [ ] `Keep exploring` hides the panel and restores movement; clicking/reopening/closing repeatedly never underflows or leaks gameplay suspension.
+- [ ] `Keep exploring` is initially hidden.
+- [ ] The narrative button opens the expected Google Doc, turns gray, and remains clickable.
+- [ ] The mailing-list button opens `https://forms.gle/hxLfkX4au94oon1B8`, turns gray, and remains clickable.
+- [ ] Pressing only one link leaves `Keep exploring` hidden; pressing both reveals it.
+- [ ] `Keep exploring` hides the panel and restores movement; repeated close attempts never underflow or release another modal's gameplay suspension.
+- [ ] If `ShowEndOfDemo()` is called again after closing, the panel takes one new suspension, both links remain gray/clickable, and `Keep exploring` is immediately available.
 - [ ] No Console exception, missing-reference warning, or duplicate-listener symptom appears.
 
 ### Host plus one remote client
@@ -338,6 +341,7 @@ This requires a dedicated server process; it is not part of the host-plus-MPPM t
 | Gray receives the goal but says nothing | Gray return trigger is missing/empty or completion targets the wrong duplicate dialogue | Use the disabled Gray root dialogue with `GrayReturnDialogue`. |
 | End panel does not appear | Gray dialogue completion does not target the scene `GameUIManager`, or the dialogue never completes | Verify `ShowEndOfDemo` persistent target and non-empty Gray asset. |
 | An end-panel button does nothing | A custom-authored button is missing its matching URL method, or popup blocking was caused by a non-user call | Wire direct clicks to `OpenNarrativeScript` and `OpenMailingList`, respectively. |
+| `Keep exploring` never appears | One link has not been pressed, or a custom-authored panel is not reflecting the two visited flags | Press both links once; runtime fallback reveals the close button only after both calls. |
 | Goal arrow is absent | Goal HUD root inactive or the assigned goal was not made primary | Keep GoalIndicator active and `makePrimaryGoalOnReceive` enabled. |
 | Postbox/cloud mail returns | Random delivery component or delivery-cloud scene instance was restored | Remove it and keep delivery feature flag false. |
 | A remote player advances my story | Local-player guard regressed or remote `PlayerControllerM` is enabled | Audit `InteractionTrigger.IsAllowed` and `NetworkPlayerController`. |

@@ -24,6 +24,12 @@ public sealed class GameUIManager : MonoBehaviour
 
     int _gameplaySuspendCount;
     bool _endOfDemoShown;
+    bool _endOfDemoSuspendHeld;
+    bool _narrativeScriptPressed;
+    bool _mailingListPressed;
+    Image _narrativeScriptButtonImage;
+    Image _mailingListButtonImage;
+    GameObject _endOfDemoCloseButton;
     GameServices _gameServices;
     PlayerControllerM _boundPlayer;
     public bool IsGameplaySuspended => _gameplaySuspendCount > 0;
@@ -392,13 +398,15 @@ public sealed class GameUIManager : MonoBehaviour
         {
             endOfDemoPanel.SetActive(true);
             _endOfDemoShown = true;
+            _endOfDemoSuspendHeld = true;
             PushGameplaySuspend();
         }
     }
 
     public void CloseEndOfDemo()
     {
-        if (!_endOfDemoShown) return;
+        if (!_endOfDemoSuspendHeld || !_narrativeScriptPressed || !_mailingListPressed) return;
+        _endOfDemoSuspendHeld = false;
         _endOfDemoShown = false;
         if (endOfDemoPanel != null)
             endOfDemoPanel.SetActive(false);
@@ -407,14 +415,28 @@ public sealed class GameUIManager : MonoBehaviour
 
     public void OpenNarrativeScript()
     {
+        _narrativeScriptPressed = true;
+        if (_narrativeScriptButtonImage != null)
+            _narrativeScriptButtonImage.color = new Color(0.3f, 0.35f, 0.45f, 1f);
+        RefreshEndOfDemoCloseButton();
         if (!string.IsNullOrWhiteSpace(narrativeScriptUrl))
             Application.OpenURL(narrativeScriptUrl);
     }
 
     public void OpenMailingList()
     {
+        _mailingListPressed = true;
+        if (_mailingListButtonImage != null)
+            _mailingListButtonImage.color = new Color(0.3f, 0.35f, 0.45f, 1f);
+        RefreshEndOfDemoCloseButton();
         if (!string.IsNullOrWhiteSpace(mailingListUrl))
             Application.OpenURL(mailingListUrl);
+    }
+
+    void RefreshEndOfDemoCloseButton()
+    {
+        if (_endOfDemoCloseButton != null)
+            _endOfDemoCloseButton.SetActive(_narrativeScriptPressed && _mailingListPressed);
     }
 
     GameObject BuildDefaultEndOfDemoPanel(Transform canvasRoot)
@@ -450,7 +472,8 @@ public sealed class GameUIManager : MonoBehaviour
         buttonRect.pivot = new Vector2(0.5f, 0.5f);
         buttonRect.sizeDelta = new Vector2(300f, 56f);
         buttonRect.anchoredPosition = Vector2.zero;
-        buttonObject.GetComponent<Image>().color = new Color(0.32f, 0.58f, 0.78f, 1f);
+        _narrativeScriptButtonImage = buttonObject.GetComponent<Image>();
+        _narrativeScriptButtonImage.color = new Color(0.32f, 0.58f, 0.78f, 1f);
         buttonObject.GetComponent<Button>().onClick.AddListener(OpenNarrativeScript);
 
         var label = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -470,7 +493,8 @@ public sealed class GameUIManager : MonoBehaviour
         mailingListButtonRect.pivot = new Vector2(0.5f, 0.5f);
         mailingListButtonRect.sizeDelta = new Vector2(300f, 56f);
         mailingListButtonRect.anchoredPosition = Vector2.zero;
-        mailingListButtonObject.GetComponent<Image>().color = new Color(0.32f, 0.58f, 0.78f, 1f);
+        _mailingListButtonImage = mailingListButtonObject.GetComponent<Image>();
+        _mailingListButtonImage.color = new Color(0.32f, 0.58f, 0.78f, 1f);
         mailingListButtonObject.GetComponent<Button>().onClick.AddListener(OpenMailingList);
 
         var mailingListLabel = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -501,6 +525,8 @@ public sealed class GameUIManager : MonoBehaviour
         closeLabelText.fontSize = 19f;
         closeLabelText.alignment = TextAlignmentOptions.Center;
         ApplyDefaultTmpFont(closeLabelText);
+        _endOfDemoCloseButton = closeButtonObject;
+        RefreshEndOfDemoCloseButton();
 
         return overlay;
     }

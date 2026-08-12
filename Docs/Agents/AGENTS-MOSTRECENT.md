@@ -76,7 +76,7 @@ The playable story in `Assets/Levels/SimpleLevel.unity` is a local, linear seque
 
 - The fixed-ladder tutorial and ordinary-mail/delivery-cloud branch are deliberate cuts. Ladders work normally from spawn.
 - `SpikeTutorialDialogue_2.asset` is empty and retired. It is not referenced by the shipping scene; wiring it into a live chain would stall completion.
-- The end panel is created by `GameUIManager.ShowEndOfDemo()` when no authored panel is assigned, links to both the narrative script and studio mailing list, and can be closed with `Keep exploring` to resume gameplay.
+- The end panel is created by `GameUIManager.ShowEndOfDemo()` when no authored panel is assigned. Each external-link button grays after use but stays clickable; once both have been pressed, `Keep exploring` appears and resumes gameplay.
 - Story state is not synchronized. Each local `PlayerControllerM` owns its own goals, while disabled remote proxies are rejected by `InteractionTrigger.IsAllowed()`.
 - The six serialized scene transitions passed an Editor-side persistent-listener audit. A complete post-fix host plus pure-client playthrough is still pending and must not be reported as passed until performed.
 
