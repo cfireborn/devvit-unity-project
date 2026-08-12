@@ -88,7 +88,15 @@ public class MobileInputManager : MonoBehaviour
 
     void OnTouchReceiverPointerDown(UnityEngine.EventSystems.PointerEventData eventData)
     {
-        Vector2 pos = eventData.position;
+        TryHandleAdminCornerTap(eventData.position);
+    }
+
+    /// <summary>
+    /// Counts a pointer position toward the hidden admin gesture. Modal UI can relay
+    /// its own pointer-down events here without allowing the touch into gameplay UI.
+    /// </summary>
+    public void TryHandleAdminCornerTap(Vector2 pos)
+    {
         bool inCorner = pos.x > Screen.width * 0.8f && pos.y > Screen.height * 0.6f;
         if (!inCorner) return;
 

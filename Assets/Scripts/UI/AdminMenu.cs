@@ -54,6 +54,8 @@ public class AdminMenu : MonoBehaviour
     [Header("Panel")]
     [Tooltip("The root GameObject of the admin panel to show/hide.")]
     [SerializeField] GameObject adminPanel;
+    [Tooltip("Optional authored close button. When blank, a top-right close button is created at runtime.")]
+    [SerializeField] Button closeAdminPanelButton;
     [SerializeField] TMP_Text versionText;
     [SerializeField] NetworkBootstrapper bootstrapper;
 
@@ -142,6 +144,7 @@ public class AdminMenu : MonoBehaviour
     TMP_Text _storyCheckpointLabel;
     Button _previousStoryCheckpointButton;
     Button _nextStoryCheckpointButton;
+    Button _adminCloseButton;
     bool _usingAuthoredStoryCheckpointControls;
 
     sealed class StorySpine
@@ -177,6 +180,7 @@ public class AdminMenu : MonoBehaviour
         if (debugLogPanel != null)
             debugLogPanel.SetActive(wasOpen);
 
+        EnsureAdminCloseButton();
         EnsureStoryCheckpointControls();
         if (wasOpen)
             BringToFrontIfOpen();
@@ -187,6 +191,8 @@ public class AdminMenu : MonoBehaviour
     void OnDestroy()
     {
         Application.logMessageReceived -= OnLogMessage;
+        if (_adminCloseButton != null)
+            _adminCloseButton.onClick.RemoveListener(ClosePanel);
         if (_usingAuthoredStoryCheckpointControls)
         {
             previousStoryCheckpointButton.onClick.RemoveListener(PreviousStoryCheckpoint);
@@ -244,20 +250,29 @@ public class AdminMenu : MonoBehaviour
     {
         bool opening = !adminPanel.activeSelf;
         if (!opening)
-            CaptureDebugLogFollowState();
-        else if (_logDirty && _followNewestLog)
+        {
+            ClosePanel();
+            return;
+        }
+
+        if (_logDirty && _followNewestLog)
             _scrollToNewestWhenVisible = true;
 
-        adminPanel.SetActive(opening);
-        if (opening)
-        {
-            if (!_storyCheckpointAppliedThisSession)
-                SelectCheckpointFromCurrentProgress();
-            BringToFrontIfOpen();
-            PopulateEdgegapInputs();
-            if (debugLogPanel != null)
-                debugLogPanel.SetActive(true);
-        }
+        adminPanel.SetActive(true);
+        if (!_storyCheckpointAppliedThisSession)
+            SelectCheckpointFromCurrentProgress();
+        BringToFrontIfOpen();
+        PopulateEdgegapInputs();
+        if (debugLogPanel != null)
+            debugLogPanel.SetActive(true);
+    }
+
+    /// <summary>Close the debugger while preserving the user's debug-log scroll-follow state.</summary>
+    public void ClosePanel()
+    {
+        if (adminPanel == null || !adminPanel.activeSelf) return;
+        CaptureDebugLogFollowState();
+        adminPanel.SetActive(false);
     }
 
     /// <summary>
@@ -277,7 +292,46 @@ public class AdminMenu : MonoBehaviour
         adminPanel.transform.SetAsLastSibling();
     }
 
-    // ── Story checkpoint controls ────────────────────────────────
+    // ── Admin/story controls ─────────────────────────────────────
+
+    void EnsureAdminCloseButton()
+    {
+        if (adminPanel == null || _adminCloseButton != null) return;
+
+        if (closeAdminPanelButton != null)
+        {
+            _adminCloseButton = closeAdminPanelButton;
+            _adminCloseButton.onClick.AddListener(ClosePanel);
+            return;
+        }
+
+        var buttonObject = new GameObject("AdminCloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(adminPanel.transform, false);
+        var rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.one;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = Vector2.one;
+        rect.sizeDelta = new Vector2(34f, 34f);
+        rect.anchoredPosition = new Vector2(-8f, -8f);
+        buttonObject.GetComponent<Image>().color = new Color(0.3f, 0.35f, 0.45f, 1f);
+        _adminCloseButton = buttonObject.GetComponent<Button>();
+        _adminCloseButton.onClick.AddListener(ClosePanel);
+
+        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(buttonObject.transform, false);
+        var labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        var label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.text = "X";
+        label.fontSize = 18f;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        if (TMP_Settings.defaultFontAsset != null)
+            label.font = TMP_Settings.defaultFontAsset;
+    }
 
     public void PreviousStoryCheckpoint()
     {
@@ -427,9 +481,12 @@ public class AdminMenu : MonoBehaviour
 
     static GoalAssignmentTrigger FindGoalAssignment(params string[] displayNames)
     {
-        foreach (GoalAssignmentTrigger assignment in FindObjectsByType<GoalAssignmentTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        GoalAssignmentTrigger[] assignments = FindObjectsByType<GoalAssignmentTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        // Display-name arguments are ordered by preference. Search all components for the
+        // scene-specific name before accepting a legacy prefab fallback with a similar route.
+        foreach (string displayName in displayNames)
         {
-            foreach (string displayName in displayNames)
+            foreach (GoalAssignmentTrigger assignment in assignments)
             {
                 if (string.Equals(assignment.generatedGoalDisplayName?.Trim(), displayName, StringComparison.Ordinal))
                     return assignment;
@@ -512,11 +569,13 @@ public class AdminMenu : MonoBehaviour
         var root = new GameObject("StoryCheckpointControls", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         root.transform.SetParent(adminPanel.transform, false);
         var rootRect = root.GetComponent<RectTransform>();
-        rootRect.anchorMin = new Vector2(0f, 0f);
-        rootRect.anchorMax = new Vector2(1f, 0f);
-        rootRect.pivot = new Vector2(0.5f, 0f);
+        // Keep the fallback at a stable panel-local position. Bottom anchoring makes
+        // panel-height adjustments slide this row into the version/debug text below it.
+        rootRect.anchorMin = new Vector2(0f, 0.5f);
+        rootRect.anchorMax = new Vector2(1f, 0.5f);
+        rootRect.pivot = new Vector2(0.5f, 0.5f);
         rootRect.sizeDelta = new Vector2(-20f, 88f);
-        rootRect.anchoredPosition = new Vector2(0f, 18f);
+        rootRect.anchoredPosition = new Vector2(0f, -145f);
         root.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.14f, 0.92f);
 
         var labelObject = new GameObject("CheckpointLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));

@@ -329,9 +329,9 @@ In the **NetworkBootstrapper** Inspector:
 
 #### Cloudflare Tunnel — one-time setup
 
-The tunnel `compersion` (ID `391101e6-0e49-42af-8656-31d145f588fb`) routes `wss://compersion.charliefeuerborn.com` → `ws://localhost:7771` (Bayou) inside the container. The stable domain survives Edgegap redeployments — clients always connect to the same address.
+The remotely managed tunnel `compersion-edgegap-prod` (ID `6fd08db4-935d-4c7b-b2e0-6424f17bd771`) routes `wss://compersion.charliefeuerborn.com` → `http://localhost:7771` (Bayou WebSocket) inside the container. The stable domain survives Edgegap redeployments — clients always connect to the same address.
 
-The remotely managed `compersion` tunnel token is stored once as the hidden
+The remotely managed `compersion-edgegap-prod` tunnel token is stored once as the hidden
 `CF_TUNNEL_TOKEN` variable on the stable Edgegap version. It is injected only
 at deployment time. Never place tunnel JSON, YAML, or token values in this repo.
 

@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -483,6 +484,13 @@ public sealed class GameUIManager : MonoBehaviour
         overlayImage.color = new Color(0.04f, 0.07f, 0.12f, 0.94f);
         overlayImage.raycastTarget = true;
 
+        // Keep the ending modal, but let its own backdrop count the hidden corner-tap
+        // gesture. This prevents underlying HUD/joystick controls from stealing taps.
+        var endPointerRelay = overlay.AddComponent<EventTrigger>();
+        var pointerDownEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+        pointerDownEntry.callback.AddListener(RelayEndOverlayPointerDown);
+        endPointerRelay.triggers.Add(pointerDownEntry);
+
         var message = new GameObject("Message", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         message.transform.SetParent(overlay.transform, false);
         var messageRect = message.GetComponent<RectTransform>();
@@ -497,6 +505,7 @@ public sealed class GameUIManager : MonoBehaviour
         messageText.enableAutoSizing = true;
         messageText.fontSizeMin = 16f;
         messageText.fontSizeMax = 28f;
+        messageText.raycastTarget = false;
         ApplyDefaultTmpFont(messageText);
 
         var buttonObject = new GameObject("NarrativeScriptButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
@@ -564,5 +573,13 @@ public sealed class GameUIManager : MonoBehaviour
         RefreshEndOfDemoCloseButton();
 
         return overlay;
+    }
+
+    void RelayEndOverlayPointerDown(BaseEventData eventData)
+    {
+        if (eventData is not PointerEventData pointerEventData) return;
+        if (mobileInputManager == null)
+            mobileInputManager = MobileInputManager.Instance;
+        mobileInputManager?.TryHandleAdminCornerTap(pointerEventData.position);
     }
 }
