@@ -165,9 +165,23 @@ public class NetworkCloudManager : NetworkBehaviour
 
         if (_cloudManager != null)
         {
+            RestoreSceneCloudsForOffline();
             _cloudManager.CollectSceneClouds();
             SetOfflineDelegates();
             _cloudManager.enabled = true;
+        }
+    }
+
+    void RestoreSceneCloudsForOffline()
+    {
+        var sceneClouds = FindObjectsByType<CloudPlatform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var cloud in sceneClouds)
+        {
+            if (!cloud.wasActiveAtStart || cloud.pooledSourcePrefab != null) continue;
+
+            NetworkOfflineUtil.StripNetworkComponents(cloud.gameObject);
+            cloud.enabled = true;
+            cloud.gameObject.SetActive(true);
         }
     }
 }
