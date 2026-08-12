@@ -1,6 +1,6 @@
 # Edgegap + Cloudflare Operations and Agent Handoff
 
-Last verified against the repositories on 2026-08-11. This is the maintenance runbook for the single-server Compersion deployment. Treat live dashboard state as authoritative when it differs from this snapshot.
+Last verified against the repositories and live Cloudflare/Edgegap dashboards on 2026-08-12. This is the maintenance runbook for the single-server Compersion deployment. Treat live dashboard state as authoritative when it differs from this snapshot.
 
 ## What Lives Where
 
@@ -27,7 +27,7 @@ Do not infer live Cloudflare, Edgegap, tunnel, or deployment state from Git alon
 
 The current configured guardrails are three failed health checks, a five-second minimum check interval, a 15-minute deployment cooldown, ten minutes for startup readiness, and caps of three attempts per hour and six per day. Read `edgegap-watchdog/wrangler.jsonc` before relying on these values; it is the source of truth.
 
-The service was deliberately parked on 2026-08-11 with the live Worker binding `ENABLE_DEPLOYMENTS=false` and zero live Edgegap deployments. Read `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md` before resuming or re-enabling deployment creation.
+The 2026-08-11 tunnel incident was resolved on 2026-08-12 by replacing the locally managed tunnel with remotely managed tunnel `compersion-edgegap-prod` (ID `6fd08db4-935d-4c7b-b2e0-6424f17bd771`). Its published route maps `compersion.charliefeuerborn.com` to `http://localhost:7771`; production DNS points to that tunnel. Controlled Edgegap deployment `77db03e3878e` reached Ready, Cloudflare reported one Healthy replica, and a public HTTP/1.1 WebSocket upgrade returned 101. The old tunnel was deleted. After an application-wide reconciliation returned zero live deployments, Worker version `1fec72e5-a4e1-4b36-9b3f-2592bd8e1c37` was deployed with `ENABLE_DEPLOYMENTS=true`. `CONFIG_GENERATION=2026-08-12-tunnel-fixed` clears the old parked circuit on the next visitor wake; do not change that generation without first reconciling all live and pending deployments. Read `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md` for the incident history.
 
 ## Secret Boundaries
 
@@ -121,6 +121,7 @@ Never perform a destructive outage test against active players without explicit 
 | Stable version asks for tunnel secret again | A new Edgegap version was created instead of updating the stable version | Stop before pasting; return to `26.08.11-watchdog-secure` and update only its Docker tag. |
 | Edgegap is READY, tunnel is Down | Missing/invalid hidden token, old image digest, `cloudflared` startup failure, or a second connector conflict | Check version secret presence, selected tag/digest, container logs, and Cloudflare connector list without revealing the token. |
 | Tunnel is healthy, WebSocket is down | Published hostname/service mapping, Bayou listener on localhost:7771, Unity startup, or protocol mismatch | Check Cloudflare public-hostname route and Unity/Bayou logs. |
+| Startup log briefly says no ingress rules | Remotely managed route has not reached the new connector yet | Wait for `Updated to new configuration` with the expected hostname/service mapping, then require a public HTTP 101 WebSocket upgrade. Persistent 503 means the route is still absent or wrong. |
 | Unity cannot write config | Wrong runtime identity or HOME/XDG paths | Confirm it runs as `gameserver` with writable `/var/lib/compersion` and `XDG_CONFIG_HOME`. |
 | “Startup needs attention” | Circuit opened, replacement timed out/failed, API errors repeated, or live deployments are ambiguous | Read authenticated Worker state and logs; list all live app deployments before any reset. |
 | Multiple live deployments | Manual deploy, stale older version, or ambiguous create outcome | Do not reset/retry. Identify request IDs and tunnel connectors, then intentionally terminate extras with approval. |

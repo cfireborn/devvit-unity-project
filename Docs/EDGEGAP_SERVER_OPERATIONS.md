@@ -7,7 +7,7 @@ This is the concise human operator runbook for the single shared Compersion mult
 There is one production game server and one Cloudflare Tunnel hostname:
 
 - WebGL players connect to `wss://compersion.charliefeuerborn.com`.
-- The Cloudflare Tunnel carries that traffic to Bayou on `localhost:7771` inside the Edgegap container.
+- The remotely managed Cloudflare Tunnel `compersion-edgegap-prod` carries that traffic to Bayou on `http://localhost:7771` inside the Edgegap container.
 - The watchdog deploys the stable Edgegap version `26.08.11-watchdog-secure`.
 - A new server image is published by changing the Docker tag on that same stable version. Do not create a new Edgegap version for each build.
 - A visit to the studio homepage wakes the watchdog. There is no continuously scheduled Worker check while the system is healthy.
@@ -20,7 +20,7 @@ The stable-version rule is important: the hidden tunnel secret belongs to the Ed
 
 Keeping this version preserves its hidden `CF_TUNNEL_TOKEN`, ports, runtime policy, and the Worker's configured target. A future migration to a timeless name such as `watchdog-secure` should be treated as a coordinated configuration migration: disable automatic deployments, verify zero live deployments, create and configure the new version, transfer the secret through the dashboard, update `EDGEGAP_VERSION`, test one controlled launch, and retire the old version. Do not rename merely to match a new image date.
 
-> **Parked incident state (2026-08-11):** automatic deployment creation is disabled and live deployment count was verified as zero. The rotated Cloudflare Tunnel token is now saved correctly and a controlled deployment reached a Healthy Cloudflare connector, but the uploaded Unity image never exposed Bayou on `localhost:7771`; public HTTP returned 503 and WSS failed. Do not launch another server or re-enable automation until the server image/listener blocker and Edgegap lifecycle response parsing are corrected using the ordered checklist in `Docs/Agents/EDGEGAP_INCIDENT_2026-08-11.md`.
+> **Current operational state (2026-08-12):** the tunnel-management mismatch from the 2026-08-11 incident is resolved. Production DNS points to remotely managed tunnel `compersion-edgegap-prod` (ID `6fd08db4-935d-4c7b-b2e0-6424f17bd771`), whose published application maps `compersion.charliefeuerborn.com` to `http://localhost:7771`. Controlled Edgegap deployment `77db03e3878e` reached Ready, its connector became Healthy, and a public WebSocket upgrade returned HTTP 101. The retired locally managed tunnel was deleted. After confirming zero application-wide live deployments, Worker version `1fec72e5-a4e1-4b36-9b3f-2592bd8e1c37` was deployed with `ENABLE_DEPLOYMENTS=true`. The next homepage visitor wake clears the deliberately parked state and begins the normal three-check startup flow.
 
 ## One-time credential setup
 
@@ -138,7 +138,7 @@ The browser polls every 10 seconds for the first two minutes and every 20 second
 3. Open `https://ramborngames.github.io/` in a normal browser tab.
 4. Watch the status progress without refreshing. A cold start takes multiple health intervals; **Wake request sent** is not proof that Edgegap has started yet.
 5. Confirm the final state is **Operational**.
-6. In Cloudflare Zero Trust, confirm the `compersion` tunnel has a connected connector.
+6. In Cloudflare, confirm the `compersion-edgegap-prod` tunnel has one connected connector and one published application route for `compersion.charliefeuerborn.com` to `http://localhost:7771`.
 7. Open the WebGL game and confirm a multiplayer connection, not only the homepage socket probe.
 
 The homepage probe proves that Bayou accepts a WebSocket handshake. It does not prove gameplay state, authentication, or Tugboat UDP. A real game-client smoke test is the final verification.
@@ -164,6 +164,8 @@ Check, in order:
 3. container logs show both `cloudflared` and the Unity server starting;
 4. the remotely managed tunnel still publishes `compersion.charliefeuerborn.com` to `http://localhost:7771`; and
 5. no developer machine or old deployment is also running a connector for the same tunnel.
+
+With a remotely managed tunnel, `cloudflared` can briefly log `No ingress rules were defined` before it receives the dashboard configuration. Treat it as a real failure only if the log is not followed by `Updated to new configuration` containing the expected hostname/service mapping, or if the public WebSocket upgrade does not return HTTP 101.
 
 Do not add a credential JSON file or bake a tunnel token into a replacement image as a shortcut.
 

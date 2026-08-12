@@ -2,6 +2,14 @@
 
 This is the authoritative pickup note for the parked Compersion multiplayer service. It contains no credential values. Treat dashboards and authenticated APIs as authoritative for live state.
 
+## Resolution recorded 2026-08-12
+
+The tunnel portion of this incident is resolved. The previous tunnel was locally managed while the Edgegap container launched `cloudflared` with `--token-file`, so the connector could become healthy without receiving an ingress route. Production now uses remotely managed tunnel `compersion-edgegap-prod` (ID `6fd08db4-935d-4c7b-b2e0-6424f17bd771`) with a published application mapping `compersion.charliefeuerborn.com` to `http://localhost:7771`. Production DNS points to the new tunnel, and the retired tunnel was deleted.
+
+The hidden Edgegap `CF_TUNNEL_TOKEN` was replaced without recording its value. Exactly one controlled deployment, `77db03e3878e`, was launched from stable version `26.08.11-watchdog-secure`; Edgegap reported Ready, Cloudflare reported one Healthy connector, `cloudflared` logged the remotely delivered ingress configuration, and an external HTTP/1.1 WebSocket upgrade returned 101. The initial `No ingress rules were defined` startup warning was transient and occurred before the dashboard route reached the connector.
+
+The parked state described below is incident history. On 2026-08-12, after the tunnel fix and an application-wide reconciliation confirmed zero live deployments, Worker version `1fec72e5-a4e1-4b36-9b3f-2592bd8e1c37` was deployed with `ENABLE_DEPLOYMENTS=true`. Its one-time config generation clears the old parked circuit only when the next homepage visitor sends a wake. The watchdog creates only from zero live deployments and never automatically stops or restarts an existing deployment.
+
 ## Safe parked state
 
 Verified before handoff on 2026-08-11:
