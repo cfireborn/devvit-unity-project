@@ -21,6 +21,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: _defaultDespawnType
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: _initializedTimestamp
       value: -8584153813453580118
       objectReference: {fileID: 0}
