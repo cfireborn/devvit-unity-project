@@ -763,8 +763,8 @@ CapsuleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -0.06696964, y: 0.000000007983402}
-  m_Size: {x: 3.1500316, y: 3.1500316}
+  m_Offset: {x: -1.4640657, y: 0.00000017453021}
+  m_Size: {x: 4.7471504, y: 3.150072}
   m_Direction: 1
 --- !u!1 &477864942
 GameObject:
@@ -2233,54 +2233,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraParallaxComponent
   depth: 1
---- !u!1 &1485443384 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 969108525076167851, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-  m_PrefabInstance: {fileID: 1576647155}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1485443387
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1485443384}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 18963923846fdfd46a8f0f713a01087f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InteractionTrigger
-  activationChancePercent: 100
-  activationDelaySeconds: 0
-  singleUse: 1
-  autoDisableAfterUse: 0
-  requiredTag: Player
-  requireButtonPress: 0
-  interactButton: Submit
-  printDebug: 0
-  onEnter:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 800488275}
-        m_TargetAssemblyTypeName: SpeechBubbleTrigger, Assembly-CSharp
-        m_MethodName: Show
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  onExit:
-    m_PersistentCalls:
-      m_Calls: []
-  onInteract:
-    m_PersistentCalls:
-      m_Calls: []
-  gizmoRadius: 0.15
-  interactCooldown: 0
 --- !u!1 &1487734167
 GameObject:
   m_ObjectHideFlags: 0
@@ -2575,18 +2527,6 @@ PrefabInstance:
       value: Balloon_Koi
       objectReference: {fileID: 0}
     - target: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.35
       objectReference: {fileID: 0}
@@ -2626,42 +2566,34 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-      propertyPath: m_ConstrainProportionsScale
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 3565316231515950007, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: blockSpawn
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 5441659074233179131, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 5441659074233179131, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-      propertyPath: m_IsTrigger
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Size.x
-      value: 3.4166393
+      value: 5.063908
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Size.y
-      value: 4.374852
+      value: 3.3077517
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Offset.x
-      value: 0.07987785
+      value: -1.1342715
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Offset.y
-      value: -0.008844376
+      value: -0.10717809
       objectReference: {fileID: 0}
     - target: {fileID: 7117213308771686020, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       propertyPath: m_Direction
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 8316055033918960880, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
+      propertyPath: onEnter.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 800488275}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
@@ -2671,10 +2603,7 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1995255495}
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 969108525076167851, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1485443387}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
 --- !u!4 &1596400181 stripped
 Transform:
