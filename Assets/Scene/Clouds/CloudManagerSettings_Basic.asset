@@ -26,4 +26,4 @@ MonoBehaviour:
   minCloudMainBoundsHeight: 0.55
   maxCloudMainBoundsHeight: 2.73
   speedRange: {x: 0.25, y: 1.5}
-  maxDynamicClouds: 500
+  maxDynamicClouds: 0
