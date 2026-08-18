@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 416957903ce8daa4cbf8b3a61dc43588, type: 3}
   m_Name: CompersionTitleDialogue
   m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
+  presentation: 1
   steps:
   - characterSprite: {fileID: 0}
     text: "COMPERSION\nnoun\nJoy felt in response to someone else's joy—especially

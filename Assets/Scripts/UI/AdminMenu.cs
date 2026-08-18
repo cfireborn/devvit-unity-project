@@ -19,10 +19,11 @@ public class AdminMenu : MonoBehaviour
 {
     public enum StoryStage
     {
-        BeforeGray,
-        FirstLetterActive,
-        ReturnLetterActive,
-        Ending
+        BeforeGray = 0,
+        FirstLetterActive = 1,
+        ReturnLetterActive = 2,
+        Ending = 3,
+        CompersionTitle = 4
     }
 
     public enum StoryTeleportAnchor
@@ -102,6 +103,7 @@ public class AdminMenu : MonoBehaviour
         new("Spawn - Before Gray", StoryStage.BeforeGray, StoryTeleportAnchor.Spawn, Vector2.zero),
         new("Gray - Letter for Spike", StoryStage.FirstLetterActive, StoryTeleportAnchor.Gray, new Vector2(1.25f, 0f)),
         new("Spike - Before delivery", StoryStage.FirstLetterActive, StoryTeleportAnchor.Spike, new Vector2(-1.25f, 0f)),
+        new("Spike - COMPERSION title", StoryStage.CompersionTitle, StoryTeleportAnchor.Spike, new Vector2(1.25f, 0f)),
         new("Spike - Reply for Gray", StoryStage.ReturnLetterActive, StoryTeleportAnchor.Spike, new Vector2(1.25f, 0f)),
         new("Gray - Before return", StoryStage.ReturnLetterActive, StoryTeleportAnchor.Gray, new Vector2(-1.25f, 0f)),
         new("Ending - Thank-you UI", StoryStage.Ending, StoryTeleportAnchor.Ending, new Vector2(1.25f, 0f))
@@ -146,6 +148,7 @@ public class AdminMenu : MonoBehaviour
     Button _nextStoryCheckpointButton;
     Button _adminCloseButton;
     bool _usingAuthoredStoryCheckpointControls;
+    public bool IsOpen => adminPanel != null && adminPanel.activeSelf;
 
     sealed class StorySpine
     {
@@ -382,9 +385,13 @@ public class AdminMenu : MonoBehaviour
             return;
         }
 
-        bool afterGray = checkpoint.stage >= StoryStage.FirstLetterActive;
-        bool afterSpike = checkpoint.stage >= StoryStage.ReturnLetterActive;
-        bool atEnding = checkpoint.stage >= StoryStage.Ending;
+        bool afterGray = checkpoint.stage != StoryStage.BeforeGray;
+        bool afterSpikeDelivery = checkpoint.stage == StoryStage.CompersionTitle
+            || checkpoint.stage == StoryStage.ReturnLetterActive
+            || checkpoint.stage == StoryStage.Ending;
+        bool afterSpikeReply = checkpoint.stage == StoryStage.ReturnLetterActive
+            || checkpoint.stage == StoryStage.Ending;
+        bool atEnding = checkpoint.stage == StoryStage.Ending;
 
         Goal activeGoal = null;
         int completedGoals = 0;
@@ -395,6 +402,8 @@ public class AdminMenu : MonoBehaviour
             activeGoal = spine.returnAssignment.PrepareGoalForCheckpoint();
             completedGoals = 1;
         }
+        else if (checkpoint.stage == StoryStage.CompersionTitle)
+            completedGoals = 1;
         else if (atEnding)
             completedGoals = 2;
 
@@ -413,10 +422,10 @@ public class AdminMenu : MonoBehaviour
 
         spine.grayOpening.ApplyCheckpointActivationState(afterGray, componentEnabled: true);
         spine.firstAssignment.ApplyCheckpointActivationState(afterGray, componentEnabled: !afterGray);
-        spine.spikeCompletion.ApplyCheckpointActivationState(afterSpike, componentEnabled: true);
-        spine.compersionTitle.ApplyCheckpointActivationState(afterSpike, componentEnabled: false);
-        spine.spikeReply.ApplyCheckpointActivationState(afterSpike, componentEnabled: false);
-        spine.returnAssignment.ApplyCheckpointActivationState(afterSpike, componentEnabled: !afterSpike);
+        spine.spikeCompletion.ApplyCheckpointActivationState(afterSpikeDelivery, componentEnabled: true);
+        spine.compersionTitle.ApplyCheckpointActivationState(afterSpikeDelivery, componentEnabled: false);
+        spine.spikeReply.ApplyCheckpointActivationState(afterSpikeReply, componentEnabled: false);
+        spine.returnAssignment.ApplyCheckpointActivationState(afterSpikeReply, componentEnabled: !afterSpikeReply);
         spine.grayCompletion.ApplyCheckpointActivationState(atEnding, componentEnabled: true);
         spine.grayReturn.ApplyCheckpointActivationState(atEnding, componentEnabled: false);
 
@@ -427,6 +436,8 @@ public class AdminMenu : MonoBehaviour
 
         if (atEnding)
             spine.gameUI.ShowEndOfDemo();
+        else if (checkpoint.stage == StoryStage.CompersionTitle)
+            spine.compersionTitle.ShowDialogue();
 
         _storyCheckpointAppliedThisSession = true;
         UpdateStoryCheckpointControls();
@@ -525,11 +536,15 @@ public class AdminMenu : MonoBehaviour
             return;
         }
 
-        StoryStage inferredStage = player.CompletedGoalsCount >= 2
-            ? StoryStage.Ending
-            : player.CompletedGoalsCount >= 1
-                ? StoryStage.ReturnLetterActive
-                : player.Goals.Count > 0 ? StoryStage.FirstLetterActive : StoryStage.BeforeGray;
+        // Completed=1 with no active goal also exists during Spike's reply and its
+        // one-frame assignment handoff; only the live card identifies the title phase.
+        StoryStage inferredStage = GameUIManager.Instance != null && GameUIManager.Instance.IsCompersionTitleCardShowing
+            ? StoryStage.CompersionTitle
+            : player.CompletedGoalsCount >= 2
+                ? StoryStage.Ending
+                : player.CompletedGoalsCount >= 1
+                    ? StoryStage.ReturnLetterActive
+                    : player.Goals.Count > 0 ? StoryStage.FirstLetterActive : StoryStage.BeforeGray;
         for (int i = 0; i < storyCheckpoints.Length; i++)
         {
             if (storyCheckpoints[i] != null && storyCheckpoints[i].stage == inferredStage)

@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -20,6 +22,14 @@ public sealed class GameUIManager : MonoBehaviour
     [SerializeField] InventoryMenuUI inventoryMenu;
     [SerializeField] TMP_Text completedGoalsCountText;
     [SerializeField] Button inventoryOpenButton;
+    [Header("COMPERSION Title Card")]
+    [SerializeField] Sprite compersionTitleSprite;
+    [SerializeField] Sprite compersionPronunciationSprite;
+    [SerializeField] Sprite compersionPartOfSpeechSprite;
+    [SerializeField] Sprite compersionDefinitionLeadSprite;
+    [SerializeField] Sprite compersionDefinitionBodySprite;
+    [SerializeField] CompersionTitleCardUI.Skin compersionTitleSkin = new();
+    [Header("End of Demo")]
     [SerializeField] GameObject endOfDemoPanel;
     [SerializeField] string narrativeScriptUrl = "https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr";
     [SerializeField] string mailingListUrl = "https://forms.gle/hxLfkX4au94oon1B8";
@@ -34,7 +44,12 @@ public sealed class GameUIManager : MonoBehaviour
     GameObject _endOfDemoCloseButton;
     GameServices _gameServices;
     PlayerControllerM _boundPlayer;
+    CompersionTitleCardUI _compersionTitleCard;
+    Action _compersionTitleCardCompletion;
+    Coroutine _compersionTitleCardCompletionRoutine;
+    bool _compersionTitleCardSuspendHeld;
     public bool IsGameplaySuspended => _gameplaySuspendCount > 0;
+    public bool IsCompersionTitleCardShowing => _compersionTitleCard != null && _compersionTitleCard.IsShowing;
 
     void Awake()
     {
@@ -383,6 +398,90 @@ public sealed class GameUIManager : MonoBehaviour
         inventoryMenu.Close();
     }
 
+    /// <summary>Show the local cinematic title card, or return false so the caller can use readable dialogue fallback.</summary>
+    public bool TryShowCompersionTitleCard(Action onComplete)
+    {
+        if (!EnsureCompersionTitleCard()) return false;
+
+        CancelCompersionTitleCard();
+        _compersionTitleCardCompletion = onComplete;
+        _compersionTitleCardSuspendHeld = true;
+        PushGameplaySuspend();
+        _compersionTitleCard.Show(OnCompersionTitleCardDismissed);
+        adminMenu?.BringToFrontIfOpen();
+        return true;
+    }
+
+    bool EnsureCompersionTitleCard()
+    {
+        if (_compersionTitleCard != null) return true;
+        if (compersionTitleSprite == null
+            || compersionPronunciationSprite == null
+            || compersionPartOfSpeechSprite == null
+            || compersionDefinitionLeadSprite == null
+            || compersionDefinitionBodySprite == null)
+            return false;
+
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+            canvas = FindFirstObjectByType<Canvas>();
+        if (canvas == null) return false;
+
+        var overlay = new GameObject("CompersionTitleCard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(CompersionTitleCardUI));
+        overlay.transform.SetParent(canvas.transform, false);
+        StretchFull(overlay.GetComponent<RectTransform>());
+        _compersionTitleCard = overlay.GetComponent<CompersionTitleCardUI>();
+        _compersionTitleCard.Initialize(
+            compersionTitleSprite,
+            compersionPronunciationSprite,
+            compersionPartOfSpeechSprite,
+            compersionDefinitionLeadSprite,
+            compersionDefinitionBodySprite,
+            compersionTitleSkin,
+            adminMenu,
+            mobileInputManager != null ? mobileInputManager : MobileInputManager.Instance);
+        overlay.SetActive(false);
+        return true;
+    }
+
+    void OnCompersionTitleCardDismissed()
+    {
+        if (_compersionTitleCardCompletionRoutine != null)
+            StopCoroutine(_compersionTitleCardCompletionRoutine);
+        _compersionTitleCardCompletionRoutine = StartCoroutine(CompleteCompersionTitleCardNextFrame());
+    }
+
+    IEnumerator CompleteCompersionTitleCardNextFrame()
+    {
+        yield return null;
+        _compersionTitleCardCompletionRoutine = null;
+        if (_compersionTitleCardSuspendHeld)
+        {
+            _compersionTitleCardSuspendHeld = false;
+            PopGameplaySuspend();
+        }
+        Action completion = _compersionTitleCardCompletion;
+        _compersionTitleCardCompletion = null;
+        completion?.Invoke();
+    }
+
+    /// <summary>Silently cancel the title session without firing Spike's continuation.</summary>
+    public void CancelCompersionTitleCard()
+    {
+        if (_compersionTitleCardCompletionRoutine != null)
+        {
+            StopCoroutine(_compersionTitleCardCompletionRoutine);
+            _compersionTitleCardCompletionRoutine = null;
+        }
+        _compersionTitleCardCompletion = null;
+        _compersionTitleCard?.Cancel();
+        if (_compersionTitleCardSuspendHeld)
+        {
+            _compersionTitleCardSuspendHeld = false;
+            PopGameplaySuspend();
+        }
+    }
+
     public void ShowEndOfDemo()
     {
         if (_endOfDemoShown) return;
@@ -422,6 +521,7 @@ public sealed class GameUIManager : MonoBehaviour
     {
         inventoryMenu?.Close();
         goalSelectionUI?.Close();
+        CancelCompersionTitleCard();
         _gameServices?.GetDialogueUI()?.CancelDialogue();
     }
 

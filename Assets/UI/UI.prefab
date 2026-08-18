@@ -1759,6 +1759,21 @@ MonoBehaviour:
   inventoryMenu: {fileID: 7669228712079186591}
   completedGoalsCountText: {fileID: 1980644672910171626}
   inventoryOpenButton: {fileID: 6648832136993975267}
+  compersionTitleSprite: {fileID: 21300000, guid: e1b877f256c2442ccb06eef5c883071b, type: 3}
+  compersionPronunciationSprite: {fileID: 21300000, guid: 34b2cb5f323ed49cdbbf96eb27e55bc5, type: 3}
+  compersionPartOfSpeechSprite: {fileID: 21300000, guid: 9bce38553836242b78d29c9563d0ce94, type: 3}
+  compersionDefinitionLeadSprite: {fileID: 21300000, guid: edceda242f997428b8d32da3d4306d93, type: 3}
+  compersionDefinitionBodySprite: {fileID: 21300000, guid: a253aa60cac504e5fa08b8b09161b858, type: 3}
+  compersionTitleSkin:
+    fullScreenBackdrop: {fileID: 21300000, guid: b9c61cb0fd11442a48d1cec5e7adce2f, type: 3}
+    titleBackdrop: {fileID: 21300000, guid: 47a09c065dbd84cf89eb67f2ef55f339, type: 3}
+    widePanel: {fileID: 21300000, guid: 6e0fc6412b8224517921c6f5a8cbf67e, type: 3}
+    compactPanel: {fileID: 21300000, guid: 5d5ff2caad76d48a49601e84e91203cc, type: 3}
+    continueRibbon: {fileID: 21300000, guid: e6f75beb7df36425b99bf757ee15dd2b, type: 3}
+    polyamoryFlag: {fileID: 0}
+    titleBackdropIncludesFlag: 0
+    balloonAndHouseSilhouette: {fileID: 21300000, guid: d1b0e16186846ba438bb4f663d292789, type: 3}
+    cloudSilhouette: {fileID: 21300000, guid: 33ecdfcdeb487e042b439adf1ce80b1e, type: 3}
   endOfDemoPanel: {fileID: 0}
   narrativeScriptUrl: https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr
   mailingListUrl: https://forms.gle/hxLfkX4au94oon1B8

@@ -72,6 +72,19 @@ public class NetworkBootstrapper : MonoBehaviour
 
     void Start()
     {
+        TextAsset versionAsset = Resources.Load<TextAsset>("BuildVersion");
+        string version = versionAsset != null ? versionAsset.text.Trim() : Application.version;
+#if UNITY_SERVER
+        const string buildType = "LINUX SERVER BUILD";
+#elif UNITY_WEBGL
+        const string buildType = "WEBGL COMPERSION TEMPLATE BUILD";
+#elif UNITY_EDITOR
+        const string buildType = "UNITY EDITOR PLAY MODE";
+#else
+        const string buildType = "STANDALONE CLIENT BUILD";
+#endif
+        Debug.Log($"Compersion {version} — {buildType}");
+
         // Compile flag sets the default; AdminMenu can override at runtime.
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX || UNITY_SERVER
         bool useLocal = true;

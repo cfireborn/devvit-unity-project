@@ -95,10 +95,10 @@ public class MobileInputManager : MonoBehaviour
     /// Counts a pointer position toward the hidden admin gesture. Modal UI can relay
     /// its own pointer-down events here without allowing the touch into gameplay UI.
     /// </summary>
-    public void TryHandleAdminCornerTap(Vector2 pos)
+    public bool TryHandleAdminCornerTap(Vector2 pos)
     {
         bool inCorner = pos.x > Screen.width * 0.8f && pos.y > Screen.height * 0.6f;
-        if (!inCorner) return;
+        if (!inCorner) return false;
 
         _cornerTapCount++;
         _cornerTapTimer = CornerTapWindow;
@@ -108,6 +108,7 @@ public class MobileInputManager : MonoBehaviour
             if (gameUIManager != null)
                 gameUIManager.ToggleAdminFromSecretGesture();
         }
+        return true;
     }
 
     /// <summary>

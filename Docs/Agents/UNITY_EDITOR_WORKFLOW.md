@@ -1,6 +1,6 @@
 # Unity Editor Workflow for Agents and Human Collaborators
 
-Last updated for Unity 6.2 (`6000.2.8f1`) on 2026-08-11.
+Last updated for Unity 6.2 (`6000.2.8f1`) on 2026-08-18.
 
 This guide explains how to operate the Compersion Unity project safely and how to leave scene, prefab, ScriptableObject, and multiplayer changes in a state another person can understand. It supplements `AGENTS.md`; feature-specific runbooks remain authoritative for their systems.
 
@@ -142,6 +142,58 @@ For each step:
 - never leave a live chained dialogue asset with zero steps
 
 Text-only edits should normally change the ScriptableObject, not the dialogue scripts. A choice, branching condition, cinematic layout, or speaker-name system is a feature request and should be agreed on before implementation.
+
+## COMPERSION Title Card Assets and Tuning
+
+The title card is deliberately programmatic; there is no scene object or authored prefab to keep synchronized. `GameUIManager` creates `CompersionTitleCardUI` under the local UI Canvas when `CompersionTitleDialogue.presentation` is `CompersionTitleCard`. The existing Spike scene events remain unchanged.
+
+The implemented visual target is the Figma frame **MOBILE REDESIGN + EXPORTABLE BACKDROP KIT** in [Compersion — Title Card - In Game Text Assets](https://www.figma.com/design/g5NDCTmSeMNUDbCqd1Dyfm/Compersion-%E2%80%94-Title-Card---In-Game-Text-Assets?node-id=0-1). `Assets/UI/UI.prefab` now uses the five transparent `@2x.png` derivatives from `Assets/UI/compersion-title-card/backdrop-kit/` at runtime. The neighboring SVGs remain editable design sources and `MOCKUP—Dramatic-Fade-Sequence.png` remains visual reference only. The code-native dark-teal/umber layout is retained only as a missing-skin fallback.
+
+The five artwork files live in `Assets/UI/compersion-title-card/` and must remain imported as:
+
+- Texture Type: **Sprite (2D and UI)**
+- Sprite Mode: **Single**
+- Alpha Is Transparency: enabled
+- Generate Mip Maps: disabled
+- Filter Mode: Bilinear
+- Wrap Mode: Clamp
+
+`Assets/UI/UI.prefab` serializes those Sprites on `GameUIManager`. If artwork is renamed or replaced, reopen the prefab and verify all five `COMPERSION Title Card` references. Missing references intentionally fall back to the readable `CompersionTitleDialogue` text instead of stalling the quest.
+
+`GameUIManager.Compersion Title Skin` is the centralized assignment point for the Figma backdrop kit. The five runtime fields are populated on `Assets/UI/UI.prefab`; every field remains independently optional, and a null field uses its code-native fallback without triggering the plain-dialogue fail-safe:
+
+| Figma export | Skin field | Runtime use |
+|---|---|---|
+| `EXPORT-01—Full-Screen-Vector-Backdrop` | `Full Screen Backdrop` | Entire atmospheric background |
+| `EXPORT-02—Title-Backdrop` | `Title Backdrop` | Title/flag surface |
+| `EXPORT-03—Content-Panel-Wide` | `Wide Panel` | Lead and definition surfaces |
+| `EXPORT-04—Compact-Panel` | `Compact Panel` | Combined pronunciation/noun surface |
+| `EXPORT-05—Continue-Ribbon` | `Continue Ribbon` | Prompt surface |
+
+`Polyamory Flag` is an optional separate Sprite override. When it is null, the title builds the cyan/magenta/violet flag with its white chevron and gold heart from non-raycasting UI elements. If `Title Backdrop` already contains the flag, enable `Title Backdrop Includes Flag` to suppress that separate layer. `Balloon And House Silhouette` and `Cloud Silhouette` are fallback-only and are ignored when a full-screen backdrop is assigned.
+
+This project does not currently include Unity Vector Graphics. Preserve downloaded SVGs as design sources if needed, but export/rasterize matching 2× PNG runtime copies and import those as Sprite (2D and UI). Do not add a package solely for the title card without agreeing to that feature/dependency change.
+
+The three framed runtime PNGs rely on explicit 9-slice metadata. Preserve these settings when replacing or reimporting them:
+
+| Runtime PNG | Pixels Per Unit | Sprite border (L/B/R/T) |
+|---|---:|---:|
+| `EXPORT-02—Title-Backdrop@2x.png` | `400` | `120 / 120 / 120 / 120` |
+| `EXPORT-03—Content-Panel-Wide@2x.png` | `400` | `100 / 100 / 100 / 100` |
+| `EXPORT-04—Compact-Panel@2x.png` | `400` | `100 / 100 / 100 / 100` |
+
+`EXPORT-01` and `EXPORT-05` are unsliced. `BuildSurface()` automatically selects `Image.Type.Sliced` only when the assigned Sprite has a nonzero border. This preserves the framed panel strokes while keeping the thin continue ornament aspect-correct.
+
+All layout and fallback tuning is centralized in `CompersionTitleCardUI.Initialize()` and its builders:
+
+- the palette constants mirror the kit: `#020507` ink, `#071013` midnight teal, `#08282C` panel teal, `#2A1715` umber, `#D9A94F` primary gold, `#F6D58C` content gold, and `#E9DDBF` warm cream
+- `BuildBackdrop()` owns the authored backdrop swap and fallback silhouettes
+- `BuildSurface()` owns every authored-surface swap and smoked/gold fallback
+- the five anchor rectangles in `Initialize()` own the mobile layout
+- `BuildPolyamoryFlag()` owns the isolated flag fallback
+- `RevealSequence()` owns one absolute unscaled timeline: title `0.00`, pronunciation+noun `0.36`, lead `0.72`, body `1.08`, prompt `1.62`; every beat fades for `0.42s` while settling downward from `+18px`
+
+The transparent type PNG margins are intentional. Keep `Image.preserveAspect` enabled and do not call `SetNativeSize`, crop the files, or stretch the type artwork. The title Sprite's flat interior face is baked at the corrected Figma color `#F8DEA1`; its brown outline, shadow, antialiasing, original `2120×380` dimensions, and alpha were left intact. If the title is re-exported later, verify that exact face color instead of applying a Unity `Image` tint, which would also alter the outline and shadow. Validate portrait `540×960` first, then landscape, before changing anchors. The full-screen backdrop intentionally uses aspect-fill (`AspectRatioFitter.EnvelopeParent`), so non-reference ratios crop its outer edge; keep all readable content in the independent safe-area panels. The full-screen root stays the only raycast target so HUD/joystick input is blocked, while top-right taps are relayed to the existing hidden Admin gesture. Do not add an override-sorting Canvas: Admin's sorting order `32000` must remain above the card.
 
 ## Saving and Proving Persistence
 

@@ -1,4 +1,4 @@
-# Agent Handoff — Compersion Multiplayer and Story (August 11, 2026)
+# Agent Handoff — Compersion Multiplayer and Story (August 18, 2026)
 
 ## Snapshot
 - **Game**: Compersion — Unity 6 (6000.2.8f1) 2D platformer published as WebGL on GitHub Pages.
@@ -72,14 +72,15 @@ Other reference docs (mobile guides, historical analyses) live alongside these f
 
 The playable story in `Assets/Levels/SimpleLevel.unity` is a local, linear sequence:
 
-`Gray opening → first letter goal → Spike completion → COMPERSION definition → Spike reply → return-to-Gray goal → Gray response → end panel with narrative and mailing-list links`
+`Gray opening → first letter goal → Spike completion → animated COMPERSION title card → Spike reply → return-to-Gray goal → Gray response → end panel with narrative and mailing-list links`
 
 - The fixed-ladder tutorial and ordinary-mail/delivery-cloud branch are deliberate cuts. Ladders work normally from spawn.
 - `SpikeTutorialDialogue_2.asset` is empty and retired. It is not referenced by the shipping scene; wiring it into a live chain would stall completion.
 - The end panel is created by `GameUIManager.ShowEndOfDemo()` when no authored panel is assigned. Each external-link button grays after use but stays clickable; once both have been pressed, `Keep exploring` appears and resumes gameplay.
 - Story state is not synchronized. Each local `PlayerControllerM` owns its own goals, while disabled remote proxies are rejected by `InteractionTrigger.IsAllowed()`.
-- The Admin Menu exposes six ordered story checkpoints: spawn before Gray, Gray with the first letter, Spike before delivery, Spike with the reply, Gray before return, and the ending UI. Previous/Apply/Next replace the local story snapshot; they do not replay narrative UnityEvents or affect another client.
-- The six serialized scene transitions passed an Editor-side persistent-listener audit. A complete post-fix host plus pure-client playthrough is still pending and must not be reported as passed until performed.
+- `CompersionTitleDialogue` keeps its existing `DialogueTrigger` and scene event, but its serialized presentation mode routes the session to `CompersionTitleCardUI`. `Assets/UI/UI.prefab` wires the final Figma `@2x.png` backdrop, three sliced panel surfaces, and continue ornament through the centralized `GameUIManager` skin; the programmatic storybook treatment remains only as a per-field fallback. The polyamory flag stays beneath the title and the absolute `0/.36/.72/1.08/1.62s` reveal remains unchanged. The first tap/Space fast-finishes and the next dismisses into Spike's existing reply/goal chain.
+- The Admin Menu exposes seven ordered story checkpoints: spawn before Gray, Gray with the first letter, Spike before delivery, the live COMPERSION title, Spike with the reply, Gray before return, and the ending UI. Previous/Apply/Next replace the local story snapshot; the title entry then presents only its current beat and does not replay delivery completion.
+- The six serialized scene transitions remain unchanged and passed an Editor-side persistent-listener audit. The new title-card code and serialized Sprite references passed static compilation/audit; an Editor portrait checkpoint test also confirmed Admin-over-card priority and the Space dismissal handoff into Spike. First-input fast-finish, physical/WebGL touch, landscape, and a complete host-plus-pure-client playthrough are still pending and must not be reported as passed until performed.
 
 The exact component layout, diagnostic file IDs, prefab-array warning, repair procedure, and runtime checklist live in `Docs/Agents/STORY_THROUGH_SECOND_GOAL.md`.
 

@@ -1,6 +1,6 @@
 # Story Through the Second Goal — Implementation and Recovery Runbook
 
-Last reconciled with `Assets/Levels/SimpleLevel.unity` and the supporting scripts on 2026-08-12.
+Last reconciled with `Assets/Levels/SimpleLevel.unity` and the supporting scripts on 2026-08-18.
 
 This document is the source of truth for the playable narrative from game start through the end of the Second Story Goal. It is written for designers, programmers, and future agents who need to understand, test, repair, or extend the sequence without accidentally reintroducing the removed tutorial branches.
 
@@ -10,7 +10,10 @@ This document is the source of truth for the playable narrative from game start 
 - The dialogue assets are present and non-empty.
 - The delivery-cloud/postbox scene branch and the fixed-ladder tutorial callbacks are absent from the shipping scene.
 - The local-player interaction guard is present in `InteractionTrigger.IsAllowed`.
+- The dedicated title-card code, presentation flag, Sprite imports, prefab references, and seven-stage checkpoint snapshot passed static compilation and serialized inspection.
 - A complete post-fix host and remote-client playthrough is still required. Do not describe the sequence as runtime-verified until a human has completed the checklist in this document after a scene reload/domain reload.
+
+The latest Editor spot-check on 2026-08-18 used the Apple iPhone 12 Simulator profile after importing the final Figma backdrop kit. Admin checkpoint `4/7` opened the authored card at Spike; the high-sorting Admin panel and its close button remained visible and clickable above it. The completed portrait card was readable at both fit and 40% preview scales, its sliced borders and aspect-fill backdrop rendered cleanly, the continue ornament no longer crossed its prompt, and Space dismissed it into Spike's first reply line. First-input fast-finish, physical/WebGL touch, landscape, host, and pure-client cases remain checklist items below.
 
 The distinction between serialized validation and a runtime playthrough is intentional. The first failed implementation looked correct in discussion but had not been saved into `SimpleLevel.unity`, so Play Mode continued to execute the old callbacks.
 
@@ -21,7 +24,7 @@ The streamlined story is linear:
 1. Gray greets Hermes and asks Hermes to deliver a letter to Spike.
 2. Completing Gray's dialogue creates `Deliver Gray's Letter to Spike`.
 3. Reaching Spike completes the first goal.
-4. The portraitless `COMPERSION` definition appears before Spike speaks.
+4. The animated `COMPERSION` definition card appears before Spike speaks.
 5. Completing the title opens Spike's reply dialogue.
 6. Completing Spike's dialogue creates `Return Spike's Reply to Gray`.
 7. Reaching Gray completes the second goal and opens Gray's return dialogue.
@@ -38,7 +41,7 @@ These are design decisions, not missing implementation:
 - **No ordinary-mail/postbox side goal.** Spike does not offer a randomly placed delivery-cloud or postbox goal. The story moves directly back to Gray.
 - **No goal-choice screen in this sequence.** There is only one active story delivery at a time.
 - **No flower choice.** The current opening dialogue treats the pressed flower as part of Gray's letter. Adding a choice would require a dialogue-choice feature and is outside the no-new-feature adaptation.
-- **The title card uses the existing dialogue UI.** `CompersionTitleDialogue` has no portrait, so `DialogueUI` hides the portrait and displays the definition. A separate cinematic title-card system was intentionally not added.
+- **The title card uses a dedicated local presentation without changing story ownership.** `CompersionTitleDialogue` retains readable fallback text and the existing `DialogueTrigger`, but its presentation flag asks `GameUIManager` for the animated `CompersionTitleCardUI`. No RPC, shared quest state, or scene-event rewrite was added.
 - **The demo ends after Gray's response.** The end panel links to the complete narrative rather than pretending later beats are implemented.
 
 The old delivery-cloud classes and prefabs may remain in the repository for future experiments, but they are disabled by `OptionalGameplayFeatures.DeliveryAndGoalSystemEnabled == false` and are not referenced by this story scene.
@@ -51,9 +54,11 @@ The old delivery-cloud classes and prefabs may remain in the repository for futu
 | Opening dialogue | `Assets/UI/Assets/Dialogue/TutorialLevel/KoiTutorialDialogue.asset` |
 | Spike reply dialogue | `Assets/UI/Assets/Dialogue/TutorialLevel/SpikeTutorialDialogue_1.asset` |
 | COMPERSION definition | `Assets/UI/Assets/Dialogue/TutorialLevel/CompersionTitleDialogue.asset` |
+| COMPERSION artwork | `Assets/UI/compersion-title-card/` |
+| COMPERSION animation/input | `Assets/Scripts/UI/CompersionTitleCardUI.cs` |
 | Gray's second-goal response | `Assets/UI/Assets/Dialogue/TutorialLevel/GrayReturnDialogue.asset` |
 | Dialogue step data | `Assets/Scripts/Game/Dialogue/DialogueInstance.cs` |
-| Dialogue display and completion event | `Assets/Scripts/UI/DialogueUI.cs` |
+| Dialogue/title routing and completion event | `Assets/Scripts/UI/DialogueUI.cs`, `Assets/Scripts/UI/GameUIManager.cs` |
 | Dialogue trigger-to-dialogue bridge | `Assets/Scripts/Game/GameLogic/DialogueTrigger.cs` |
 | Goal creation and assignment | `Assets/Scripts/Game/GameLogic/GoalAssignmentTrigger.cs` |
 | Goal validation and completion | `Assets/Scripts/Game/GameLogic/GoalCompletionTrigger.cs` |
@@ -161,12 +166,32 @@ Every narrative transition has exactly one effective persistent listener:
 |---|---|---|
 | Gray opening `onDialogueComplete` | First assignment `EnableGoal()` | First goal is generated/wired immediately, then added and made primary after the 1.5-second give-item animation wait. |
 | Spike first completion `onCompletionSucceeded` | COMPERSION `TriggerNow()` | First goal is already removed before the title opens. |
-| COMPERSION `onDialogueComplete` | Spike reply `TriggerNow()` | Shared dialogue panel closes and reopens for Spike. |
+| COMPERSION `onDialogueComplete` | Spike reply `TriggerNow()` | The title card dismisses, waits one frame so the dismiss input cannot consume Spike's dialogue, then opens Spike. |
 | Spike reply `onDialogueComplete` | Return assignment `EnableGoal()` | Return goal is generated/wired immediately, then added and made primary after the expected one-frame yield. |
 | Gray return completion `onCompletionSucceeded` | Gray return dialogue `TriggerNow()` | Second goal is removed before Gray responds. |
 | Gray return dialogue `onDialogueComplete` | `GameUIManager.ShowEndOfDemo()` | The terminal local overlay opens and gameplay input is suspended. |
 
 All six calls are runtime-only, zero-argument persistent calls. `TriggerNow` is serialized against the base `InteractionTrigger` type even when the target component is a `DialogueTrigger`; that inherited-method target is valid.
+
+## Animated COMPERSION Title Card
+
+`CompersionTitleDialogue.presentation` is `CompersionTitleCard`; every other dialogue asset defaults to `Standard`. `DialogueTrigger.ShowDialogue()` creates one scoped completion callback, first asks `GameUIManager.TryShowCompersionTitleCard()` to present it, and falls back to the existing readable dialogue panel when the Canvas or any required Sprite is unavailable. The fallback prevents a content/import error from consuming Spike's one-shot trigger and stalling the quest.
+
+The card is built once at runtime under the ordinary local Canvas. Five transparent type Sprites sit over the five authored `@2x.png` surfaces from `Assets/UI/compersion-title-card/backdrop-kit/`: an aspect-fill atmospheric backdrop, sliced title/wide/compact panels, and the thin continue ornament above its prompt. The polyamory flag remains directly under the title. `Assets/UI/UI.prefab` populates the centralized `GameUIManager` skin; clearing any individual surface selects its code-native fallback without changing dialogue or story state. Normalized anchors target the project's `540×960` mobile Canvas first.
+
+The reveal uses one absolute unscaled timeline rather than serial waits: title at `0.00s`, pronunciation+noun at `0.36s`, lead at `0.72s`, body at `1.08s`, and prompt at `1.62s`. Every beat takes `0.42s`, fading while settling downward from `+18px` with cubic ease-out.
+
+Input is two-stage and uses unscaled time:
+
+1. During the reveal, the first backdrop tap/click or Space press exposes every layer immediately.
+2. Once fully exposed, a later tap/click or Space press dismisses the card.
+3. Story completion is deferred one frame before Spike opens, so the dismissal input cannot also advance Spike's first dialogue step.
+
+Only one advance request is accepted per Unity frame. This prevents simultaneous touches—or a pointer event and Space reported together by a browser/simulator—from fast-finishing and dismissing the card as one action.
+
+The root blocks HUD and joystick raycasts while `GameUIManager` owns exactly one gameplay suspension. Child artwork is non-raycastable. Top-right pointer presses are sent to `MobileInputManager.TryHandleAdminCornerTap()` and do not advance the card; after five taps Admin opens at its existing sorting order `32000`. While Admin is open, title input is ignored and the Admin close button remains authoritative.
+
+Cancellation is silent. `GameUIManager.CloseTransientUiForStoryCheckpoint()` stops the reveal or pending one-frame completion, hides the card, discards Spike's callback, and pops only the card's suspension. Applying the title checkpoint repeatedly or jumping backward during any reveal step therefore cannot launch a stale Spike session.
 
 `GoalCompletionTrigger` removes the active goal before invoking its success event. `GoalAssignmentTrigger` generates and wires its goal before adding it to the player, but the configured animation wait defers the actual add/primary operation. The old arrow therefore clears before the next dialogue; the first new arrow appears after 1.5 seconds, and the return arrow appears on the frame after Spike finishes speaking.
 
@@ -256,19 +281,20 @@ If a designer replaces the runtime fallback with authored UI, assign the panel t
 | 0 | Spawn - Before Gray | No goals, count 0; every story milestone unconsumed | Spawn |
 | 1 | Gray - Letter for Spike | First goal active/primary, count 0; Gray opening and assignment consumed | Gray |
 | 2 | Spike - Before delivery | Same state as index 1 | Spike |
-| 3 | Spike - Reply for Gray | Return goal active/primary, count 1; Gray and Spike milestones consumed | Spike |
-| 4 | Gray - Before return | Same state as index 3 | Gray |
-| 5 | Ending - Thank-you UI | No goals, count 2; every milestone consumed; ending overlay shown with both links unpressed | Ending/Gray |
+| 3 | Spike - COMPERSION title | No active goal, count 1; first delivery and title trigger consumed; Spike reply/return assignment unused; title card shown | Spike |
+| 4 | Spike - Reply for Gray | Return goal active/primary, count 1; Gray, title, Spike reply, and return assignment consumed | Spike |
+| 5 | Gray - Before return | Same state as index 4 | Gray |
+| 6 | Ending - Thank-you UI | No goals, count 2; every milestone consumed; ending overlay shown with both links unpressed | Ending/Gray |
 
-Previous and Next immediately apply the adjacent entry; Apply reapplies the selected entry. Application is an exact transaction rather than event replay:
+Previous and Next immediately apply the adjacent entry; Apply reapplies the selected entry. Application is deterministic snapshot replacement rather than prior-event replay:
 
 1. Resolve `GameServices.GetPlayer()` and require its local enabled `PlayerControllerM`. Never search for an arbitrary player because it could be a remote proxy.
 2. Resolve all eight semantic story components by dialogue asset or generated-goal display name, then prepare the cached goal required by the target stage.
-3. Close inventory, goal selection, and active dialogue through their owner APIs. Reset only the ending panel's own suspension.
+3. Close inventory, goal selection, active dialogue, and the title card through their owner APIs. Reset only the ending panel's own suspension.
 4. Cancel activation delays and goal-animation coroutines; replace every trigger's consumed/enabled state with the stage snapshot.
 5. Atomically replace the player's one active narrative goal, primary goal, and completed count without firing assignment/completion events.
 6. Teleport through `PlayerControllerM.ResetForRespawn`, which clears movement and calls the owner-authoritative FishNet `NetworkTransform.Teleport()`.
-7. Show the ending panel only for the terminal checkpoint, then raise the Admin Panel above it using a nested high-sorting Canvas.
+7. For the title entry only, present `compersionTitle.ShowDialogue()` after setting its consumed snapshot; this plays the current beat without replaying Spike's delivery. Show the ending panel only for the terminal checkpoint, then raise the Admin Panel above either overlay using its nested high-sorting Canvas.
 
 This changes only the current process's story state. The owner teleport replicates normally so other players see the move, while no quest state or ownership is synchronized. On a dedicated server, `GameServices` has no enabled local player, so applying a checkpoint fails without changing story state.
 
@@ -278,10 +304,10 @@ Critical failure points:
 - Do not call `EnableGoal`, `CompleteGoal`, or a story UnityEvent from a checkpoint. Those paths replay dialogue/animation side effects and cannot safely travel backward.
 - `DialogueUI` owns a per-session completion callback. Cancelling or replacing dialogue discards that callback; do not restore shared anonymous completion listeners, which could fire a stale transition later.
 - `GoalAssignmentTrigger.ApplyCheckpointActivationState` stops its animation coroutine and resets the animator trigger. Removing that reset lets a delayed goal reappear after a backward jump.
-- The array derives trigger state from `StoryStage`. Adding a genuinely new narrative milestone requires extending stage-to-snapshot logic, not merely inserting a differently named entry.
+- `StoryStage` preserves the original serialized integer values and appends `CompersionTitle = 4`; its snapshot predicates are explicit rather than ordinal comparisons. Adding another milestone requires extending those predicates, not merely inserting a differently named entry.
 - The optional authored UI requires label plus Previous, Apply, and Next buttons. Partially assigned controls intentionally fall back to runtime UI.
 
-Recommended regression matrix: apply each of the six entries from every other entry (36 transitions), apply each entry twice, apply during Gray's 1.5-second item animation, apply during dialogue, and apply Ending while Admin is open. Verify exact goal/count state, no late goal assignment, no stale dialogue transition, correct teleport, and Admin clickable over Ending.
+Recommended regression matrix: apply each of the seven entries from every other entry (49 transitions), apply each entry twice, apply during every title reveal step and its one-frame dismissal handoff, apply during Gray's 1.5-second item animation, apply during dialogue, and apply Ending while Admin is open. Verify exact goal/count state, no late goal assignment, no stale title/dialogue transition, correct teleport, and Admin clickable over both overlays.
 
 ## Unity Editor Repair Procedure
 
@@ -324,7 +350,10 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] No fixed ladder tutorial dialogue or forced ladder build occurs.
 - [ ] Reaching Spike clears the first goal.
 - [ ] `COMPERSION` appears before any Spike line.
-- [ ] Advancing the title opens Spike's reply exactly once.
+- [ ] The title, pronunciation, noun, lead, and definition fade in on distinct tinted plates and remain readable in the current aspect ratio.
+- [ ] First touch/Space during animation fast-finishes without dismissing; the next touch/Space opens Spike's reply exactly once.
+- [ ] Letting the reveal finish naturally requires only one later touch/Space to continue.
+- [ ] Five top-right taps open Admin above the title without fast-finishing/dismissing it; the Admin close button works.
 - [ ] Finishing Spike's reply creates `Return Spike's Reply to Gray`.
 - [ ] The return goal appears on the next frame; no five-second or delivery-cloud delay occurs.
 - [ ] The goal indicator points to Gray.
@@ -339,10 +368,12 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] `Keep exploring` hides the panel and restores movement; repeated close attempts never underflow or release another modal's gameplay suspension.
 - [ ] If `ShowEndOfDemo()` is called again after closing, the panel takes one new suspension, both links remain gray/clickable, and `Keep exploring` is immediately available.
 - [ ] No Console exception, missing-reference warning, or duplicate-listener symptom appears.
-- [ ] Open Admin with backtick, then traverse all six story checkpoints forward and backward.
+- [ ] Open Admin with backtick, then traverse all seven story checkpoints forward and backward.
 - [ ] Previous/Next teleports to the intended local Gray/Spike/spawn region and restores exact active goal/count state.
 - [ ] Apply during Gray's item-give wait; no delayed first goal appears after jumping backward.
 - [ ] Apply during dialogue; completing a later dialogue does not fire the cancelled dialogue's transition.
+- [ ] Apply every checkpoint during the title reveal and during its post-dismissal frame; no stale title callback opens Spike.
+- [ ] Reapply `Spike - COMPERSION title`; it restarts from the first reveal and still advances exactly once.
 - [ ] At Ending, Admin remains above and clickable over the end overlay.
 - [ ] Jumping backward from Ending hides/resets the overlay and restores movement without releasing another modal's suspension.
 
@@ -352,6 +383,7 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 - [ ] Each player can leave Gray's opening at a different time.
 - [ ] One player may finish at Spike while the other still has the first goal.
 - [ ] The first player's title/dialogue does not appear on the second player's UI.
+- [ ] Each client can independently fast-finish or leave its own title card open while the other continues.
 - [ ] Each player independently receives the return goal.
 - [ ] One player finishing Gray does not finish the other's goal or show the other's end panel.
 - [ ] Remote proxy colliders do not trigger local NPC interactions.
@@ -377,7 +409,10 @@ This requires a dedicated server process; it is not part of the host-plus-MPPM t
 | Symptom | Most likely cause | First repair check |
 |---|---|---|
 | Spike speaks before COMPERSION | Spike completion still enables/calls the reply directly | Its only success call must be COMPERSION `TriggerNow()`. |
-| COMPERSION never appears | Wrong/empty title asset, disabled GameObject, missing listener, or unregistered `DialogueUI` | Component may be disabled, but its GameObject and asset must be active/non-empty; verify `GameServices.GetDialogueUI()`. |
+| COMPERSION never appears | Disabled trigger GameObject, missing Spike listener, missing `GameUIManager`, or both cinematic and dialogue fallback unavailable | Component may be disabled, but its GameObject and asset must remain active/non-empty; verify the Spike listener, local Canvas/Game UI, and fallback `GameServices.GetDialogueUI()`. |
+| COMPERSION uses plain dialogue instead of artwork | Missing `presentation: CompersionTitleCard`, missing Sprite reference, wrong Texture Type, or no Canvas | Verify the dialogue asset flag, five `GameUIManager` Sprite fields, and Sprite (2D and UI) imports; the plain card is an intentional fail-safe. |
+| One tap both dismisses COMPERSION and skips Spike | Completion was made synchronous or touch is handled through two paths | Keep backdrop pointer input single-path and the one-frame completion deferral. |
+| A checkpoint later opens Spike unexpectedly | Title reveal/pending completion was not silently cancelled | `CloseTransientUiForStoryCheckpoint()` must call `CancelCompersionTitleCard()` before applying the snapshot. |
 | Dialogue opens twice | `set_enabled(true)` plus `TriggerNow`, a nonzero delay, or overlapping triggers | Remove enable calls; use one immediate `TriggerNow`. |
 | Return goal is missing | Spike reply completion is empty, return assignment is disabled, or it targets the wrong Gray completion | Verify reply -> root Spike assignment `EnableGoal`; assignment -> Gray root completion. |
 | A goal never appears after dialogue | The local player was not registered when `EnableGoal()` ran | Verify `GameServices.GetPlayer()` returns the local enabled `PlayerControllerM` before the dialogue completes. |
