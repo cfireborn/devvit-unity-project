@@ -307,7 +307,7 @@ public class PlayerControllerM : MonoBehaviour
 
         ApplyMovingPlatformDelta();
 
-        // Refresh before the ladder branch so Down + Jump can pass through a platform at a ladder opening.
+        // Refresh before the ladder branch so Down can pass through a platform at a ladder opening.
         if (groundChecker != null)
         {
             groundChecker.RefreshCheck();
@@ -317,7 +317,7 @@ public class PlayerControllerM : MonoBehaviour
             _isGroundedFixed = false;
 
         bool isOnLadder = groundChecker != null && groundChecker.IsOnLadder;
-        bool dropThroughPressed = verticalInput < -0.5f && (jumpPressed || _jumpBufferRemaining > 0f);
+        bool dropThroughPressed = verticalInput < -0.5f;
         bool droppedThrough = _isGroundedFixed && dropThroughPressed && TryDropThroughCurrentPlatform();
         if (droppedThrough || (isOnLadder && dropThroughPressed))
         {
