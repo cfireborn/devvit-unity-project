@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using FishNet;
 using FishNet.Object;
+using FishNet.Utility.Performance;
 using UnityEngine;
 
 /// <summary>
@@ -30,6 +32,8 @@ public class NetworkCloudManager : NetworkBehaviour
     // the NetworkObject's internal manager is null
     bool _serverRunning;
     bool _loggedFirstServerCloud;
+    int _nextServerPoolWarning = 50;
+    readonly HashSet<(ushort collectionId, int prefabId)> _cloudPoolKeys = new();
 
     void Awake()
     {
@@ -57,6 +61,11 @@ public class NetworkCloudManager : NetworkBehaviour
 
     void SetServerDelegates()
     {
+        _cloudManager._acquireCloudInstance = (prefab, parent) =>
+        {
+            var nob = InstanceFinder.NetworkManager.GetPooledInstantiated(prefab, parent, asServer: true);
+            return nob != null ? nob.gameObject : null;
+        };
         _cloudManager._onCloudActivated = (go, scale) =>
         {
             var nob = go.GetComponent<NetworkObject>();
@@ -95,8 +104,38 @@ public class NetworkCloudManager : NetworkBehaviour
 
     void SetOfflineDelegates()
     {
+        _cloudManager._acquireCloudInstance = null;
         _cloudManager._onCloudActivated = (go, scale) => NetworkOfflineUtil.StripNetworkComponents(go);
         _cloudManager._onCloudDeactivated = null;  // pool path handles it
+    }
+
+    void Update()
+    {
+        if (!_serverRunning) return;
+
+        var networkManager = InstanceFinder.NetworkManager;
+        var defaultPool = networkManager != null ? networkManager.ObjectPool as DefaultObjectPool : null;
+        if (defaultPool == null || _cloudManager == null || _cloudManager.cloudPrefabs == null) return;
+
+        _cloudPoolKeys.Clear();
+        int retainedClouds = 0;
+        foreach (GameObject prefab in _cloudManager.cloudPrefabs)
+        {
+            var nob = prefab != null ? prefab.GetComponent<NetworkObject>() : null;
+            if (nob == null) continue;
+
+            (ushort collectionId, int prefabId) key = (nob.SpawnableCollectionId, nob.PrefabId);
+            if (!_cloudPoolKeys.Add(key)) continue;
+
+            var cache = defaultPool.GetCache(key.collectionId, key.prefabId, createIfMissing: false);
+            if (cache != null) retainedClouds += cache.Count;
+        }
+
+        while (retainedClouds >= _nextServerPoolWarning)
+        {
+            Debug.LogWarning($"[Info] Cloud object pool reached {_nextServerPoolWarning} retained clouds.");
+            _nextServerPoolWarning += 50;
+        }
     }
 
     // ── Server lifecycle ──────────────────────────────────────────────────────

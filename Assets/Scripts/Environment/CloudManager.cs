@@ -37,6 +37,7 @@ public class CloudManager : MonoBehaviour
 
     internal System.Action<GameObject, float> _onCloudActivated;
     internal System.Action<GameObject> _onCloudDeactivated;
+    internal System.Func<GameObject, Transform, GameObject> _acquireCloudInstance;
 
     struct PlayerViewRect
     {
@@ -109,6 +110,8 @@ public class CloudManager : MonoBehaviour
 
     Transform _poolParent;
     bool _cloudsFrozen;
+    int _localPooledCloudCount;
+    int _nextLocalPoolWarning = 50;
 
     #endregion
 
@@ -793,7 +796,15 @@ public class CloudManager : MonoBehaviour
     {
         GameObject prefab = lane.prefab;
         cloud = null;
-        if (prefab == null || !TryDequeueFromPrefabPool(prefab, out cloud))
+
+        // NetworkCloudManager supplies FishNet's server-side retrieval path. Offline
+        // mode leaves this null and continues using the local per-prefab pool.
+        if (prefab != null && _acquireCloudInstance != null)
+            cloud = _acquireCloudInstance(prefab, _poolParent);
+        else if (prefab != null)
+            TryDequeueFromPrefabPool(prefab, out cloud);
+
+        if (cloud == null)
             cloud = Instantiate(prefab, _poolParent);
 
         cloud.transform.localScale = new Vector3(scale, scale, scale);
@@ -819,6 +830,7 @@ public class CloudManager : MonoBehaviour
         {
             cloud = q.Dequeue();
             _queuedInPool.Remove(cloud);
+            _localPooledCloudCount = Mathf.Max(0, _localPooledCloudCount - 1);
             if (cloud != null)
                 return true;
         }
@@ -835,6 +847,12 @@ public class CloudManager : MonoBehaviour
         }
         q.Enqueue(cloud);
         _queuedInPool.Add(cloud);
+        _localPooledCloudCount++;
+        while (_localPooledCloudCount >= _nextLocalPoolWarning)
+        {
+            Debug.LogWarning($"[Info] Cloud object pool reached {_nextLocalPoolWarning} retained clouds.");
+            _nextLocalPoolWarning += 50;
+        }
     }
 
     /// <summary>Clears this instance from any lane slot list (fallback when laneIndex/slotIndex are missing).</summary>
