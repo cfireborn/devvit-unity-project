@@ -61,6 +61,7 @@ MonoBehaviour:
   ignoreNoSpawnZones: 0
   canBuildLadder: 1
   mainCollider: {fileID: 0}
+  isPersistent: 0
   despawnAnimator: {fileID: 8090739805590020162}
   despawnTrigger: Despawn
   networkPrefabIndex: 0
@@ -201,7 +202,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Object.NetworkObject
   <IsNested>k__BackingField: 0
-  WasActiveDuringEdit: 1
+  WasActiveDuringEdit: 0
   WasActiveDuringEdit_Set1: 1
   <ComponentIndex>k__BackingField: 0
   <PredictedSpawn>k__BackingField: {fileID: 0}
@@ -262,11 +263,11 @@ MonoBehaviour:
   _componentConfiguration: 0
   _synchronizeParent: 0
   _packing:
-    Position: 1
-    Rotation: 1
+    Position: 0
+    Rotation: 0
     Scale: 0
   _useScaledTime: 1
-  _interpolation: 2
+  _interpolation: 3
   _extrapolation: 2
   _enableTeleport: 0
   _teleportThreshold: 1
