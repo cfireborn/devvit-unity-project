@@ -273,7 +273,100 @@ Every new spawnable prefab must be registered in **NetworkManager → Spawnable 
 
 ### WebGL (for GitHub Pages)
 
-Build with `File → Build Settings → WebGL → Build`, then publish the generated WebGL directory through GitHub Pages. Do not use or recreate a Devvit-specific export pipeline.
+The release build uses `Assets/Settings/Build Profiles/Web - Mobile - Release.asset` and is published to the `compersion/` directory of `ramborngames.github.io`. The production build number is deliberately separate from `Assets/Resources/BuildVersion.txt`: the latter can keep counting player and Editor runs, while the release number counts only published iterations.
+
+#### Automatic `[publish]` trigger (recommended)
+
+Git deliberately does not activate hooks merely because they were cloned, so run the installer once in each developer's clone. The installer performs a dry readiness check for the correct Unity installation and sibling website repository before activating the hook.
+
+macOS:
+
+```bash
+./scripts/install-publish-hook.sh
+```
+
+Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-publish-hook.ps1
+```
+
+After that, include `[publish]` in the commit subject:
+
+```bash
+git commit -m "Improve Compersion spawning [publish]"
+```
+
+The local post-commit hook immediately returns after launching a background release pinned to that exact commit SHA. Matching is case-insensitive and intentionally checks only the subject, so mentioning the marker in a longer commit body or changelog cannot publish accidentally. Commits without the marker do nothing, and pulling somebody else's marked commit does not republish it. Each developer needs Git push access to the sibling `ramborngames.github.io` checkout.
+
+The hook supports macOS and Windows with Git for Windows. It prints the local process ID and log path when a release starts. On any unsupported operating system it produces a warning and stops; it never silently falls back to GitHub Actions or consumes hosted build minutes.
+
+#### Local one-command publish
+
+Commit the Unity changes that should go live, leave the Editor open if desired, then run:
+
+```bash
+./scripts/publish-webgl.sh
+```
+
+On Windows, use the PowerShell wrapper:
+
+```powershell
+.\scripts\publish-webgl.ps1
+```
+
+The script fetches the website repository's `origin/main` history, finds the highest published production number for the current New York calendar date, and allocates the next number automatically. If today's latest published file is `2026.08.18_build3_compersion2d.loader.js`, the next release becomes `2026.08.18_build4_compersion2d` with commit message `Updated to aug 18 build 4`. A failed build does not consume a number because only successful website publications on `main` appear in that history.
+
+It also reads the required Unity version from `ProjectSettings/ProjectVersion.txt`, pins the selected commit, creates a temporary Git worktree, and runs that copy through Unity batch mode. Because the batch process uses a separate project directory and `Library`, it avoids Unity's project-in-use lock and the normal Editor can remain open. The ignored `BuildVersion.txt` is seeded into the worktree and advanced afterward when the open Editor has not changed it, so Unity's internal player/Editor-run counter remains independent without resetting to `.1`.
+
+Publication is prepared and committed in a second temporary worktree of the website repository. The destructive synchronization never touches the live website checkout before the release is committed, `.nojekyll` is preserved, and the remote `main` SHA is checked again before push. After a successful push, a clean local website checkout is fast-forwarded; if it changed while Unity was building, it is left untouched.
+
+The website repository defaults to the sibling directory `../ramborngames.github.io`. Override it when needed:
+
+```bash
+SITE_REPO=/path/to/ramborngames.github.io ./scripts/publish-webgl.sh
+```
+
+Windows PowerShell equivalent:
+
+```powershell
+$env:SITE_REPO = "C:\path\to\ramborngames.github.io"
+.\scripts\publish-webgl.ps1
+```
+
+To detach the publisher from the terminal while continuing to use the open Editor, add `--background`. The command prints the process ID and log path before returning:
+
+```bash
+./scripts/publish-webgl.sh --background
+```
+
+```powershell
+.\scripts\publish-webgl.ps1 -Background
+```
+
+Preview the resolved Unity version, source commit, output name, target, and commit message without changing anything:
+
+```bash
+./scripts/publish-webgl.sh --dry-run
+```
+
+```powershell
+.\scripts\publish-webgl.ps1 -DryRun
+```
+
+Run a complete local Unity build and output validation without publishing:
+
+```bash
+./scripts/publish-webgl.sh --build-only
+```
+
+```powershell
+.\scripts\publish-webgl.ps1 -BuildOnly
+```
+
+The build validates `index.html`, all four compressed WebGL build artifacts, `TemplateData`, `StreamingAssets`, `ServiceWorker.js`, and `manifest.webmanifest` before any publication. Only one local publisher can run at a time. Uncommitted Unity changes are never included; commit them first so the release can be reproduced.
+
+There is intentionally no GitHub Actions build workflow. All Unity compilation happens on the triggering developer's macOS or Windows computer and consumes no hosted Actions minutes.
 
 ### Linux Server + Containerize (for Edgegap)
 

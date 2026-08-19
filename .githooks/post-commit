@@ -1,0 +1,59 @@
+#!/usr/bin/env sh
+
+# Git runs this after each local commit. Only an explicit [publish] marker does
+# anything; post-commit hooks cannot undo an already-created commit, so trigger
+# failures are reported as warnings and left in the local publisher log.
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+commit_sha="$(git rev-parse --verify HEAD 2>/dev/null)" || exit 0
+commit_subject="$(git log -1 --pretty=%s 2>/dev/null)" || exit 0
+
+if ! printf '%s\n' "$commit_subject" | grep -Fqi '[publish]'; then
+  exit 0
+fi
+
+kernel_name="$(uname -s 2>/dev/null || printf unknown)"
+case "$kernel_name" in
+  Darwin|MINGW*|MSYS*|CYGWIN*) ;;
+  *)
+    echo "warning: [publish] was detected, but '$kernel_name' is unsupported." >&2
+    echo "warning: no GitHub Actions fallback was started; publish from macOS or Windows." >&2
+    exit 0
+    ;;
+esac
+
+# Hook processes can carry repository-specific Git variables. Remove them
+# before the detached publisher starts working with the website repository.
+local_git_vars="$(git rev-parse --local-env-vars 2>/dev/null || true)"
+for variable_name in $local_git_vars; do
+  unset "$variable_name"
+done
+
+publisher="$repo_root/scripts/publish-webgl.sh"
+if [ ! -f "$publisher" ]; then
+  echo "warning: [publish] was detected, but the local publisher is missing: $publisher" >&2
+  exit 0
+fi
+
+if [ "${COMPERSION_PUBLISH_FOREGROUND:-0}" = "1" ]; then
+  echo "[publish] detected; running commit ${commit_sha} as a local foreground release."
+  publisher_mode="foreground"
+else
+  echo "[publish] detected; queuing commit ${commit_sha} for a local background release."
+  publisher_mode="background"
+fi
+
+if [ "$publisher_mode" = "foreground" ]; then
+  bash "$publisher" "$commit_sha"
+  publisher_status=$?
+else
+  bash "$publisher" --background "$commit_sha"
+  publisher_status=$?
+fi
+
+if [ "$publisher_status" -ne 0 ]; then
+  echo "warning: the [publish] launcher failed; no GitHub Actions fallback was started." >&2
+  echo "warning: run the publisher manually after correcting the message above." >&2
+fi
+
+exit 0
