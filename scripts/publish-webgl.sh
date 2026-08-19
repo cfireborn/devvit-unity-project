@@ -139,9 +139,39 @@ site_repo_input="${SITE_REPO:-$(dirname "$repo_root")/ramborngames.github.io}"
 site_repo="$(cd "$site_repo_input" && pwd -P)"
 published_site_target="$site_repo/compersion"
 build_profile="Assets/Settings/Build Profiles/Web - Mobile - Release.asset"
+compersion_template="Assets/WebGLTemplates/Compersion"
+compersion_description="Compersion is a demo cooperative multiplayer platforming game evoking the emotion compersion, by Ramsey Fireborn Games."
+compersion_url="https://ramborngames.github.io/compersion/"
+compersion_preview_url="${compersion_url}TemplateData/compersion-social-preview.png"
+
+require_pinned_text() {
+  local pinned_file="$1"
+  local required_text="$2"
+  local requirement_name="$3"
+  git -C "$repo_root" grep -Fq -e "$required_text" "$source_sha" -- "$pinned_file" \
+    || fail "source commit '$source_short_sha' does not have the expected $requirement_name in $pinned_file"
+}
 
 git -C "$repo_root" cat-file -e "${source_sha}:${build_profile}" 2>/dev/null \
   || fail "source commit '$source_short_sha' does not contain the release build profile"
+require_pinned_text "$build_profile" "m_Name: Web - Mobile - Release" "custom profile name"
+require_pinned_text "$build_profile" "m_BuildTarget: 20" "WebGL build target"
+require_pinned_text "$build_profile" "productName: Compersion" "Compersion product override"
+require_pinned_text "$build_profile" "webGLTemplate: PROJECT:Compersion" "Compersion WebGL template override"
+require_pinned_text "$compersion_template/index.html" "<title>Compersion - Ramsey Fireborn Games</title>" "Compersion page title"
+require_pinned_text "$compersion_template/index.html" "<meta name=\"description\" content=\"$compersion_description\">" "Compersion description"
+require_pinned_text "$compersion_template/index.html" "<link rel=\"canonical\" href=\"$compersion_url\">" "canonical URL"
+require_pinned_text "$compersion_template/index.html" "<meta property=\"og:image\" content=\"$compersion_preview_url\">" "social preview URL"
+require_pinned_text "$compersion_template/index.html" "TemplateData/compersion-favicon-32.png" "favicon"
+require_pinned_text "$compersion_template/index.html" "TemplateData/compersion-apple-touch-icon.png" "Apple touch icon"
+require_pinned_text "$compersion_template/manifest.webmanifest" "\"description\": \"$compersion_description\"" "PWA manifest description"
+for template_asset in \
+  "$compersion_template/TemplateData/compersion-favicon-32.png" \
+  "$compersion_template/TemplateData/compersion-apple-touch-icon.png" \
+  "$compersion_template/TemplateData/compersion-social-preview.png"; do
+  git -C "$repo_root" cat-file -e "${source_sha}:${template_asset}" 2>/dev/null \
+    || fail "source commit '$source_short_sha' is missing custom template asset $template_asset"
+done
 [[ -x "$unity_bin" ]] || fail "Unity $project_version was not found at '$unity_bin' (set UNITY_BIN to override)"
 [[ -f "$repo_root/$build_profile" ]] || fail "missing build profile: $build_profile"
 [[ "$(git -C "$site_repo" rev-parse --show-toplevel 2>/dev/null || true)" == "$site_repo" ]] \
@@ -325,6 +355,10 @@ echo "Building WebGL locally. Full Unity log: $log_path"
   -build "$build_output" \
   -logFile "$log_path"
 
+grep -Fq "Build profile assigned via command line, path \`$build_profile\`" "$log_path" \
+  || fail "Unity did not confirm the custom release Build Profile; inspect $log_path"
+grep -Fq "UnityEditor.Build.Profile.BuildProfileCLI:BuildActiveProfileWithPath" "$log_path" \
+  || fail "Unity did not build through the Build Profile pipeline; inspect $log_path"
 [[ -s "$build_output/index.html" ]] || fail "Unity did not produce index.html; inspect $log_path"
 [[ -d "$build_output/Build" ]] || fail "Unity did not produce the WebGL Build directory; inspect $log_path"
 [[ -d "$build_output/TemplateData" ]] || fail "Unity did not produce TemplateData; inspect $log_path"
@@ -337,6 +371,24 @@ echo "Building WebGL locally. Full Unity log: $log_path"
 [[ -s "$build_output/Build/$build_name.wasm.unityweb" ]] || fail "Unity did not produce the expected WebAssembly binary; inspect $log_path"
 grep -q "$build_name.loader.js" "$build_output/index.html" \
   || fail "index.html does not reference the expected loader; inspect $log_path"
+grep -Fq '<title>Compersion - Ramsey Fireborn Games</title>' "$build_output/index.html" \
+  || fail "generated index.html is not using the Compersion template title; inspect $log_path"
+grep -Fq "<meta name=\"description\" content=\"$compersion_description\">" "$build_output/index.html" \
+  || fail "generated index.html is missing the Compersion description; inspect $log_path"
+grep -Fq "<link rel=\"canonical\" href=\"$compersion_url\">" "$build_output/index.html" \
+  || fail "generated index.html is missing the Compersion canonical URL; inspect $log_path"
+grep -Fq "<meta property=\"og:image\" content=\"$compersion_preview_url\">" "$build_output/index.html" \
+  || fail "generated index.html is missing the Compersion social preview; inspect $log_path"
+grep -Fq 'productName: "Compersion"' "$build_output/index.html" \
+  || fail "the custom Build Profile product-name override was not applied; inspect $log_path"
+grep -Fq "\"description\": \"$compersion_description\"" "$build_output/manifest.webmanifest" \
+  || fail "generated manifest is missing the Compersion description; inspect $log_path"
+[[ -s "$build_output/TemplateData/compersion-favicon-32.png" ]] \
+  || fail "generated output is missing the Compersion favicon; inspect $log_path"
+[[ -s "$build_output/TemplateData/compersion-apple-touch-icon.png" ]] \
+  || fail "generated output is missing the Compersion Apple touch icon; inspect $log_path"
+[[ -s "$build_output/TemplateData/compersion-social-preview.png" ]] \
+  || fail "generated output is missing the Compersion social preview; inspect $log_path"
 
 [[ -f "$worktree_version_path" ]] || fail "the build did not generate its internal BuildVersion resource"
 built_internal_version="$(sed -n '1p' "$worktree_version_path")"

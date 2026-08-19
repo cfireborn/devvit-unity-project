@@ -366,7 +366,7 @@ Run a complete local Unity build and output validation without publishing:
 .\scripts\publish-webgl.ps1 -BuildOnly
 ```
 
-The build validates `index.html`, all four compressed WebGL build artifacts, `TemplateData`, `StreamingAssets`, `ServiceWorker.js`, and `manifest.webmanifest` before any publication. Only one local publisher can run at a time. Uncommitted Unity changes are never included; commit them first so the release can be reproduced.
+The build verifies that Unity explicitly assigned `Web - Mobile - Release` through its Build Profile pipeline, then validates `index.html`, all four compressed WebGL build artifacts, `TemplateData`, `StreamingAssets`, `ServiceWorker.js`, and `manifest.webmanifest` before any publication. It also requires the generated title, description, canonical and social-preview URLs, favicon, Apple touch icon, and `Compersion` product-name override, so falling back to Unity's default WebGL output fails closed. Only one local publisher can run at a time. Uncommitted Unity changes are never included; commit them first so the release can be reproduced.
 
 There is intentionally no GitHub Actions build workflow. All Unity compilation happens on the triggering developer's macOS or Windows computer and consumes no hosted Actions minutes.
 
