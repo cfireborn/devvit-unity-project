@@ -161,17 +161,28 @@ require_pinned_text "$build_profile" "webGLTemplate: PROJECT:Compersion" "Comper
 require_pinned_text "$compersion_template/index.html" "<title>Compersion - Ramsey Fireborn Games</title>" "Compersion page title"
 require_pinned_text "$compersion_template/index.html" "<meta name=\"description\" content=\"$compersion_description\">" "Compersion description"
 require_pinned_text "$compersion_template/index.html" "<link rel=\"canonical\" href=\"$compersion_url\">" "canonical URL"
-require_pinned_text "$compersion_template/index.html" "<meta property=\"og:image\" content=\"$compersion_preview_url\">" "social preview URL"
-require_pinned_text "$compersion_template/index.html" "TemplateData/compersion-favicon-32.png" "favicon"
-require_pinned_text "$compersion_template/index.html" "TemplateData/compersion-apple-touch-icon.png" "Apple touch icon"
+require_pinned_text "$compersion_template/index.html" "<meta property=\"og:image\" content=\"$compersion_preview_url?v={{{ PRODUCT_VERSION }}}\">" "versioned social preview URL"
+require_pinned_text "$compersion_template/index.html" "href=\"TemplateData/compersion-favicon-32.png?v={{{ PRODUCT_VERSION }}}\"" "versioned favicon"
+require_pinned_text "$compersion_template/index.html" "href=\"TemplateData/favicon.ico?v={{{ PRODUCT_VERSION }}}\"" "versioned fallback favicon"
+require_pinned_text "$compersion_template/index.html" "href=\"TemplateData/compersion-apple-touch-icon.png?v={{{ PRODUCT_VERSION }}}\"" "versioned Apple touch icon"
+require_pinned_text "$compersion_template/index.html" "href=\"manifest.webmanifest?v={{{ PRODUCT_VERSION }}}\"" "versioned manifest"
 require_pinned_text "$compersion_template/manifest.webmanifest" "\"description\": \"$compersion_description\"" "PWA manifest description"
+require_pinned_text "$compersion_template/manifest.webmanifest" "TemplateData/balloon-koi-192.png?v={{{ PRODUCT_VERSION }}}" "versioned PWA icon"
+require_pinned_text "$compersion_template/TemplateData/style.css" "background: url('balloon-koi-192.png') no-repeat center / contain" "Compersion loading logo"
 for template_asset in \
   "$compersion_template/TemplateData/compersion-favicon-32.png" \
+  "$compersion_template/TemplateData/favicon.ico" \
   "$compersion_template/TemplateData/compersion-apple-touch-icon.png" \
-  "$compersion_template/TemplateData/compersion-social-preview.png"; do
+  "$compersion_template/TemplateData/compersion-social-preview.png" \
+  "$compersion_template/TemplateData/balloon-koi-192.png" \
+  "$compersion_template/TemplateData/balloon-koi-512.png"; do
   git -C "$repo_root" cat-file -e "${source_sha}:${template_asset}" 2>/dev/null \
     || fail "source commit '$source_short_sha' is missing custom template asset $template_asset"
 done
+unity_default_favicon_blob="07db393850608b8752b24045c47c03b19bb35610"
+pinned_favicon_blob="$(git -C "$repo_root" rev-parse "${source_sha}:${compersion_template}/TemplateData/favicon.ico")"
+[[ "$pinned_favicon_blob" != "$unity_default_favicon_blob" ]] \
+  || fail "source commit '$source_short_sha' still contains Unity's default favicon.ico"
 [[ -x "$unity_bin" ]] || fail "Unity $project_version was not found at '$unity_bin' (set UNITY_BIN to override)"
 [[ -f "$repo_root/$build_profile" ]] || fail "missing build profile: $build_profile"
 [[ "$(git -C "$site_repo" rev-parse --show-toplevel 2>/dev/null || true)" == "$site_repo" ]] \
@@ -369,6 +380,8 @@ grep -Fq "UnityEditor.Build.Profile.BuildProfileCLI:BuildActiveProfileWithPath" 
 [[ -s "$build_output/Build/$build_name.data.unityweb" ]] || fail "Unity did not produce the expected data archive; inspect $log_path"
 [[ -s "$build_output/Build/$build_name.framework.js.unityweb" ]] || fail "Unity did not produce the expected framework; inspect $log_path"
 [[ -s "$build_output/Build/$build_name.wasm.unityweb" ]] || fail "Unity did not produce the expected WebAssembly binary; inspect $log_path"
+[[ -f "$worktree_version_path" ]] || fail "the build did not generate its internal BuildVersion resource"
+built_internal_version="$(sed -n '1p' "$worktree_version_path")"
 grep -q "$build_name.loader.js" "$build_output/index.html" \
   || fail "index.html does not reference the expected loader; inspect $log_path"
 grep -Fq '<title>Compersion - Ramsey Fireborn Games</title>' "$build_output/index.html" \
@@ -377,21 +390,40 @@ grep -Fq "<meta name=\"description\" content=\"$compersion_description\">" "$bui
   || fail "generated index.html is missing the Compersion description; inspect $log_path"
 grep -Fq "<link rel=\"canonical\" href=\"$compersion_url\">" "$build_output/index.html" \
   || fail "generated index.html is missing the Compersion canonical URL; inspect $log_path"
-grep -Fq "<meta property=\"og:image\" content=\"$compersion_preview_url\">" "$build_output/index.html" \
-  || fail "generated index.html is missing the Compersion social preview; inspect $log_path"
+grep -Fq "<meta property=\"og:image\" content=\"$compersion_preview_url?v=$built_internal_version\">" "$build_output/index.html" \
+  || fail "generated index.html is missing the versioned Compersion social preview; inspect $log_path"
+grep -Fq "href=\"TemplateData/compersion-favicon-32.png?v=$built_internal_version\"" "$build_output/index.html" \
+  || fail "generated index.html is missing the versioned Compersion favicon; inspect $log_path"
+grep -Fq "href=\"TemplateData/favicon.ico?v=$built_internal_version\"" "$build_output/index.html" \
+  || fail "generated index.html is missing the versioned fallback favicon; inspect $log_path"
+grep -Fq "href=\"TemplateData/compersion-apple-touch-icon.png?v=$built_internal_version\"" "$build_output/index.html" \
+  || fail "generated index.html is missing the versioned Apple touch icon; inspect $log_path"
+grep -Fq "href=\"manifest.webmanifest?v=$built_internal_version\"" "$build_output/index.html" \
+  || fail "generated index.html is missing the versioned manifest; inspect $log_path"
 grep -Fq 'productName: "Compersion"' "$build_output/index.html" \
   || fail "the custom Build Profile product-name override was not applied; inspect $log_path"
 grep -Fq "\"description\": \"$compersion_description\"" "$build_output/manifest.webmanifest" \
   || fail "generated manifest is missing the Compersion description; inspect $log_path"
+grep -Fq "TemplateData/balloon-koi-192.png?v=$built_internal_version" "$build_output/manifest.webmanifest" \
+  || fail "generated manifest is missing the versioned Compersion PWA icon; inspect $log_path"
+grep -Fq "background: url('balloon-koi-192.png') no-repeat center / contain" "$build_output/TemplateData/style.css" \
+  || fail "generated loading screen is not using the Compersion artwork; inspect $log_path"
+grep -Fq '"TemplateData/balloon-koi-192.png?v=" + version' "$build_output/ServiceWorker.js" \
+  || fail "generated service worker is not caching the Compersion loading artwork; inspect $log_path"
+if grep -Fq 'TemplateData/unity-logo-dark.png' "$build_output/ServiceWorker.js"; then
+  fail "generated service worker still caches Unity's default loading logo; inspect $log_path"
+fi
 [[ -s "$build_output/TemplateData/compersion-favicon-32.png" ]] \
   || fail "generated output is missing the Compersion favicon; inspect $log_path"
+[[ -s "$build_output/TemplateData/favicon.ico" ]] \
+  || fail "generated output is missing the fallback favicon; inspect $log_path"
+[[ "$(git hash-object "$build_output/TemplateData/favicon.ico")" != "$unity_default_favicon_blob" ]] \
+  || fail "generated output still contains Unity's default favicon.ico; inspect $log_path"
 [[ -s "$build_output/TemplateData/compersion-apple-touch-icon.png" ]] \
   || fail "generated output is missing the Compersion Apple touch icon; inspect $log_path"
 [[ -s "$build_output/TemplateData/compersion-social-preview.png" ]] \
   || fail "generated output is missing the Compersion social preview; inspect $log_path"
 
-[[ -f "$worktree_version_path" ]] || fail "the build did not generate its internal BuildVersion resource"
-built_internal_version="$(sed -n '1p' "$worktree_version_path")"
 current_version_fingerprint="$(version_fingerprint "$main_version_path")"
 if [[ "$current_version_fingerprint" == "$initial_version_fingerprint" ]]; then
   cp "$worktree_version_path" "$main_version_path"

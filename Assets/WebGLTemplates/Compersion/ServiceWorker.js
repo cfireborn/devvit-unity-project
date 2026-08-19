@@ -13,7 +13,12 @@ const contentToCache = [
     "Build/{{{ DATA_FILENAME }}}?v=" + version,
     "Build/{{{ CODE_FILENAME }}}?v=" + version,
     "TemplateData/style.css?v=" + version,
-    "TemplateData/unity-logo-dark.png",
+    "manifest.webmanifest?v=" + version,
+    "TemplateData/compersion-favicon-32.png?v=" + version,
+    "TemplateData/favicon.ico?v=" + version,
+    "TemplateData/compersion-apple-touch-icon.png?v=" + version,
+    "TemplateData/balloon-koi-192.png?v=" + version,
+    "TemplateData/balloon-koi-512.png?v=" + version,
     "TemplateData/progress-bar-empty-dark.png",
     "TemplateData/progress-bar-full-dark.png"
 ];
