@@ -278,6 +278,7 @@ trap cleanup EXIT INT TERM
 echo "Synchronizing the website release history..."
 git -C "$site_repo" fetch --quiet origin main
 site_start_sha="$(git -C "$site_repo" rev-parse origin/main)"
+site_start_compersion_tree="$(git -C "$site_repo" rev-parse "$site_start_sha:compersion" 2>/dev/null || echo missing)"
 resolve_release_metadata
 show_release_plan
 
@@ -359,8 +360,19 @@ fi
 echo "Confirming no other publisher changed the website while Unity was building..."
 git -C "$site_repo" fetch --quiet origin main
 current_remote_site_sha="$(git -C "$site_repo" rev-parse origin/main)"
-[[ "$current_remote_site_sha" == "$site_start_sha" ]] \
-  || fail "website origin/main changed during the build; publish again to allocate the next number"
+if [[ "$current_remote_site_sha" != "$site_start_sha" ]]; then
+  git -C "$site_repo" merge-base --is-ancestor "$site_start_sha" "$current_remote_site_sha" \
+    || fail "website origin/main was rewritten during the build; inspect the remote before publishing"
+
+  current_compersion_tree="$(git -C "$site_repo" rev-parse "$current_remote_site_sha:compersion" 2>/dev/null || echo missing)"
+  if [[ "$current_compersion_tree" != "$site_start_compersion_tree" ]]; then
+    fail "website compersion changed during the build; publish again to allocate the next number"
+  fi
+
+  echo "Website origin/main advanced outside compersion; publishing safely on top of the newer commit."
+  site_start_sha="$current_remote_site_sha"
+  site_start_compersion_tree="$current_compersion_tree"
+fi
 
 find_highest_release_today
 (( highest_release == build_number - 1 )) \
