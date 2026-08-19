@@ -301,6 +301,8 @@ The local post-commit hook immediately returns after launching a background rele
 
 The hook supports macOS and Windows with Git for Windows. It prints the local process ID and log path when a release starts. On any unsupported operating system it produces a warning and stops; it never silently falls back to GitHub Actions or consumes hosted build minutes.
 
+Successful triggers keep their complete local Unity logs under `Logs/WebGLPublish/` for later diagnosis.
+
 #### Local one-command publish
 
 Commit the Unity changes that should go live, leave the Editor open if desired, then run:
