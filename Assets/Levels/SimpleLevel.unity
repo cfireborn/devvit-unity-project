@@ -1104,36 +1104,12 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1954574926}
     m_Modifications:
-    - target: {fileID: 1212037533935751444, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: isMoving
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1212037533935751444, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: isPersistent
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1212037533935751444, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: canBuildLadder
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1212037533935751444, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: wasActiveAtStart
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1212037533935751444, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: ignoreNoSpawnZones
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 4034196685460683276, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: SceneId
-      value: 4225726935
+      value: 4294901580
       objectReference: {fileID: 0}
     - target: {fileID: 4034196685460683276, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
       propertyPath: WasActiveDuringEdit
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4470191923710027063, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: m_CollisionDetection
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
@@ -1180,37 +1156,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 5710324196044312761, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: _interpolation
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 7973207383932819758, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8115042951945831125, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: SceneId
-      value: 3607084542
-      objectReference: {fileID: 0}
-    - target: {fileID: 8115042951945831125, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: _isGlobal
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8115042951945831125, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: _isSpawnable
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8115042951945831125, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      propertyPath: WasActiveDuringEdit
-      value: 1
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1144080112}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
 --- !u!1 &619394800
 GameObject:
@@ -1241,7 +1190,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 073797afb82c5a1438f328866b10b3f0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_ComponentVersion: 2
+  m_ComponentVersion: 3
   m_LightType: 4
   m_BlendStyleIndex: 0
   m_FalloffIntensity: 0.5
@@ -1425,11 +1374,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1ecd14e61e53ecc41a399340f0ede91b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameServices
---- !u!1 &688105052 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-  m_PrefabInstance: {fileID: 585691323}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &800488271 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2457788629266551647, guid: 050f98b585d44454791b0829175a34a9, type: 3}
@@ -1655,34 +1599,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4770961392229186818, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
   m_PrefabInstance: {fileID: 585691323}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1144080111 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 1212037533935751444, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-  m_PrefabInstance: {fileID: 585691323}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 688105052}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8721c844ad2fa4f4bb011eb044a70359, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CloudPlatform
---- !u!114 &1144080112
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 688105052}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d20a2b9edf62459499e426927482204b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LadderTrigger
-  cloudA: {fileID: 1144080111}
-  cloudB: {fileID: 1419201455}
-  onLadderBuilt:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1190467174 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
@@ -1999,13 +1915,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d2c95dfde7d73b54dbbdc23155d35d36, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Managing.NetworkManager
+  _logging: {fileID: 0}
+  _spawnablePrefabs: {fileID: 11400000, guid: c61b7193432544e52bd70131299c1b81, type: 2}
   _refreshDefaultPrefabs: 0
   _runInBackground: 1
   _dontDestroyOnLoad: 0
   _objectPool: {fileID: 0}
   _persistence: 1
-  _logging: {fileID: 0}
-  _spawnablePrefabs: {fileID: 11400000, guid: c61b7193432544e52bd70131299c1b81, type: 2}
 --- !u!4 &1319779688
 Transform:
   m_ObjectHideFlags: 0
@@ -2122,17 +2038,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4650502602188681172, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
   m_PrefabInstance: {fileID: 85986877}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1419201455 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 1328068032357876674, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-  m_PrefabInstance: {fileID: 85986877}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8721c844ad2fa4f4bb011eb044a70359, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CloudPlatform
 --- !u!1 &1448116177
 GameObject:
   m_ObjectHideFlags: 0
@@ -2168,6 +2073,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: -90}
 --- !u!212 &1448116179
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -2213,6 +2119,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: -100
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: 900b7ae4149d2a24ea4d5e26d1138667, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -2222,7 +2129,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!114 &1448116180
 MonoBehaviour:
@@ -2364,24 +2270,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26b716c41e9b56b4baafaf13a523ba2e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Object.NetworkObject
-  <IsNested>k__BackingField: 0
-  WasActiveDuringEdit: 1
-  WasActiveDuringEdit_Set1: 1
-  <ComponentIndex>k__BackingField: 0
-  <PredictedSpawn>k__BackingField: {fileID: 0}
-  <PredictedOwner>k__BackingField: {fileID: 0}
-  NetworkBehaviours: []
-  InitializedParentNetworkBehaviour: {fileID: 0}
-  InitializedNestedNetworkObjects: []
-  RuntimeParentNetworkBehaviour: {fileID: 0}
-  RuntimeChildNetworkBehaviours: []
-  _isNetworked: 1
-  _isSpawnable: 1
-  _isGlobal: 0
-  _initializeOrder: 0
-  _preventDespawnOnDisconnect: 0
-  _defaultDespawnType: 0
-  _initializedTimestamp: 0
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -2406,6 +2294,24 @@ MonoBehaviour:
     Rotation: {x: 0, y: 0, z: 0, w: 0}
     Scale: {x: 0, y: 0, z: 0}
     IsValid: 0
+  <IsNested>k__BackingField: 0
+  WasActiveDuringEdit: 1
+  WasActiveDuringEdit_Set1: 1
+  <ComponentIndex>k__BackingField: 0
+  <PredictedSpawn>k__BackingField: {fileID: 0}
+  <PredictedOwner>k__BackingField: {fileID: 0}
+  NetworkBehaviours: []
+  InitializedParentNetworkBehaviour: {fileID: 0}
+  InitializedNestedNetworkObjects: []
+  RuntimeParentNetworkBehaviour: {fileID: 0}
+  RuntimeChildNetworkBehaviours: []
+  _isNetworked: 1
+  _isSpawnable: 1
+  _isGlobal: 0
+  _initializeOrder: 0
+  _preventDespawnOnDisconnect: 0
+  _defaultDespawnType: 0
+  _initializedTimestamp: 0
 --- !u!114 &1504431318
 MonoBehaviour:
   m_ObjectHideFlags: 0
