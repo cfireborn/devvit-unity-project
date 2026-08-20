@@ -6,7 +6,7 @@ using FishNet.Transporting;
 using FishNet.Transporting.Multipass;
 using UnityEngine;
 #if UNITY_EDITOR
-using Unity.Multiplayer.Playmode;
+
 #endif
 
 /// <summary>
@@ -130,7 +130,7 @@ public class NetworkBootstrapper : MonoBehaviour
         TryStartServer(nm);
 
 #elif UNITY_EDITOR
-        bool isHost = useLocal && editorStartAsHost && CurrentPlayer.IsMainEditor;
+        bool isHost = useLocal && editorStartAsHost && Unity.Multiplayer.PlayMode.CurrentPlayer.IsMainEditor;
         if (isHost)
         {
             Debug.Log("NetworkBootstrapper: Editor (Main) — starting as Host.");
