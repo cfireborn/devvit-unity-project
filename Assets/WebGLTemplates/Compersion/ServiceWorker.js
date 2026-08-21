@@ -17,6 +17,7 @@ const contentToCache = [
     "TemplateData/compersion-favicon-32.png?v=" + version,
     "TemplateData/favicon.ico?v=" + version,
     "TemplateData/compersion-apple-touch-icon.png?v=" + version,
+    "TemplateData/balloon_koi.png",
     "TemplateData/balloon-koi-192.png?v=" + version,
     "TemplateData/balloon-koi-512.png?v=" + version,
     "TemplateData/progress-bar-empty-dark.png",
