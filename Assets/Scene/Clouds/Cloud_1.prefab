@@ -8,25 +8,13 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 1306385675059909899, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SurfaceArc
-      value: 178
-      objectReference: {fileID: 0}
-    - target: {fileID: 1306385675059909899, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_UseOneWayGrouping
+    - target: {fileID: 1335938369234464474, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: wasActiveAtStart
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: WasActiveDuringEdit
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: _defaultDespawnType
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: _initializedTimestamp
-      value: -8584153813453580118
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: <AssetPathHash>k__BackingField
@@ -76,26 +64,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Cloud_1
       objectReference: {fileID: 0}
-    - target: {fileID: 5577449698591813495, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: _interval
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 5577449698591813495, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: _interpolation
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 5577449698591813495, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: _packing.Position
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5577449698591813495, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: _synchronizeScale
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5577449698591813495, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: _synchronizeRotation
-      value: 0
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -143,7 +111,7 @@ BoxCollider2D:
   m_UsedByEffector: 1
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0.42121494, y: 0.7310119}
+  m_Offset: {x: 0.44280857, y: 0.6563653}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
@@ -153,5 +121,5 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 0.75489056, y: 0.07579553}
+  m_Size: {x: 0.58546364, y: 0.0029985905}
   m_EdgeRadius: 0

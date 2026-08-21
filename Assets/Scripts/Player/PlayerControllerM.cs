@@ -381,7 +381,7 @@ public class PlayerControllerM : MonoBehaviour
             rb.gravityScale = settings.normalGravityScale;
         }
 
-        ResolveSideContacts();
+        // ResolveSideContacts();
 
         if (_isGroundedFixed)
         {
