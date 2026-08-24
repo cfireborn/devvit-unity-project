@@ -11,14 +11,13 @@ public class CRTRenderFeature : ScriptableRendererFeature
 
     public override void Create()
     {
-        // Create the material using the assigned shader
         if (shader != null)
             material = CoreUtils.CreateEngineMaterial(shader);
 
         crtPass = new CRTRenderPass
         {
-            // Execute before pixel perfect upscaling
-            renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing 
+            // Changed to AfterRendering to avoid Pixel Perfect Camera conflicts
+            renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing
         };
     }
 
@@ -26,11 +25,9 @@ public class CRTRenderFeature : ScriptableRendererFeature
     {
         if (material == null) return;
 
-        // Check if the volume component exists and is active
         var settings = VolumeManager.instance.stack.GetComponent<CRTEffectSettings>();
         if (settings == null || !settings.IsActive()) return;
 
-        // Pass data to the pass and enqueue it
         crtPass.Setup(material, settings);
         renderer.EnqueuePass(crtPass);
     }
@@ -40,13 +37,11 @@ public class CRTRenderFeature : ScriptableRendererFeature
         CoreUtils.Destroy(material);
     }
 
-    // The Render Pass now utilizes the Render Graph API
     class CRTRenderPass : ScriptableRenderPass
     {
         private Material material;
         private CRTEffectSettings settings;
 
-        // Render Graph requires a temporary data class to pass variables into the render pipeline
         private class PassData
         {
             public TextureHandle sourceTexture;
@@ -59,7 +54,6 @@ public class CRTRenderFeature : ScriptableRendererFeature
             this.settings = settings;
         }
 
-        // This is the Unity 6+ replacement for the old "Execute" method
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             var resourceData = frameData.Get<UniversalResourceData>();
@@ -68,26 +62,25 @@ public class CRTRenderFeature : ScriptableRendererFeature
             TextureHandle source = resourceData.activeColorTexture;
             if (!source.IsValid()) return;
 
-            // 1. Pass properties to the shader from the Volume
+            // Push the new variables to the shader
             material.SetFloat("_Strength", settings.strength.value);
             material.SetFloat("_PixelsPerUnit", settings.pixelsPerUnit.value);
-            material.SetFloat("_ScanlineIntensity", settings.scanlineIntensity.value);
+            material.SetFloat("_HorizontalScanlineIntensity", settings.horizontalScanlineIntensity.value);
+            material.SetFloat("_VerticalScanlineIntensity", settings.verticalScanlineIntensity.value);
             material.SetFloat("_Curvature", settings.curvature.value);
             material.SetFloat("_ColorBleed", settings.colorBleed.value);
-            
-            // 2. Setup a temporary texture to hold our modified image
+
             RenderTextureDescriptor desc = cameraData.cameraTargetDescriptor;
-            desc.depthBufferBits = 0; // We only need color, not depth
+            desc.depthBufferBits = 0; 
             TextureHandle tempTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "CRT_TempTexture", false);
 
-            // 3. PASS 1: Apply the CRT Material to the temporary texture
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("CRT_ApplyMaterial", out var passData))
             {
                 passData.sourceTexture = source;
                 passData.material = material;
 
-                builder.SetRenderAttachment(tempTexture, 0); // Output to Temp
-                builder.UseTexture(source);                  // Read from Source
+                builder.SetRenderAttachment(tempTexture, 0); 
+                builder.UseTexture(source);                  
 
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {
@@ -95,13 +88,12 @@ public class CRTRenderFeature : ScriptableRendererFeature
                 });
             }
 
-            // 4. PASS 2: Copy the modified image back to the main camera view
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("CRT_CopyBack", out var passData))
             {
                 passData.sourceTexture = tempTexture;
 
-                builder.SetRenderAttachment(source, 0);     // Output back to Source
-                builder.UseTexture(tempTexture);            // Read from Temp
+                builder.SetRenderAttachment(source, 0);     
+                builder.UseTexture(tempTexture);            
 
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {

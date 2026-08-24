@@ -12,34 +12,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 416957903ce8daa4cbf8b3a61dc43588, type: 3}
   m_Name: GrayReturnDialogue
   m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
+  presentation: 0
   steps:
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
-    text: You're back! Good timing—I'm trying a few new arrangements for future
-      deliveries.
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
+    text: "You're back! Good timing\u2014I'm trying a few new arrangements for future
+      deliveries."
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: Spike wrote back?
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: It just says... "Thanks."
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: That's it? Thanks?
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: No, no, that's a perfectly normal answer. A concise answer. Efficient.
       Very Spike.
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: Do you think they hated the flower? Was the flower too much? Maybe the
       letter was too much. Maybe I should go talk to them.
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ......
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
-    text: Or maybe showing up in person is more intense. I could wait. I could
-      not wait.
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
+    text: Or maybe showing up in person is more intense. I could wait. I could not
+      wait.
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: I'm going to make tea and decide whether that counts as a decision.
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: Thanks for taking it, Hermes. Seriously.

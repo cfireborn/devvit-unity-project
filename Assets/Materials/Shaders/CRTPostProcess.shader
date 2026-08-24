@@ -18,18 +18,16 @@ Shader "Hidden/Custom/CRT_Shader"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
-            // Variables passed from the Render Feature
             float _Strength;
             float _PixelsPerUnit;
-            float _ScanlineIntensity;
+            float _HorizontalScanlineIntensity;
+            float _VerticalScanlineIntensity;
             float _Curvature;
             float _ColorBleed;
 
-            // Mathematical curve - now controlled by the _Curvature slider
             float2 Curve(float2 uv, float curveAmount)
             {
                 uv = uv * 2.0 - 1.0;
-                // If _Curvature is 0, the offset becomes 0, resulting in a flat screen
                 float2 offset = abs(uv.yx) * (curveAmount * float2(0.166, 0.25)); 
                 uv = uv + uv * offset * offset;
                 uv = uv * 0.5 + 0.5;
@@ -46,20 +44,25 @@ Shader "Hidden/Custom/CRT_Shader"
 
                 half4 color = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, curvedUV);
 
-                // Scanlines - controlled by PPU (density) and _ScanlineIntensity (opacity)
                 float scanlineDensity = _PixelsPerUnit * 5.0; 
-                float scanline = sin(curvedUV.y * scanlineDensity * PI);
                 
-                // Map the sine wave (-1 to 1) to (0 to 1), then mix it based on intensity
-                scanline = scanline * 0.5 + 0.5;
-                scanline = lerp(1.0, scanline, _ScanlineIntensity); 
-                color.rgb *= scanline;
+                // Horizontal scanlines (vary across the Y axis)
+                float hScanline = sin(curvedUV.y * scanlineDensity * PI);
+                hScanline = hScanline * 0.5 + 0.5;
+                hScanline = lerp(1.0, hScanline, _HorizontalScanlineIntensity); 
+                
+                // Vertical scanlines (vary across the X axis)
+                float vScanline = sin(curvedUV.x * scanlineDensity * PI);
+                vScanline = vScanline * 0.5 + 0.5;
+                vScanline = lerp(1.0, vScanline, _VerticalScanlineIntensity); 
 
-                // Chromatic Aberration - offset distance controlled by _ColorBleed
+                // Apply both grid lines
+                color.rgb *= (hScanline * vScanline);
+
+                // Chromatic Aberration
                 half red = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, curvedUV + float2(_ColorBleed, 0)).r;
                 half blue = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, curvedUV - float2(_ColorBleed, 0)).b;
                 
-                // We only lerp the red and blue channels if ColorBleed is greater than 0
                 float bleedBlend = _ColorBleed > 0 ? 0.7 : 0.0;
                 color.r = lerp(color.r, red, bleedBlend);
                 color.b = lerp(color.b, blue, bleedBlend);

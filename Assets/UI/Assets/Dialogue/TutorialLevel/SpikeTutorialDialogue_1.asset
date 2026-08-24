@@ -12,26 +12,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 416957903ce8daa4cbf8b3a61dc43588, type: 3}
   m_Name: SpikeTutorialDialogue_1
   m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
+  presentation: 0
   steps:
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
     text: Oh. It's you. Gray's mail squirrel, right?
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
     text: Gray sent me a letter?
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
-    text: I mean—sure. Fine. That's... normal mail.
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
+    text: "I mean\u2014sure. Fine. That's... normal mail."
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
     text: Stop looking at me like that.
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
     text: Are they always this thoughtful?
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
     text: Right. You'd know.
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
     text: Wait. Don't leave. I should write back.
-  - characterSprite: {fileID: 21300000, guid: bf1945847c2af6147964c532121d2693, type: 3}
+  - characterSprite: {fileID: 21300000, guid: fd0ce297d83ea314fbbdd81a47af942f, type: 3}
     text: There. Take it before I decide this was a terrible idea.

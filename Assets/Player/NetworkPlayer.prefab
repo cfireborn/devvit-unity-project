@@ -64,7 +64,14 @@ MonoBehaviour:
   idleSprite: {fileID: 21300000, guid: 0c6a6de83362fdf4092bb2acd3ac47f6, type: 3}
   glideSprite: {fileID: 21300000, guid: 506b39e37129f2e49b54a61f68226300, type: 3}
   walkSprites:
-  - {fileID: 21300000, guid: 15569f064af99ca46bd920c12ea675e0, type: 3}
+  - {fileID: 21300000, guid: 56ab5059935470e43962071067e1388b, type: 3}
+  - {fileID: 21300000, guid: 308aeeeff92a6144e9f7fe7f601e6f8d, type: 3}
+  - {fileID: 21300000, guid: 78242c0f132f1ee409ecbe82ba963527, type: 3}
+  - {fileID: 21300000, guid: 50f778b9b58e4024dae3686a63f8ab5d, type: 3}
+  - {fileID: 21300000, guid: 7cdb317167664cb4494e34e6c5667610, type: 3}
+  - {fileID: 21300000, guid: 5dd6dbddb9546944e90d0bf25c34aba3, type: 3}
+  - {fileID: 21300000, guid: 82c7ad9e1cf7fd4438c85fae4dfdac2c, type: 3}
+  - {fileID: 21300000, guid: e1739d88cbef71443bcda201d537e753, type: 3}
   walkFrameRate: 8
   goalFeedbackAnimator: {fileID: 5671608035819864648}
   addGoalAnimationTrigger: ReceiveItem

@@ -7,7 +7,8 @@ public class CRTEffectSettings : VolumeComponent, IPostProcessComponent
 {
     public ClampedFloatParameter strength = new ClampedFloatParameter(1f, 0f, 1f);
     public FloatParameter pixelsPerUnit = new FloatParameter(100f);
-    public ClampedFloatParameter scanlineIntensity = new ClampedFloatParameter(0.3f, 0f, 1f);
+    public ClampedFloatParameter horizontalScanlineIntensity = new ClampedFloatParameter(0.3f, 0f, 1f);
+    public ClampedFloatParameter verticalScanlineIntensity = new ClampedFloatParameter(0.3f, 0f, 1f);
     public ClampedFloatParameter curvature = new ClampedFloatParameter(0.5f, 0f, 1f);
     public ClampedFloatParameter colorBleed = new ClampedFloatParameter(0.0015f, 0f, 0.01f);
 

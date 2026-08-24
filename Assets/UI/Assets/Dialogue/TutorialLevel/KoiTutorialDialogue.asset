@@ -12,29 +12,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 416957903ce8daa4cbf8b3a61dc43588, type: 3}
   m_Name: KoiTutorialDialogue
   m_EditorClassIdentifier: Assembly-CSharp::DialogueInstance
+  presentation: 0
   steps:
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: Oh! You're home early. I didn't expect you until tonight.
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: Part of our love is that you don't speak but I can understand you
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
-    text: Just because we can't cuddle right now doesn't mean I'm not happy to
-      see you. I have multiple priorities! :<
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
+    text: Just because we can't cuddle right now doesn't mean I'm not happy to see
+      you. I have multiple priorities! :<
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ......
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: I don't deny that some priorities are... bigger than others.
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: Actually, perfect timing. Spike just moved into the old balloon across
       town, and I wrote them a welcome letter.
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: I tucked in a pressed flower. It's less intense than a bouquet. Right?
       Probably.
-  - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
+  - characterSprite: {fileID: 21300000, guid: 142b90d12629b604b98403bc15ae2349, type: 3}
     text: ...
-  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+  - characterSprite: {fileID: 21300000, guid: b45b8063a54b53843bdf93848ecaef57, type: 3}
     text: Please take it before I rethink every word.
