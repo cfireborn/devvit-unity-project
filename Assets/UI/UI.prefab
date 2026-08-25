@@ -1646,6 +1646,7 @@ GameObject:
   - component: {fileID: 3095885802632502504}
   - component: {fileID: 306046060657882822}
   - component: {fileID: 71807356059109762}
+  - component: {fileID: 585196991612670270}
   m_Layer: 5
   m_Name: UI
   m_TagString: Untagged
@@ -1687,7 +1688,7 @@ Canvas:
   m_GameObject: {fileID: 1800346777573994714}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 0
+  m_RenderMode: 1
   m_Camera: {fileID: 0}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
@@ -1777,6 +1778,14 @@ MonoBehaviour:
   endOfDemoPanel: {fileID: 0}
   narrativeScriptUrl: https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr
   mailingListUrl: https://forms.gle/hxLfkX4au94oon1B8
+--- !u!222 &585196991612670270
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1800346777573994714}
+  m_CullTransparentMesh: 1
 --- !u!1 &1807190982906916009
 GameObject:
   m_ObjectHideFlags: 0
@@ -3345,8 +3354,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 855644310860442276}
   m_HandleRect: {fileID: 1449159629173147077}
   m_Direction: 2
-  m_Value: 1
-  m_Size: 0.19464621
+  m_Value: 0
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -3879,6 +3888,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AdminMenu
   adminPanel: {fileID: 4780285873362529308}
+  closeAdminPanelButton: {fileID: 0}
   versionText: {fileID: 3736373303057298376}
   bootstrapper: {fileID: 0}
   activeAddressText: {fileID: 6067157395360838373}
@@ -3896,6 +3906,44 @@ MonoBehaviour:
   debugLogPanel: {fileID: 2053246507304813053}
   debugLogText: {fileID: 2722386455716025387}
   debugLogScroll: {fileID: 5313079833441294424}
+  storyCheckpoints:
+  - label: Spawn - Before Gray
+    stage: 0
+    teleportAnchor: 0
+    teleportOffset: {x: 0, y: 0}
+  - label: Gray - Letter for Spike
+    stage: 1
+    teleportAnchor: 1
+    teleportOffset: {x: 1.25, y: 0}
+  - label: Spike - Before delivery
+    stage: 1
+    teleportAnchor: 2
+    teleportOffset: {x: -1.25, y: 0}
+  - label: Spike - COMPERSION title
+    stage: 4
+    teleportAnchor: 2
+    teleportOffset: {x: 1.25, y: 0}
+  - label: Spike - Reply for Gray
+    stage: 2
+    teleportAnchor: 2
+    teleportOffset: {x: 1.25, y: 0}
+  - label: Gray - Before return
+    stage: 2
+    teleportAnchor: 1
+    teleportOffset: {x: -1.25, y: 0}
+  - label: Ending - Thank-you UI
+    stage: 3
+    teleportAnchor: 3
+    teleportOffset: {x: 1.25, y: 0}
+  storySpawnMarker: {fileID: 0}
+  storyGrayMarker: {fileID: 0}
+  storySpikeMarker: {fileID: 0}
+  storyEndingMarker: {fileID: 0}
+  storyCheckpointControlsRoot: {fileID: 0}
+  storyCheckpointLabel: {fileID: 0}
+  previousStoryCheckpointButton: {fileID: 0}
+  applyStoryCheckpointButton: {fileID: 0}
+  nextStoryCheckpointButton: {fileID: 0}
 --- !u!1 &4870604652917642702
 GameObject:
   m_ObjectHideFlags: 0
@@ -4672,7 +4720,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DialogueUI
   dialoguePanel: {fileID: 1663318550303717716}
-  characterPortrait: {fileID: 5273460702866345487}
+  characterPortrait: {fileID: 1122268917210649888}
   dialogueText: {fileID: 3655120310931253881}
   advanceAction: {fileID: 392368643174621059, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   onDialogueComplete:
@@ -4799,7 +4847,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 7338508149759182203}
   m_Direction: 0
   m_Value: 1
-  m_Size: 0.22341499
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -6552,8 +6600,12 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dialogue_Panel
       objectReference: {fileID: 0}
-    - target: {fileID: 21376751072169987, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
-      propertyPath: m_IsActive
+    - target: {fileID: 583739191049441948, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1651315424378568433, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
+      propertyPath: m_SortingLayer
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3904425318453468410, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
@@ -6636,11 +6688,26 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4406385967893769510, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
+      propertyPath: m_SortingLayer
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
+--- !u!114 &1122268917210649888 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1787261374804393079, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
+  m_PrefabInstance: {fileID: 1683987141730789719}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
 --- !u!1 &1663318550303717716 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 21376751072169987, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
@@ -6662,17 +6729,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
---- !u!114 &5273460702866345487 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 6805398579774285656, guid: 430d08d27cba38e43b0d78ac85a7143d, type: 3}
-  m_PrefabInstance: {fileID: 1683987141730789719}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
 --- !u!1001 &3466007250846878781
 PrefabInstance:
   m_ObjectHideFlags: 0

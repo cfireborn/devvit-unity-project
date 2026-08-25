@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 899c54efeace73346a0a16faa3afe726, type: 3}
   m_Name: Vignette
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.Vignette
-  active: 0
+  active: 1
   color:
     m_OverrideState: 1
     m_Value: {r: 0.19468674, g: 0.20862699, b: 0.23584908, a: 1}
@@ -21,10 +21,10 @@ MonoBehaviour:
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 0.586
+    m_Value: 0.466
   smoothness:
     m_OverrideState: 1
-    m_Value: 0.229
+    m_Value: 0.146
   rounded:
     m_OverrideState: 1
     m_Value: 1
