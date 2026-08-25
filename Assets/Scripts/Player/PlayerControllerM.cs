@@ -60,17 +60,11 @@ public class PlayerControllerM : MonoBehaviour
     public bool flipSpriteWithMovement = true;
     [Tooltip("Maximum tilt angle of the sprite when moving.")]
     public float maxRotationAngle = 15f;
-    [Header("Simple Sprite States")]
-    [Tooltip("SpriteRenderer used to change sprites for idle/walk/glide. Optional; if empty designers can still use spriteTransform visuals.")]
+    [Header("Sprite")]
+    [Tooltip("SpriteRenderer used for facing (flipX). Optional; if empty, scale flip on spriteTransform is used instead.")]
     public SpriteRenderer spriteRenderer;
-    [Tooltip("Sprite shown when idle")]
-    public Sprite idleSprite;
-    [Tooltip("Sprite shown when gliding/falling")]
-    public Sprite glideSprite;
-    [Tooltip("Sprites used for simple walk cycling (designer can add frames)")]
-    public Sprite[] walkSprites;
-    [Tooltip("Frames per second for simple walk cycle")]
-    public float walkFrameRate = 8f;
+    [Tooltip("Animator driving player idle/walk/glide sprites. Expects bool IsGrounded, bool IsGliding, float Speed.")]
+    public Animator playerSpriteAnimator;
 
     [Header("Goal feedback")]
     [Tooltip("Optional Animator (e.g. on player or child) — receives addGoalAnimationTrigger when AddGoal runs.")]
@@ -78,9 +72,9 @@ public class PlayerControllerM : MonoBehaviour
     [Tooltip("Animator trigger parameter name fired when a goal is added.")]
     public string addGoalAnimationTrigger = "GoalAdded";
 
-    // runtime walk animation state
-    private int walkIndex = 0;
-    private float walkTimer = 0f;
+    static readonly int AnimIsGrounded = Animator.StringToHash("IsGrounded");
+    static readonly int AnimIsGliding = Animator.StringToHash("IsGliding");
+    static readonly int AnimSpeed = Animator.StringToHash("Speed");
 
     // ground check (FixedUpdate), coyote time, jump buffer
     private bool _isGroundedFixed;
@@ -104,6 +98,16 @@ public class PlayerControllerM : MonoBehaviour
     // Read-only access for network visual sync
     public float MoveInputX => moveInput;
     public bool IsGliding => isGliding;
+    public bool IsGrounded => _isGroundedFixed;
+
+    /// <summary>Drive playerSpriteAnimator from local or networked visual state.</summary>
+    public void SetSpriteAnimatorState(float moveX, bool gliding, bool grounded)
+    {
+        if (playerSpriteAnimator == null) return;
+        playerSpriteAnimator.SetBool(AnimIsGrounded, grounded);
+        playerSpriteAnimator.SetBool(AnimIsGliding, gliding);
+        playerSpriteAnimator.SetFloat(AnimSpeed, Mathf.Abs(moveX));
+    }
 
     void Awake()
     {
@@ -456,38 +460,7 @@ public class PlayerControllerM : MonoBehaviour
             spriteTransform.localScale = s;
         }
 
-        // Sprite swapping: choose sprite based on state (glide, walk, idle)
-        if (spriteRenderer != null)
-        {
-            bool grounded = _isGroundedFixed;
-            if (!grounded && isGliding)
-            {
-                if (glideSprite != null) spriteRenderer.sprite = glideSprite;
-            }
-            else if (grounded && Mathf.Abs(moveInput) > 0.1f)
-            {
-                // walking: simple frame cycle
-                if (walkSprites != null && walkSprites.Length > 0)
-                {
-                    walkTimer += Time.deltaTime;
-                    float frameTime = Mathf.Max(0.001f, 1f / Mathf.Max(0.01f, walkFrameRate));
-                    if (walkTimer >= frameTime)
-                    {
-                        walkTimer = 0f;
-                        walkIndex = (walkIndex + 1) % walkSprites.Length;
-                    }
-                    spriteRenderer.sprite = walkSprites[walkIndex];
-                }
-                else if (idleSprite != null)
-                {
-                    spriteRenderer.sprite = idleSprite;
-                }
-            }
-            else
-            {
-                if (idleSprite != null) spriteRenderer.sprite = idleSprite;
-            }
-        }
+        SetSpriteAnimatorState(moveInput, isGliding, _isGroundedFixed);
     }
 
     void OnDrawGizmosSelected()

@@ -61,11 +61,7 @@ MonoBehaviour:
   flipSpriteWithMovement: 1
   maxRotationAngle: 15
   spriteRenderer: {fileID: 6904677895501660201}
-  idleSprite: {fileID: 21300000, guid: 0c6a6de83362fdf4092bb2acd3ac47f6, type: 3}
-  glideSprite: {fileID: 21300000, guid: 506b39e37129f2e49b54a61f68226300, type: 3}
-  walkSprites:
-  - {fileID: 21300000, guid: 15569f064af99ca46bd920c12ea675e0, type: 3}
-  walkFrameRate: 8
+  playerSpriteAnimator: {fileID: 6904677895501660202}
   goalFeedbackAnimator: {fileID: 5671608035819864648}
   addGoalAnimationTrigger: ReceiveItem
 --- !u!50 &1164713865444196680
@@ -268,6 +264,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3939507212389416833}
   - component: {fileID: 6904677895501660201}
+  - component: {fileID: 6904677895501660202}
   m_Layer: 0
   m_Name: Sprite
   m_TagString: Untagged
@@ -348,6 +345,28 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!95 &6904677895501660202
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3878536211169584731}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: e1b7c6a5f4d3820e3c9b8a7f6e5d4c3b, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &4853110421243677924
 GameObject:
   m_ObjectHideFlags: 0
