@@ -25,6 +25,7 @@ public class NetworkPlayerController : NetworkBehaviour
     float _syncedMoveDir;
     bool _syncedGliding;
     bool _syncedGrounded;
+    bool _syncedJumping;
 
     // Throttle: sync visuals at 15Hz, not every frame
     float _visualSyncTimer;
@@ -176,36 +177,40 @@ public class NetworkPlayerController : NetworkBehaviour
         float moveDir = _controller.MoveInputX;
         bool gliding = _controller.IsGliding;
         bool grounded = _controller.IsGrounded;
+        bool jumping = _controller.IsJumping;
 
         // Only send if state changed
         if (Mathf.Abs(moveDir - _syncedMoveDir) > 0.05f
             || gliding != _syncedGliding
-            || grounded != _syncedGrounded)
+            || grounded != _syncedGrounded
+            || jumping != _syncedJumping)
         {
             _syncedMoveDir = moveDir;
             _syncedGliding = gliding;
             _syncedGrounded = grounded;
-            CmdSendVisuals(moveDir, gliding, grounded);
+            _syncedJumping = jumping;
+            CmdSendVisuals(moveDir, gliding, grounded, jumping);
         }
     }
 
     /// <summary>Owner → Server: relay visual state to all observers.</summary>
     [ServerRpc(RequireOwnership = true)]
-    void CmdSendVisuals(float moveDir, bool isGliding, bool isGrounded)
+    void CmdSendVisuals(float moveDir, bool isGliding, bool isGrounded, bool isJumping)
     {
-        RpcReceiveVisuals(moveDir, isGliding, isGrounded);
+        RpcReceiveVisuals(moveDir, isGliding, isGrounded, isJumping);
     }
 
     // ── Remote ────────────────────────────────────────────────────────────────
 
     /// <summary>Server → All clients: apply received visual state.</summary>
     [ObserversRpc(ExcludeServer = false)]
-    void RpcReceiveVisuals(float moveDir, bool isGliding, bool isGrounded)
+    void RpcReceiveVisuals(float moveDir, bool isGliding, bool isGrounded, bool isJumping)
     {
         if (IsOwner) return; // Owner already has correct visuals
         _syncedMoveDir = moveDir;
         _syncedGliding = isGliding;
         _syncedGrounded = isGrounded;
+        _syncedJumping = isJumping;
     }
 
     void RemoteUpdate()
@@ -216,6 +221,6 @@ public class NetworkPlayerController : NetworkBehaviour
         if (_spriteRenderer != null && Mathf.Abs(_syncedMoveDir) > 0.05f)
             _spriteRenderer.flipX = _syncedMoveDir < 0f;
 
-        _controller.SetSpriteAnimatorState(_syncedMoveDir, _syncedGliding, _syncedGrounded);
+        _controller.SetSpriteAnimatorState(_syncedMoveDir, _syncedGliding, _syncedGrounded, _syncedJumping);
     }
 }

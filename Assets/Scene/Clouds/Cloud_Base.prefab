@@ -151,7 +151,7 @@ MonoBehaviour:
   isMoving: 1
   ignoreNoSpawnZones: 0
   canBuildLadder: 1
-  mainCollider: {fileID: 0}
+  mainCollider: {fileID: 1065751000533457610}
   isPersistent: 0
   despawnAnimator: {fileID: 8090739805590020162}
   despawnTrigger: Despawn
@@ -311,7 +311,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584227162904302536
+  _initializedTimestamp: -8584139058842634044
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0

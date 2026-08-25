@@ -63,7 +63,7 @@ public class PlayerControllerM : MonoBehaviour
     [Header("Sprite")]
     [Tooltip("SpriteRenderer used for facing (flipX). Optional; if empty, scale flip on spriteTransform is used instead.")]
     public SpriteRenderer spriteRenderer;
-    [Tooltip("Animator driving player idle/walk/glide sprites. Expects bool IsGrounded, bool IsGliding, float Speed.")]
+    [Tooltip("Animator driving player idle/walk/jump/glide sprites. Expects bool IsGrounded, bool IsJumping, bool IsGliding, float Speed.")]
     public Animator playerSpriteAnimator;
 
     [Header("Goal feedback")]
@@ -73,8 +73,11 @@ public class PlayerControllerM : MonoBehaviour
     public string addGoalAnimationTrigger = "GoalAdded";
 
     static readonly int AnimIsGrounded = Animator.StringToHash("IsGrounded");
+    static readonly int AnimIsJumping = Animator.StringToHash("IsJumping");
     static readonly int AnimIsGliding = Animator.StringToHash("IsGliding");
     static readonly int AnimSpeed = Animator.StringToHash("Speed");
+
+    private bool _isJumping;
 
     // ground check (FixedUpdate), coyote time, jump buffer
     private bool _isGroundedFixed;
@@ -99,12 +102,14 @@ public class PlayerControllerM : MonoBehaviour
     public float MoveInputX => moveInput;
     public bool IsGliding => isGliding;
     public bool IsGrounded => _isGroundedFixed;
+    public bool IsJumping => _isJumping;
 
     /// <summary>Drive playerSpriteAnimator from local or networked visual state.</summary>
-    public void SetSpriteAnimatorState(float moveX, bool gliding, bool grounded)
+    public void SetSpriteAnimatorState(float moveX, bool gliding, bool grounded, bool jumping)
     {
         if (playerSpriteAnimator == null) return;
         playerSpriteAnimator.SetBool(AnimIsGrounded, grounded);
+        playerSpriteAnimator.SetBool(AnimIsJumping, jumping);
         playerSpriteAnimator.SetBool(AnimIsGliding, gliding);
         playerSpriteAnimator.SetFloat(AnimSpeed, Mathf.Abs(moveX));
     }
@@ -460,7 +465,11 @@ public class PlayerControllerM : MonoBehaviour
             spriteTransform.localScale = s;
         }
 
-        SetSpriteAnimatorState(moveInput, isGliding, _isGroundedFixed);
+        bool onLadder = groundChecker != null && groundChecker.IsOnLadder;
+        _isJumping = !_isGroundedFixed && !isGliding && !onLadder
+            && rb != null && rb.linearVelocity.y > 0.01f;
+
+        SetSpriteAnimatorState(moveInput, isGliding, _isGroundedFixed, _isJumping);
     }
 
     void OnDrawGizmosSelected()
