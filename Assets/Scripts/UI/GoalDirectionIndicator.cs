@@ -25,7 +25,7 @@ public class GoalDirectionIndicator : MonoBehaviour
     [Header("Settings")]
     [Tooltip("Inset from screen edges (0-0.5).")]
     [Range(0f, 0.5f)]
-    public float screenEdgeInset = 0.05f;
+    public float screenEdgeInset = 0.186f;
     [Tooltip("Camera for world-to-screen conversion. If null, uses Camera.main.")]
     public Camera cam;
 

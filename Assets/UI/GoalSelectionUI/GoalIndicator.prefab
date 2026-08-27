@@ -669,7 +669,7 @@ MonoBehaviour:
   goalCountLabel: {fileID: 0}
   rotatingPortion: {fileID: 6634359215497662322}
   iconImage: {fileID: 4196146099345285221}
-  screenEdgeInset: 0.05
+  screenEdgeInset: 0.186
   cam: {fileID: 0}
   hoverAnimator: {fileID: 5247569717145420124}
   hoverBoolParameter: Hover
