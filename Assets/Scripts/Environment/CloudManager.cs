@@ -103,6 +103,7 @@ public class CloudManager : MonoBehaviour
 
     readonly Dictionary<GameObject, Vector2> _prefabNativeMainSize = new Dictionary<GameObject, Vector2>();
     readonly Dictionary<GameObject, Vector2> _prefabNativeMainCenterOffset = new Dictionary<GameObject, Vector2>();
+    readonly Dictionary<GameObject, float> _prefabNativeVisualWidth = new Dictionary<GameObject, float>();
 
     /// <summary>Last Update: player view rects (camera + viewportMargin, clipped). Used for lane activation, viewport cull, and TrySpawnSlot gate.</summary>
     readonly List<PlayerViewRect> _viewportCullRects = new List<PlayerViewRect>();
@@ -246,8 +247,11 @@ public class CloudManager : MonoBehaviour
                 }
 
                 // Only despawn pooled lane clouds when they reach the travel-direction exit boundary (see ShouldExitDespawnForTarget).
-                float cloudHalfW = natLane.x * scaleX * 0.5f;
-                if (ShouldExitDespawnForTarget(lane, left, right, targetX, cloudHalfW))
+                float cloudHalfW = Mathf.Max(natLane.x, GetPrefabNativeVisualWidth(lane.prefab)) * scaleX * 0.5f;
+                bool crossedLoopSeam = lane.speed >= 0f
+                    ? targetX < rb.position.x - ExitBoundaryEpsilon
+                    : targetX > rb.position.x + ExitBoundaryEpsilon;
+                if (crossedLoopSeam || ShouldExitDespawnForTarget(lane, left, right, targetX, cloudHalfW))
                 {
                     platform.TriggerBlockEntryFromBoundary();
                     continue;
@@ -559,7 +563,7 @@ public class CloudManager : MonoBehaviour
         else lane.laneScale = Random.Range(sMin, sMax);
 
         Vector2 nat = GetPrefabNativeMainSize(lane.prefab);
-        lane.halfWidthCached = nat.x * lane.laneScale * 0.5f;
+        lane.halfWidthCached = Mathf.Max(nat.x, GetPrefabNativeVisualWidth(lane.prefab)) * lane.laneScale * 0.5f;
         lane.step = 2f * lane.halfWidthCached + lane.baseSpacing;
 
         GetLaneHorizontalSpan(out float left, out float right);
@@ -667,7 +671,7 @@ public class CloudManager : MonoBehaviour
         if (!TryGetSpawnScale(lane, out float scale)) return;
 
         Vector2 nat = GetPrefabNativeMainSize(lane.prefab);
-        float hw = nat.x * scale * 0.5f;
+        float hw = Mathf.Max(nat.x, GetPrefabNativeVisualWidth(lane.prefab)) * scale * 0.5f;
         if (!SlotIsSafeForNewSpawn(lane, left, right, targetX, hw)) return;
 
         float spawnY = GetOrCreateSlotSpawnY(lane, slotIndex);
@@ -738,6 +742,35 @@ public class CloudManager : MonoBehaviour
         _prefabNativeMainSize[prefab] = sz;
         _prefabNativeMainCenterOffset[prefab] = centerOffset;
         return sz;
+    }
+
+    float GetPrefabNativeVisualWidth(GameObject prefab)
+    {
+        if (_prefabNativeVisualWidth.TryGetValue(prefab, out float width)) return width;
+
+        float minX = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity;
+        SpriteRenderer[] renderers = prefab.GetComponentsInChildren<SpriteRenderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer renderer = renderers[i];
+            if (renderer == null || !renderer.enabled || renderer.sprite == null) continue;
+            Bounds spriteBounds = renderer.sprite.bounds;
+            for (int corner = 0; corner < 4; corner++)
+            {
+                Vector3 local = new Vector3(
+                    (corner & 1) == 0 ? spriteBounds.min.x : spriteBounds.max.x,
+                    (corner & 2) == 0 ? spriteBounds.min.y : spriteBounds.max.y,
+                    0f);
+                float rootX = prefab.transform.InverseTransformPoint(renderer.transform.TransformPoint(local)).x;
+                minX = Mathf.Min(minX, rootX);
+                maxX = Mathf.Max(maxX, rootX);
+            }
+        }
+
+        width = float.IsInfinity(minX) ? GetPrefabNativeMainSize(prefab).x : Mathf.Max(0.0001f, maxX - minX);
+        _prefabNativeVisualWidth[prefab] = width;
+        return width;
     }
 
     void ComputeScaleBoundsForPrefab(GameObject prefab, out float sMin, out float sMax)

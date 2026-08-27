@@ -69,6 +69,8 @@ See `AGENTS-MOSTRECENT.md` in this same folder for the in-depth architecture bri
 
 Before editing scenes, prefabs, ScriptableObjects, or UnityEvents, read `UNITY_EDITOR_WORKFLOW.md`. It records the project's safe Editor workflow, persistence checks, prefab-override hazards, multiplayer test modes, and recovery steps.
 
+Before controlling the Unity Editor through Computer Use, use `skills/unity-editor-computer-use/SKILL.md` and read `UNITY_COMPUTER_USE.md`. They record the proven macOS `node_repl` workflow for asset refresh, Play Mode, Simulator zoom/panning, hidden Admin checkpoints, visual evidence, and cleanup of Unity-generated test noise.
+
 Before changing dialogue or goal progression, read `STORY_THROUGH_SECOND_GOAL.md`. Its **Verification Status** is authoritative: do not turn a serialized wiring audit into a runtime-playtest claim.
 
 ## Publishing Target

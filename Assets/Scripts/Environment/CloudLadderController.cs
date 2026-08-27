@@ -110,6 +110,11 @@ public class CloudLadderController : MonoBehaviour
             var p = go.GetComponent<CloudPlatform>();
             if (p != null) _cachedPlatformList.Add(p);
         }
+        _cachedPlatformList.Sort((a, b) =>
+        {
+            int byHeight = a.GetMainBounds().center.y.CompareTo(b.GetMainBounds().center.y);
+            return byHeight != 0 ? byHeight : a.GetInstanceID().CompareTo(b.GetInstanceID());
+        });
         return _cachedPlatformList;
     }
 
@@ -235,8 +240,13 @@ public class CloudLadderController : MonoBehaviour
         for (int i = _retiringLadders.Count - 1; i >= 0; i--)
         {
             RetiringLadder retiring = _retiringLadders[i];
-            if (retiring.ladder != null && Time.time < retiring.removeAt)
+            bool endpointsActive = retiring.lower != null && retiring.upper != null &&
+                retiring.lower.gameObject.activeInHierarchy && retiring.upper.gameObject.activeInHierarchy;
+            if (retiring.ladder != null && endpointsActive && Time.time < retiring.removeAt)
+            {
+                UpdateLadderPosition(retiring.lower, retiring.upper, retiring.ladder);
                 continue;
+            }
 
             if (retiring.ladder != null)
                 DespawnLadder(retiring.ladder);
@@ -329,6 +339,20 @@ public class CloudLadderController : MonoBehaviour
         float gap = bu.min.y - bl.max.y;
         if (gap < minVerticalGap - 0.05f) return false; // 5 cm hysteresis prevents flicker near threshold
         if (gap > maxVerticalGap) return false;
+
+        float ladderX = Mathf.Clamp((bl.center.x + bu.center.x) * 0.5f, overlapMin, overlapMax);
+        float ladderHalfWidth = ladderWidth * 0.5f;
+        for (int i = 0; i < _cachedPlatformList.Count; i++)
+        {
+            CloudPlatform other = _cachedPlatformList[i];
+            if (other == null || other == lower || other == upper) continue;
+            Bounds obstacle = other.GetBounds();
+            bool crossesGap = obstacle.max.y > bl.max.y + HorizontalEdgeTolerance &&
+                obstacle.min.y < bu.min.y - HorizontalEdgeTolerance;
+            bool crossesWidth = ladderX + ladderHalfWidth > obstacle.min.x &&
+                ladderX - ladderHalfWidth < obstacle.max.x;
+            if (crossesGap && crossesWidth) return false;
+        }
 
         return true;
     }

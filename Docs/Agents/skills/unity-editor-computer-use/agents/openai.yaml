@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity Editor Computer Use"
+  short_description: "Operate and visually QA Unity on macOS"
+  default_prompt: "Use $unity-editor-computer-use to inspect and validate this change in the Unity Editor."

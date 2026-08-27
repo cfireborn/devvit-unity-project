@@ -646,6 +646,8 @@ public class PlayerControllerM : MonoBehaviour
         {
             var platformRb = component.GetComponent<Rigidbody2D>();
             physicsDrivenPlatform = platformRb != null && platformRb.bodyType == RigidbodyType2D.Kinematic;
+            if (current is CloudPlatform cloudPlatform && !cloudPlatform.enabled)
+                physicsDrivenPlatform = false;
         }
         if (_lastMovingPlatform != current)
         {
@@ -657,9 +659,6 @@ public class PlayerControllerM : MonoBehaviour
 
         Vector2 delta = pos - _lastMovingPlatformPosition;
         _lastMovingPlatformPosition = pos;
-
-        {
-        }
 
         // Only manually move the player if it's NOT a physics-driven platform (which handles it automatically)
         // OR if the player is on a ladder (ladders are usually triggers, so no physics contact movement)

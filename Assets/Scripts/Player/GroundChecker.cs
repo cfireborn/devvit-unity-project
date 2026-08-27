@@ -61,9 +61,37 @@ public class GroundChecker : MonoBehaviour
     {
         if (_overlapBuffer == null) return;
 
+        Collider2D previousGround = CurrentGroundCollider;
+        Collider2D bestGround = null;
+        float bestDistance = float.PositiveInfinity;
+
         isGrounded = false;
         CurrentPlatform = null;
         CurrentGroundCollider = null;
+
+        void ConsiderGroundAt(Vector2 origin)
+        {
+            int hitCount = Physics2D.OverlapCircle(origin, groundCheckRadius, _overlapFilter, _overlapBuffer);
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider2D other = _overlapBuffer[i];
+                if (other == null || IsOurCollider(other) || !other.CompareTag(platformTag)) continue;
+
+                Bounds bounds = other.bounds;
+                float dx = Mathf.Max(bounds.min.x - origin.x, 0f, origin.x - bounds.max.x);
+                float dy = Mathf.Abs(origin.y - bounds.max.y);
+                float distance = dx * dx + dy * dy;
+                bool tied = Mathf.Abs(distance - bestDistance) <= 0.000001f;
+                bool preferPrevious = tied && other == previousGround && bestGround != previousGround;
+                bool stableTieBreak = tied && other != previousGround && bestGround != previousGround &&
+                    (bestGround == null || other.GetInstanceID() < bestGround.GetInstanceID());
+                if (distance < bestDistance - 0.000001f || preferPrevious || stableTieBreak)
+                {
+                    bestGround = other;
+                    bestDistance = distance;
+                }
+            }
+        }
 
         if (groundCheckColliders != null && groundCheckColliders.Length > 0)
         {
@@ -71,40 +99,19 @@ public class GroundChecker : MonoBehaviour
             {
                 if (c == null) continue;
                 Vector2 origin = new Vector2(c.bounds.center.x, c.bounds.min.y);
-                int hitCount = Physics2D.OverlapCircle(origin, groundCheckRadius, _overlapFilter, _overlapBuffer);
-                for (int i = 0; i < hitCount; i++)
-                {
-                    var other = _overlapBuffer[i];
-                    if (other == null) continue;
-                    if (IsOurCollider(other)) continue;
-                    if (other.CompareTag(platformTag))
-                    {
-                        isGrounded = true;
-                        CurrentGroundCollider = other;
-                        CurrentPlatform = other.GetComponent<IMovingPlatform>() ?? other.GetComponentInParent<IMovingPlatform>();
-                        return;
-                    }
-                }
+                ConsiderGroundAt(origin);
             }
         }
         else
         {
             Vector2 origin = (Vector2)transform.position + groundCheckOffset;
-            int hitCount = Physics2D.OverlapCircle(origin, groundCheckRadius, _overlapFilter, _overlapBuffer);
-            for (int i = 0; i < hitCount; i++)
-            {
-                var other = _overlapBuffer[i];
-                if (other == null) continue;
-                if (IsOurCollider(other)) continue;
-                if (other.CompareTag(platformTag))
-                {
-                    isGrounded = true;
-                    CurrentGroundCollider = other;
-                    CurrentPlatform = other.GetComponent<IMovingPlatform>() ?? other.GetComponentInParent<IMovingPlatform>();
-                    return;
-                }
-            }
+            ConsiderGroundAt(origin);
         }
+
+        if (bestGround == null) return;
+        isGrounded = true;
+        CurrentGroundCollider = bestGround;
+        CurrentPlatform = bestGround.GetComponent<IMovingPlatform>() ?? bestGround.GetComponentInParent<IMovingPlatform>();
     }
 
     void OnTriggerEnter2D(Collider2D other)
