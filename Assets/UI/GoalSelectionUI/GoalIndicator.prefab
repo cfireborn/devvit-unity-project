@@ -666,7 +666,7 @@ MonoBehaviour:
   player: {fileID: 0}
   playerController: {fileID: 0}
   openGoalMenuButton: {fileID: 8191404787964731269}
-  goalCountLabel: {fileID: 4845577857732626393}
+  goalCountLabel: {fileID: 0}
   rotatingPortion: {fileID: 6634359215497662322}
   iconImage: {fileID: 4196146099345285221}
   screenEdgeInset: 0.05

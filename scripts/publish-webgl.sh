@@ -168,17 +168,23 @@ require_pinned_text "$compersion_template/index.html" "href=\"TemplateData/compe
 require_pinned_text "$compersion_template/index.html" "href=\"manifest.webmanifest?v={{{ PRODUCT_VERSION }}}\"" "versioned manifest"
 require_pinned_text "$compersion_template/manifest.webmanifest" "\"description\": \"$compersion_description\"" "PWA manifest description"
 require_pinned_text "$compersion_template/manifest.webmanifest" "TemplateData/balloon-koi-192.png?v={{{ PRODUCT_VERSION }}}" "versioned PWA icon"
-require_pinned_text "$compersion_template/TemplateData/style.css" "background: url('balloon-koi-192.png') no-repeat center / contain" "Compersion loading logo"
+require_pinned_text "$compersion_template/TemplateData/style.css" "width: 349px; height: 510px" "Compersion loading-logo dimensions"
+require_pinned_text "$compersion_template/TemplateData/style.css" "background: url('balloon_koi.png') no-repeat center / contain" "Compersion loading logo"
 for template_asset in \
   "$compersion_template/TemplateData/compersion-favicon-32.png" \
   "$compersion_template/TemplateData/favicon.ico" \
   "$compersion_template/TemplateData/compersion-apple-touch-icon.png" \
   "$compersion_template/TemplateData/compersion-social-preview.png" \
+  "$compersion_template/TemplateData/balloon_koi.png" \
   "$compersion_template/TemplateData/balloon-koi-192.png" \
   "$compersion_template/TemplateData/balloon-koi-512.png"; do
   git -C "$repo_root" cat-file -e "${source_sha}:${template_asset}" 2>/dev/null \
     || fail "source commit '$source_short_sha' is missing custom template asset $template_asset"
 done
+original_balloon_blob="$(git -C "$repo_root" rev-parse "${source_sha}:Assets/Scene/Balloons/Assets/Balloon_Koi.png")"
+loading_balloon_blob="$(git -C "$repo_root" rev-parse "${source_sha}:${compersion_template}/TemplateData/balloon_koi.png")"
+[[ "$loading_balloon_blob" == "$original_balloon_blob" ]] \
+  || fail "source commit '$source_short_sha' does not use an exact copy of the original Balloon_Koi loading artwork"
 unity_default_favicon_blob="07db393850608b8752b24045c47c03b19bb35610"
 pinned_favicon_blob="$(git -C "$repo_root" rev-parse "${source_sha}:${compersion_template}/TemplateData/favicon.ico")"
 [[ "$pinned_favicon_blob" != "$unity_default_favicon_blob" ]] \
@@ -406,10 +412,14 @@ grep -Fq "\"description\": \"$compersion_description\"" "$build_output/manifest.
   || fail "generated manifest is missing the Compersion description; inspect $log_path"
 grep -Fq "TemplateData/balloon-koi-192.png?v=$built_internal_version" "$build_output/manifest.webmanifest" \
   || fail "generated manifest is missing the versioned Compersion PWA icon; inspect $log_path"
-grep -Fq "background: url('balloon-koi-192.png') no-repeat center / contain" "$build_output/TemplateData/style.css" \
+grep -Fq "width: 349px; height: 510px" "$build_output/TemplateData/style.css" \
+  || fail "generated loading screen does not preserve the original Balloon_Koi dimensions; inspect $log_path"
+grep -Fq "background: url('balloon_koi.png') no-repeat center / contain" "$build_output/TemplateData/style.css" \
   || fail "generated loading screen is not using the Compersion artwork; inspect $log_path"
-grep -Fq '"TemplateData/balloon-koi-192.png?v=" + version' "$build_output/ServiceWorker.js" \
+grep -Fq '"TemplateData/balloon_koi.png"' "$build_output/ServiceWorker.js" \
   || fail "generated service worker is not caching the Compersion loading artwork; inspect $log_path"
+[[ "$(git hash-object "$build_output/TemplateData/balloon_koi.png")" == "$original_balloon_blob" ]] \
+  || fail "generated output does not contain an exact copy of the original Balloon_Koi artwork; inspect $log_path"
 if grep -Fq 'TemplateData/unity-logo-dark.png' "$build_output/ServiceWorker.js"; then
   fail "generated service worker still caches Unity's default loading logo; inspect $log_path"
 fi

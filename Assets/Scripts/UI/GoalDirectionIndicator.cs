@@ -75,7 +75,7 @@ public class GoalDirectionIndicator : MonoBehaviour
                 gameServices.onPlayerRegistered += TrySetPlayerInformation;
         }
 
-        SyncGoalCountLabel();
+        // SyncGoalCountLabel();
     }
 
     void OnDestroy()
@@ -133,7 +133,7 @@ public class GoalDirectionIndicator : MonoBehaviour
         }
 
         SetVisible(true);
-        SyncGoalCountLabel();
+        // SyncGoalCountLabel();
 
         Vector3 playerViewport = cam.WorldToViewportPoint(player.position);
         Vector3 goalViewport = cam.WorldToViewportPoint(goal.Location);
@@ -189,7 +189,7 @@ public class GoalDirectionIndicator : MonoBehaviour
         _viewportTrackedGoal = null;
         ResetHoverState(false);
         SetVisible(false);
-        SyncGoalCountLabel();
+        // SyncGoalCountLabel();
     }
 
     void SyncGoalCountLabel()
