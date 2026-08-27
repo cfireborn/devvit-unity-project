@@ -27,6 +27,7 @@ public class GameManagerM : MonoBehaviour
     private PlayerControllerM playerInstance;
     private Vector3 _playerStartPosition;
     private bool _hasPlayerStartPosition;
+    private BoundaryManager _subscribedBoundary;
 
     void Start()
     {
@@ -41,10 +42,7 @@ public class GameManagerM : MonoBehaviour
             if (goalTrigger != null) gameState.goalPosition = goalTrigger.transform.position;
         }
 
-        var boundary = cloudManager != null ? cloudManager.boundaryManager : null;
-        if (boundary == null) boundary = FindFirstObjectByType<BoundaryManager>();
-        if (boundary != null)
-            boundary.onPlayerExitedBoundary.AddListener(HandleResetTriggered);
+        SubscribeToBoundary();
 
         // onPlayerRegistered fires when the LOCAL player is ready (both networked and offline).
         // This is the single source of truth for playerInstance in all modes.
@@ -61,6 +59,11 @@ public class GameManagerM : MonoBehaviour
         if (player == null) return;
 
         playerInstance = player;
+
+        // Network scene objects may finish initialization after this component's Start.
+        // Re-resolve the boundary when the owned player becomes ready so the respawn
+        // listener survives missing scene references and FishNet startup ordering.
+        SubscribeToBoundary();
 
         // NetworkPlayerSpawner has its own spawn point, so respawnPoint may legitimately
         // be unassigned here. Remember the position at which the local player spawned.
@@ -182,6 +185,23 @@ public class GameManagerM : MonoBehaviour
         ResetGame();
     }
 
+    void SubscribeToBoundary()
+    {
+        var boundary = cloudManager != null ? cloudManager.boundaryManager : null;
+        if (boundary == null) boundary = FindFirstObjectByType<BoundaryManager>();
+
+        if (_subscribedBoundary != null && _subscribedBoundary != boundary)
+            _subscribedBoundary.onPlayerExitedBoundary.RemoveListener(HandleResetTriggered);
+
+        _subscribedBoundary = boundary;
+        if (_subscribedBoundary != null)
+        {
+            // Remove first so repeated lifecycle callbacks cannot accumulate listeners.
+            _subscribedBoundary.onPlayerExitedBoundary.RemoveListener(HandleResetTriggered);
+            _subscribedBoundary.onPlayerExitedBoundary.AddListener(HandleResetTriggered);
+        }
+    }
+
     // ── Reset ─────────────────────────────────────────────────────────────────
 
     void ResetGame()
@@ -218,10 +238,9 @@ public class GameManagerM : MonoBehaviour
         if (gameServices != null)
             gameServices.onPlayerRegistered -= OnPlayerRegistered;
 
-        var boundary = cloudManager != null ? cloudManager.boundaryManager : null;
-        if (boundary == null) boundary = FindFirstObjectByType<BoundaryManager>();
-        if (boundary != null)
-            boundary.onPlayerExitedBoundary.RemoveListener(HandleResetTriggered);
+        if (_subscribedBoundary != null)
+            _subscribedBoundary.onPlayerExitedBoundary.RemoveListener(HandleResetTriggered);
+        _subscribedBoundary = null;
 
         if (goalTrigger != null)
             goalTrigger.onInteract.RemoveListener(HandleGoalTriggered);

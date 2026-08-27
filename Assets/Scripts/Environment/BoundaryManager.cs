@@ -16,7 +16,7 @@ public class BoundaryManager : MonoBehaviour
     public float marginY = 5f;
 
     [Header("Events")]
-    [Tooltip("Fired when a collider tagged 'Player' exits the boundary trigger (e.g. GameManager respawns the player at the start point).")]
+    [Tooltip("Fired when a collider belonging to the tagged Player Rigidbody exits the boundary trigger (e.g. GameManager respawns the player at the start point).")]
     public UnityEvent<GameObject, Vector2> onPlayerExitedBoundary;
 
     BoxCollider2D _box;
@@ -46,9 +46,18 @@ public class BoundaryManager : MonoBehaviour
 
     void OnTriggerExit2D(Collider2D other)
     {
-        if (other == null || !other.CompareTag("Player")) return;
+        if (other == null) return;
+
+        // Compound Rigidbody2D callbacks report the specific child collider that exited.
+        // Player child triggers (such as GroundChecker) are intentionally untagged, so
+        // resolve and validate the Rigidbody root instead of filtering the child itself.
+        GameObject source = other.attachedRigidbody != null
+            ? other.attachedRigidbody.gameObject
+            : other.gameObject;
+        if (!source.CompareTag("Player")) return;
+
         Vector2 contactPoint = other.ClosestPoint(transform.position);
-        onPlayerExitedBoundary?.Invoke(other.gameObject, contactPoint);
+        onPlayerExitedBoundary?.Invoke(source, contactPoint);
     }
 
 #if UNITY_EDITOR
