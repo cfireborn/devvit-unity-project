@@ -105,10 +105,12 @@ Material:
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PixelSize: 1
+    - _PixelSizeMultiplier: 1
     - _PixelsPerUnit: 100
+    - _PixelsPerWorldUnit: 100
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _ShadowBlur: 0.03212
+    - _ShadowBlur: 0.017
     - _ShadowDarkness: 0.5
     - _ShadowScale: 1
     - _ShadowSoftness: 0.04137

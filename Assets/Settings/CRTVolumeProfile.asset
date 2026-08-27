@@ -90,7 +90,7 @@ MonoBehaviour:
   active: 1
   strength:
     m_OverrideState: 1
-    m_Value: 0.67
+    m_Value: 0.681
   pixelsPerUnit:
     m_OverrideState: 0
     m_Value: 100
