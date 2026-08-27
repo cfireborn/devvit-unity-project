@@ -9,12 +9,8 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 1065751000533457610, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.x
-      value: 3.14
-      objectReference: {fileID: 0}
-    - target: {fileID: 1065751000533457610, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.y
-      value: 1.91
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1306385675059909899, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: m_SurfaceArc
@@ -23,18 +19,6 @@ PrefabInstance:
     - target: {fileID: 1306385675059909899, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: m_UseOneWayGrouping
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3498135747016034716, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3498135747016034716, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.x
-      value: 3.14
-      objectReference: {fileID: 0}
-    - target: {fileID: 3498135747016034716, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.y
-      value: 1.91
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: WasActiveDuringEdit
@@ -46,20 +30,12 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: _initializedTimestamp
-      value: -8584139058433981309
-      objectReference: {fileID: 0}
-    - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: <PrefabId>k__BackingField
-      value: 12
+      value: -8584153813453580118
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: <AssetPathHash>k__BackingField
       value: 10155858260667431358
       objectReference: {fileID: 0}
-    - target: {fileID: 4581979803173958025, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_Sprite
-      value: 
-      objectReference: {fileID: 21300000, guid: 39b1d50bd3e8e4f4ea73bb7e4c4daad7, type: 3}
     - target: {fileID: 4642627866923287244, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -104,22 +80,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Cloud_1
       objectReference: {fileID: 0}
-    - target: {fileID: 5196485153279132195, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5196485153279132195, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.x
-      value: 3.14
-      objectReference: {fileID: 0}
-    - target: {fileID: 5196485153279132195, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.y
-      value: 1.91
-      objectReference: {fileID: 0}
-    - target: {fileID: 5488670360206764498, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_Sprite
-      value: 
-      objectReference: {fileID: 21300000, guid: 39b1d50bd3e8e4f4ea73bb7e4c4daad7, type: 3}
     - target: {fileID: 5577449698591813495, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: _interval
       value: 1
@@ -160,7 +120,7 @@ BoxCollider2D:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4628633889274542215}
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 3
   m_Density: 1
   m_Material: {fileID: 0}
@@ -187,11 +147,11 @@ BoxCollider2D:
   m_UsedByEffector: 1
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0.42121494, y: 0.7310119}
+  m_Offset: {x: 0.42121494, y: 0.02}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 3.14, y: 1.91}
+    oldSize: {x: 4.3, y: 2.45}
     newSize: {x: 3.13, y: 1.69}
     adaptiveTilingThreshold: 0.5
     drawMode: 0

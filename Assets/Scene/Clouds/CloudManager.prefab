@@ -48,11 +48,8 @@ MonoBehaviour:
   cloudLadderController: {fileID: 4449832523319277437}
   boundaryManager: {fileID: 0}
   cloudPrefabs:
-  - {fileID: 4628633889274542215, guid: 37c4372dda0d086458ddd46309ba9f48, type: 3}
-  - {fileID: 4791846076617009745, guid: 1985ee480b9a78945bb80884e4977741, type: 3}
-  - {fileID: 4791846076617009745, guid: f652cd0462a31d54abbb85c0bc1f600b, type: 3}
-  - {fileID: 4791846076617009745, guid: da436c70a0bbc6047ad18970026a1f27, type: 3}
-  - {fileID: 4791846076617009745, guid: 487fef13cb61c2647986ac2e45641ee1, type: 3}
+  - {fileID: 6548966520912071788, guid: 0402579233709e744981dcd69308c967, type: 3}
+  - {fileID: 6548966520912071788, guid: 0402579233709e744981dcd69308c967, type: 3}
   settings: {fileID: 11400000, guid: 6a2d0b4cf4dd5dc4c980ee5193abef3b, type: 2}
   _gizmoLaneHalfWidth: 50
   _gizmoShowCloudSizeAndSpacing: 0

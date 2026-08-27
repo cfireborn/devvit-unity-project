@@ -333,7 +333,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 100
+  m_SortingOrder: 6
   m_Sprite: {fileID: 21300000, guid: 0c6a6de83362fdf4092bb2acd3ac47f6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -557,7 +557,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 0.27, y: 0.19}
+  m_Size: {x: 0.3, y: 0.46}
   m_EdgeRadius: 0
 --- !u!114 &2664351158205713804
 MonoBehaviour:
@@ -574,7 +574,7 @@ MonoBehaviour:
   platformTag: Platform
   groundCheckColliders:
   - {fileID: 6024923197877771774}
-  groundCheckRadius: 0.15
+  groundCheckRadius: 0.26
   groundCheckOffset: {x: 0, y: 0}
 --- !u!1001 &7656096836700436698
 PrefabInstance:
@@ -587,6 +587,10 @@ PrefabInstance:
     - target: {fileID: 1051910969494222389, guid: 3c1d9c2cc1985be499ddb1a2992e6af9, type: 3}
       propertyPath: m_Name
       value: SpeechBubble
+      objectReference: {fileID: 0}
+    - target: {fileID: 1263994884540692188, guid: 3c1d9c2cc1985be499ddb1a2992e6af9, type: 3}
+      propertyPath: m_SortingOrder
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 1854404621461975820, guid: 3c1d9c2cc1985be499ddb1a2992e6af9, type: 3}
       propertyPath: m_Pivot.x
@@ -650,7 +654,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1854404621461975820, guid: 3c1d9c2cc1985be499ddb1a2992e6af9, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0.23
+      value: 0.295
       objectReference: {fileID: 0}
     - target: {fileID: 1854404621461975820, guid: 3c1d9c2cc1985be499ddb1a2992e6af9, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -667,6 +671,10 @@ PrefabInstance:
     - target: {fileID: 1854404621461975820, guid: 3c1d9c2cc1985be499ddb1a2992e6af9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7976972974541529735, guid: 3c1d9c2cc1985be499ddb1a2992e6af9, type: 3}
+      propertyPath: m_SortingOrder
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
