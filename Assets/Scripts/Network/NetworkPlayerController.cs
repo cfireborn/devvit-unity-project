@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// NetworkBehaviour wrapper for PlayerControllerM.
 /// - Owner: enables input + physics, syncs visual state to all other clients at 15Hz.
-/// - Remote: disables input + physics, applies received visual state to SpriteRenderer.
+/// - Remote: disables input + physics, applies received visual state to Animator + SpriteRenderer.
 /// - Owner: syncs camera orthographic size and aspect to server for CloudManager viewport.
 /// </summary>
 public class NetworkPlayerController : NetworkBehaviour
@@ -24,10 +24,8 @@ public class NetworkPlayerController : NetworkBehaviour
     // Visual sync state (owner writes, remotes read)
     float _syncedMoveDir;
     bool _syncedGliding;
-
-    // Walk animation state for remote players (runs locally)
-    float _remoteWalkTimer;
-    int _remoteWalkIndex;
+    bool _syncedGrounded;
+    bool _syncedJumping;
 
     // Throttle: sync visuals at 15Hz, not every frame
     float _visualSyncTimer;
@@ -178,66 +176,51 @@ public class NetworkPlayerController : NetworkBehaviour
 
         float moveDir = _controller.MoveInputX;
         bool gliding = _controller.IsGliding;
+        bool grounded = _controller.IsGrounded;
+        bool jumping = _controller.IsJumping;
 
         // Only send if state changed
-        if (Mathf.Abs(moveDir - _syncedMoveDir) > 0.05f || gliding != _syncedGliding)
+        if (Mathf.Abs(moveDir - _syncedMoveDir) > 0.05f
+            || gliding != _syncedGliding
+            || grounded != _syncedGrounded
+            || jumping != _syncedJumping)
         {
             _syncedMoveDir = moveDir;
             _syncedGliding = gliding;
-            CmdSendVisuals(moveDir, gliding);
+            _syncedGrounded = grounded;
+            _syncedJumping = jumping;
+            CmdSendVisuals(moveDir, gliding, grounded, jumping);
         }
     }
 
     /// <summary>Owner → Server: relay visual state to all observers.</summary>
     [ServerRpc(RequireOwnership = true)]
-    void CmdSendVisuals(float moveDir, bool isGliding)
+    void CmdSendVisuals(float moveDir, bool isGliding, bool isGrounded, bool isJumping)
     {
-        RpcReceiveVisuals(moveDir, isGliding);
+        RpcReceiveVisuals(moveDir, isGliding, isGrounded, isJumping);
     }
 
     // ── Remote ────────────────────────────────────────────────────────────────
 
     /// <summary>Server → All clients: apply received visual state.</summary>
     [ObserversRpc(ExcludeServer = false)]
-    void RpcReceiveVisuals(float moveDir, bool isGliding)
+    void RpcReceiveVisuals(float moveDir, bool isGliding, bool isGrounded, bool isJumping)
     {
         if (IsOwner) return; // Owner already has correct visuals
         _syncedMoveDir = moveDir;
         _syncedGliding = isGliding;
+        _syncedGrounded = isGrounded;
+        _syncedJumping = isJumping;
     }
 
     void RemoteUpdate()
     {
-        if (_spriteRenderer == null || _controller == null) return;
+        if (_controller == null) return;
 
         // Facing direction
-        if (Mathf.Abs(_syncedMoveDir) > 0.05f)
+        if (_spriteRenderer != null && Mathf.Abs(_syncedMoveDir) > 0.05f)
             _spriteRenderer.flipX = _syncedMoveDir < 0f;
 
-        // Sprite state: glide > walk > idle
-        if (_syncedGliding && _controller.glideSprite != null)
-        {
-            _spriteRenderer.sprite = _controller.glideSprite;
-        }
-        else if (Mathf.Abs(_syncedMoveDir) > 0.05f
-                 && _controller.walkSprites != null
-                 && _controller.walkSprites.Length > 0)
-        {
-            // Run walk cycle locally using synced move speed as a proxy
-            _remoteWalkTimer += Time.deltaTime;
-            float frameTime = Mathf.Max(0.001f, 1f / Mathf.Max(0.01f, _controller.walkFrameRate));
-            if (_remoteWalkTimer >= frameTime)
-            {
-                _remoteWalkTimer = 0f;
-                _remoteWalkIndex = (_remoteWalkIndex + 1) % _controller.walkSprites.Length;
-            }
-            _spriteRenderer.sprite = _controller.walkSprites[_remoteWalkIndex];
-        }
-        else
-        {
-            _remoteWalkTimer = 0f;
-            if (_controller.idleSprite != null)
-                _spriteRenderer.sprite = _controller.idleSprite;
-        }
+        _controller.SetSpriteAnimatorState(_syncedMoveDir, _syncedGliding, _syncedGrounded, _syncedJumping);
     }
 }
