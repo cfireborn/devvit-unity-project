@@ -63,6 +63,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     bool _isInBlockEntryZone;
     bool _despawnRequested;
     bool _isDespawning;
+    int _activationVersion;
     public bool wasActiveAtStart;
     Coroutine _despawnCoroutine;
     Rigidbody2D _rb;
@@ -93,6 +94,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void OnEnable()
     {
+        _activationVersion++;
         if (_platformEffector != null)
             _platformEffector.rotationalOffset = _platformEffectorOffset;
 
@@ -151,6 +153,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     }
     /// <summary>True while a despawn is in progress (animator wait or same-frame immediate handoff).</summary>
     public bool IsDespawning => _isDespawning;
+    public int ActivationVersion => _activationVersion;
     internal Collider2D[] BoundsColliders => _boundsColliders;
 
     /// <summary>
@@ -304,16 +307,27 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     public Vector2 GetPosition() => (Vector2)transform.position;
 
-    /// <summary>Combined bounds of all Collider2D on this cloud.</summary>
+    /// <summary>Combined bounds of enabled, non-trigger Collider2D components on this cloud.</summary>
     public Bounds GetBounds()
     {
         var colliders = _boundsColliders;
         if (colliders == null || colliders.Length == 0)
             return new Bounds(transform.position, Vector3.zero);
 
-        var bounds = colliders[0].bounds;
-        for (int i = 1; i < colliders.Length; i++)
-            bounds.Encapsulate(colliders[i].bounds);
+        Bounds bounds = new Bounds(transform.position, Vector3.zero);
+        bool found = false;
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D collider = colliders[i];
+            if (collider == null || !collider.enabled || collider.isTrigger) continue;
+            if (!found)
+            {
+                bounds = collider.bounds;
+                found = true;
+            }
+            else
+                bounds.Encapsulate(collider.bounds);
+        }
         return bounds;
     }
 

@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using FishNet;
+using FishNet.Component.Transforming;
 using FishNet.Managing;
+using FishNet.Object;
 using UnityEngine;
 
 /// <summary>
@@ -13,14 +15,16 @@ using UnityEngine;
 ///   2. NetworkBootstrapper is present and references NetworkManager.
 ///   3. NetworkBootstrapper starts server in editor (InstanceFinder.IsServerStarted).
 ///   4. NetworkCloudManager exists and has CloudManager sibling.
-///   5. CloudManager enables after OnStartServer (checked via polling).
-///   6. A FishNet player registers directly with the server CloudManager.
-///   7. Player registration activates at least one lane.
-///   8. CloudManager spawns at least one cloud within timeout.
-///   9. Active cloud count stays at or below maxDynamicClouds cap.
-///  10. All active clouds have valid Rigidbody2D and are Kinematic.
-///  11. Clouds are moving (position delta observed over two FixedUpdate cycles).
-///  12. CloudManager disables on a pure client (offline mode bypass test).
+///   5. Every cloud prefab has a valid rendered scale interval, physical collider, FishNet
+///      component order, and unique server/client spawn-table round trip.
+///   6. CloudManager enables after OnStartServer (checked via polling).
+///   7. A FishNet player registers directly with the server CloudManager.
+///   8. Player registration activates at least one lane.
+///   9. CloudManager spawns at least one cloud within timeout.
+///  10. Active cloud count stays at or below maxDynamicClouds cap.
+///  11. All active clouds have valid Rigidbody2D and are Kinematic.
+///  12. Clouds are moving (position delta observed over two FixedUpdate cycles).
+///  13. CloudManager disables on a pure client (offline mode bypass test).
 /// </summary>
 public class CloudManagerTestRunner : MonoBehaviour
 {
@@ -107,6 +111,7 @@ public class CloudManagerTestRunner : MonoBehaviour
         CheckBootstrapperPresent();
         CheckNetworkCloudManagerPresent();
         CheckCloudManagerPresent();
+        CheckCloudPrefabConfigurations();
 
         // Give NetworkBootstrapper.Start() and FishNet OnStartServer time to run
         yield return new WaitForSeconds(0.5f);
@@ -167,6 +172,75 @@ public class CloudManagerTestRunner : MonoBehaviour
         {
             Fail("CloudManager not found.", "CloudManager component missing from scene.");
         }
+    }
+
+    void CheckCloudPrefabConfigurations()
+    {
+        if (cloudManager == null || cloudManager.cloudPrefabs == null) return;
+
+        var violations = new List<string>();
+        var prefabIds = new HashSet<int>();
+        NetworkManager networkManager = InstanceFinder.NetworkManager;
+        for (int i = 0; i < cloudManager.cloudPrefabs.Length; i++)
+        {
+            GameObject prefab = cloudManager.cloudPrefabs[i];
+            if (prefab == null)
+            {
+                violations.Add($"entry {i}: prefab is null");
+                continue;
+            }
+
+            if (!cloudManager.TryGetPrefabScaleRange(prefab, out float minScale, out float maxScale))
+            {
+                Vector2 renderedSize = cloudManager.GetPrefabNativeVisualSizePublic(prefab);
+                violations.Add($"{prefab.name}: invalid rendered scale range [{minScale:F3}, {maxScale:F3}] from native size {renderedSize}");
+            }
+
+            CloudPlatform platform = prefab.GetComponent<CloudPlatform>();
+            int physicalColliderCount = 0;
+            foreach (Collider2D collider in prefab.GetComponentsInChildren<Collider2D>(includeInactive: true))
+                if (collider != null && collider.enabled && !collider.isTrigger) physicalColliderCount++;
+            if (platform == null || physicalColliderCount == 0)
+                violations.Add($"{prefab.name}: expected CloudPlatform and at least one enabled non-trigger collider; found platform={platform != null}, colliders={physicalColliderCount}");
+
+            NetworkObject[] networkObjects = prefab.GetComponents<NetworkObject>();
+            NetworkTransform[] networkTransforms = prefab.GetComponents<NetworkTransform>();
+            NetworkCloud[] networkClouds = prefab.GetComponents<NetworkCloud>();
+            if (networkObjects.Length != 1 || networkTransforms.Length != 1 || networkClouds.Length != 1)
+            {
+                violations.Add($"{prefab.name}: expected one NetworkObject, NetworkTransform, and NetworkCloud; found {networkObjects.Length}/{networkTransforms.Length}/{networkClouds.Length}");
+                continue;
+            }
+
+            var behaviours = networkObjects[0].NetworkBehaviours;
+            if (behaviours == null || behaviours.Count != 2 ||
+                behaviours[0] != networkTransforms[0] || behaviours[1] != networkClouds[0])
+                violations.Add($"{prefab.name}: NetworkBehaviours must be [NetworkTransform, NetworkCloud]");
+
+            if (networkManager == null)
+            {
+                violations.Add($"{prefab.name}: NetworkManager unavailable for spawnable-prefab validation");
+                continue;
+            }
+
+            int prefabId = networkManager.GetPrefabIndex(prefab, asServer: true);
+            if (prefabId < 0 || networkObjects[0].PrefabId != prefabId ||
+                networkManager.GetPrefab(prefabId, asServer: true) != networkObjects[0] ||
+                networkManager.GetPrefab(prefabId, asServer: false) != networkObjects[0])
+            {
+                violations.Add($"{prefab.name}: FishNet prefab ID {networkObjects[0].PrefabId} does not round-trip through both spawnable-prefab tables (server index {prefabId})");
+            }
+            else if (!prefabIds.Add(prefabId))
+            {
+                violations.Add($"{prefab.name}: duplicate FishNet prefab ID {prefabId}");
+            }
+        }
+
+        if (violations.Count == 0)
+            Pass($"All {cloudManager.cloudPrefabs.Length} cloud prefabs have valid rendered scale ranges, physical colliders, FishNet behaviour order, and unique server/client spawn-table IDs.");
+        else
+            foreach (string violation in violations)
+                Fail("Cloud prefab configuration violation.", violation);
     }
 
     void CheckBootstrapperStartedServer()

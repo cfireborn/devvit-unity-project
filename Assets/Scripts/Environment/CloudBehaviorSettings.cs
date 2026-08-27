@@ -8,7 +8,7 @@ using UnityEngine;
 public class CloudBehaviorSettings : ScriptableObject
 {
     [Header("Lane Layout")]
-    [Tooltip("Vertical distance between adjacent lane centers in world units.")]
+    [Tooltip("Vertical distance between adjacent lane centers in world units. Keep this at least as large as the maximum rendered cloud height plus vertical jitter.")]
     public float laneSpacing = 0.5f;
     [Tooltip("Y offset applied to all lane positions (world units). Lanes are at baseY + laneYOffset + i * laneSpacing.")]
     public float laneYOffset = 0f;
@@ -38,17 +38,17 @@ public class CloudBehaviorSettings : ScriptableObject
     [Min(0.1f)]
     public float maxCloudSpacing = 8f;
 
-    [Header("Cloud Size (main collider bounds after scale)")]
-    [Tooltip("Minimum world width of main collider bounds.")]
+    [Header("Cloud Size (rendered bounds after scale)")]
+    [Tooltip("Minimum world width of the complete rendered cloud.")]
     [Min(0.01f)]
     public float minCloudMainBoundsWidth = 0.5f;
-    [Tooltip("Maximum world width of main collider bounds.")]
+    [Tooltip("Maximum world width of the complete rendered cloud.")]
     [Min(0.01f)]
     public float maxCloudMainBoundsWidth = 2f;
-    [Tooltip("Minimum world height of main collider bounds.")]
+    [Tooltip("Minimum world height of the complete rendered cloud.")]
     [Min(0.01f)]
     public float minCloudMainBoundsHeight = 0.5f;
-    [Tooltip("Maximum world height of main collider bounds.")]
+    [Tooltip("Maximum world height of the complete rendered cloud.")]
     [Min(0.01f)]
     public float maxCloudMainBoundsHeight = 2f;
 

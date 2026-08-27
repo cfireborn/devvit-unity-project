@@ -45,14 +45,14 @@ public class GroundChecker : MonoBehaviour
     private Collider2D[] _overlapBuffer;
     private ContactFilter2D _overlapFilter;
     private Collider2D[] _ourColliders;
-    private const int OverlapBufferSize = 16;
+    private const int InitialOverlapBufferSize = 32;
+    private const int MaxOverlapBufferSize = 256;
     private readonly List<Collider2D> _ladderTriggers = new List<Collider2D>();
 
     void Awake()
     {
-        _overlapBuffer = new Collider2D[OverlapBufferSize];
-        _overlapFilter = new ContactFilter2D();
-        _overlapFilter.NoFilter();
+        _overlapBuffer = new Collider2D[InitialOverlapBufferSize];
+        _overlapFilter = ContactFilter2D.noFilter;
         _ourColliders = GetComponentsInChildren<Collider2D>();
     }
 
@@ -71,16 +71,22 @@ public class GroundChecker : MonoBehaviour
 
         void ConsiderGroundAt(Vector2 origin)
         {
-            int hitCount = Physics2D.OverlapCircle(origin, groundCheckRadius, _overlapFilter, _overlapBuffer);
+            int hitCount;
+            do
+            {
+                hitCount = Physics2D.OverlapCircle(origin, groundCheckRadius, _overlapFilter, _overlapBuffer);
+                if (hitCount < _overlapBuffer.Length || _overlapBuffer.Length >= MaxOverlapBufferSize) break;
+                _overlapBuffer = new Collider2D[Mathf.Min(_overlapBuffer.Length * 2, MaxOverlapBufferSize)];
+            }
+            while (true);
+
             for (int i = 0; i < hitCount; i++)
             {
                 Collider2D other = _overlapBuffer[i];
                 if (other == null || IsOurCollider(other) || !other.CompareTag(platformTag)) continue;
 
-                Bounds bounds = other.bounds;
-                float dx = Mathf.Max(bounds.min.x - origin.x, 0f, origin.x - bounds.max.x);
-                float dy = Mathf.Abs(origin.y - bounds.max.y);
-                float distance = dx * dx + dy * dy;
+                Vector2 closestPoint = other.ClosestPoint(origin);
+                float distance = (closestPoint - origin).sqrMagnitude;
                 bool tied = Mathf.Abs(distance - bestDistance) <= 0.000001f;
                 bool preferPrevious = tied && other == previousGround && bestGround != previousGround;
                 bool stableTieBreak = tied && other != previousGround && bestGround != previousGround &&

@@ -19,8 +19,10 @@ using UnityEngine;
 ///   9.  Built ladder has a BoxCollider2D (trigger) and the tag "Ladder".
 ///  10.  Built ladder repositions as clouds move (dynamic tracking).
 ///  11.  Ladder is removed when clouds are moved out of range.
-///  12.  TryBuildLadder force-builds a ladder regardless of auto-proximity.
-///  13.  maxLadders cap is respected — extra ladder creation is rejected.
+///  12.  A middle cloud prevents a ladder from spanning past it.
+///  13.  TryBuildLadder gives a valid pair forced priority.
+///  14.  Rapid endpoint reactivation replaces stale generation bindings.
+///  15.  maxLadders cap is respected — extra ladder creation is rejected.
 /// </summary>
 public class LadderManagerTestRunner : MonoBehaviour
 {
@@ -39,6 +41,8 @@ public class LadderManagerTestRunner : MonoBehaviour
     [Header("References (auto-found if null)")]
     public CloudLadderController ladderController;
     public CloudManager cloudManager;
+
+    CloudPlatform _intermediateTestCloud;
 
     // ─── Console color codes ─────────────────────────────────────────────────
     const string ColorPass  = "<color=#44FF88>";
@@ -111,6 +115,7 @@ public class LadderManagerTestRunner : MonoBehaviour
         CheckLadderSpritesAssigned();
 
         var allClouds = FindAllSceneClouds();
+        EnsureTestClouds(allClouds);
         CheckMinimumCloudsPresent(allClouds);
         CheckCloudsAreKinematic(allClouds);
 
@@ -123,7 +128,9 @@ public class LadderManagerTestRunner : MonoBehaviour
         CheckLadderColliderAndTag();
         yield return StartCoroutine(CheckLadderTracksMovingCloud());
         yield return StartCoroutine(CheckLadderRemovedWhenOutOfRange());
-        CheckForceLadderBuild();
+        yield return StartCoroutine(CheckIntermediateCloudBlocksLongLadder(allClouds));
+        yield return StartCoroutine(CheckForceLadderBuild());
+        yield return StartCoroutine(CheckRapidEndpointReactivation());
         CheckMaxLadderCapEnforced();
 
         PrintSummary();
@@ -204,6 +211,34 @@ public class LadderManagerTestRunner : MonoBehaviour
         var all = new List<CloudPlatform>(
             Object.FindObjectsByType<CloudPlatform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None));
         return all;
+    }
+
+    void EnsureTestClouds(List<CloudPlatform> clouds)
+    {
+        var controlledTestClouds = new List<CloudPlatform>(3);
+        for (int index = 0; index < 3; index++)
+        {
+            var go = new GameObject($"RuntimeTestCloud_{index}");
+            go.tag = "Platform";
+            go.transform.position = new Vector3(100f, -2f + index * 2f, 0f);
+            Rigidbody2D rb = go.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            BoxCollider2D collider = go.AddComponent<BoxCollider2D>();
+            collider.size = new Vector2(2f, 0.2f);
+            CloudPlatform platform = go.AddComponent<CloudPlatform>();
+            platform.isPooled = false;
+            platform.isMoving = false;
+            platform.canBuildLadder = true;
+            cloudManager?.ActivateNonPooledCloud(go);
+            clouds.Add(platform);
+            controlledTestClouds.Add(platform);
+        }
+
+        // Always use the isolated, centered fixtures. Serialized scene clouds may
+        // have offset composite colliders and must not influence deterministic tests.
+        controlledCloudLower = controlledTestClouds[0];
+        controlledCloudUpper = controlledTestClouds[1];
+        _intermediateTestCloud = controlledTestClouds[2];
     }
 
     void CheckMinimumCloudsPresent(List<CloudPlatform> clouds)
@@ -352,16 +387,16 @@ public class LadderManagerTestRunner : MonoBehaviour
         yield return new WaitForFixedUpdate();
 
         float elapsed = 0f;
-        int ladderCount = 0;
+        bool pairConnected = false;
         while (elapsed < ladderAppearTimeoutSeconds)
         {
-            ladderCount = CountActiveLadders();
-            if (ladderCount > 0) break;
+            pairConnected = ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper);
+            if (pairConnected) break;
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        if (ladderCount > 0)
+        if (pairConnected)
             Pass($"Ladder auto-built within {elapsed:F1}s between '{controlledCloudLower.name}' and '{controlledCloudUpper.name}' — proximity detection working.");
         else
             Fail($"No ladder appeared after {ladderAppearTimeoutSeconds}s with clouds in range.", $"Cloud pair: '{controlledCloudLower.name}' / '{controlledCloudUpper.name}'. Verify CloudLadderController is enabled, LateUpdate is running, and clouds are within maxDistance={ladderController.maxDistance} horizontally and gap in [{ladderController.minVerticalGap}, {ladderController.maxVerticalGap}].");
@@ -395,18 +430,18 @@ public class LadderManagerTestRunner : MonoBehaviour
 
     IEnumerator CheckLadderTracksMovingCloud()
     {
-        var ladders = GameObject.FindGameObjectsWithTag("Ladder");
-        if (ladders.Length == 0 || controlledCloudLower == null)
+        if (ladderController == null || controlledCloudLower == null || controlledCloudUpper == null ||
+            !ladderController.TryGetLadderBetween(controlledCloudLower, controlledCloudUpper, out GameObject ladder))
         {
-            Warn("Skipping ladder-tracking check — no active ladders or no controlled pair.");
+            Warn("Skipping ladder-tracking check — the controlled pair has no active ladder.");
             yield break;
         }
 
-        var ladder = ladders[0];
         Vector3 ladderPosA = ladder.transform.position;
 
         // Move the lower cloud horizontally by a small amount to force a position update
         var rb = controlledCloudLower.GetComponent<Rigidbody2D>();
+        Vector2 originalPosition = rb != null ? rb.position : Vector2.zero;
         if (rb != null)
         {
             Vector2 nudged = rb.position + new Vector2(0.1f, 0f);
@@ -423,11 +458,13 @@ public class LadderManagerTestRunner : MonoBehaviour
 
         Vector3 ladderPosB = ladder.transform.position;
         float delta = Vector3.Distance(ladderPosA, ladderPosB);
+        if (rb != null)
+            rb.position = originalPosition;
 
         if (delta > 0.0001f)
             Pass($"Ladder '{ladder.name}' repositioned by {delta:F4} world units after cloud moved — UpdateLadderPosition is being called each LateUpdate.");
         else
-            Pass($"Ladder '{ladder.name}' position unchanged after small cloud nudge — clouds may overlap center exactly; visual tracking is still correct. (delta={delta:F5})");
+            Fail($"The controlled pair's ladder did not follow a 0.1-unit cloud nudge (delta={delta:F5}).", "UpdateLadderPosition must track the exact managed pair rather than an arbitrary tagged ladder.");
     }
 
     IEnumerator CheckLadderRemovedWhenOutOfRange()
@@ -438,10 +475,10 @@ public class LadderManagerTestRunner : MonoBehaviour
             yield break;
         }
 
-        int beforeCount = CountActiveLadders();
-        if (beforeCount == 0)
+        bool existedBefore = ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper);
+        if (!existedBefore)
         {
-            Warn("No active ladders before out-of-range test — cannot verify removal.");
+            Warn("The controlled pair had no ladder before the out-of-range test — cannot verify its removal.");
             yield break;
         }
 
@@ -453,34 +490,132 @@ public class LadderManagerTestRunner : MonoBehaviour
 
         yield return new WaitForSeconds(0.2f); // LateUpdate needs a frame to react
 
-        int afterCount = CountActiveLadders();
+        bool existsAfter = ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper);
 
         // Restore position
         if (rb != null)
             rb.MovePosition(rb.position - new Vector2(pushDistance, 0f));
+        yield return new WaitForFixedUpdate();
+        yield return null;
 
-        if (afterCount < beforeCount)
-            Pass($"Ladder count reduced from {beforeCount} → {afterCount} when cloud exceeded maxDistance — removal logic is working.");
+        if (!existsAfter)
+            Pass("The controlled pair's ladder was removed when its cloud exceeded maxDistance.");
         else
-            Fail($"Ladder count stayed at {afterCount} after cloud moved {pushDistance:F1}u away.", $"maxDistance={ladderController.maxDistance}. CloudLadderController.RemoveInvalidLadders may not be triggering.");
+            Fail($"The controlled pair stayed connected after one cloud moved {pushDistance:F1}u away.", $"maxDistance={ladderController.maxDistance}. CloudLadderController.RemoveInvalidLadders may not be triggering.");
     }
 
-    void CheckForceLadderBuild()
+    IEnumerator CheckIntermediateCloudBlocksLongLadder(List<CloudPlatform> clouds)
+    {
+        if (ladderController == null || controlledCloudLower == null || controlledCloudUpper == null)
+            yield break;
+
+        CloudPlatform middle = _intermediateTestCloud;
+        if (middle == controlledCloudLower || middle == controlledCloudUpper)
+            middle = null;
+        for (int i = 0; i < clouds.Count; i++)
+        {
+            if (middle == null && clouds[i] != controlledCloudLower && clouds[i] != controlledCloudUpper)
+            {
+                middle = clouds[i];
+                break;
+            }
+        }
+        if (middle == null)
+        {
+            Warn("Skipping intermediate-cloud ladder check — a third active cloud is required.");
+            yield break;
+        }
+
+        Rigidbody2D lowerRb = controlledCloudLower.GetComponent<Rigidbody2D>();
+        Rigidbody2D middleRb = middle.GetComponent<Rigidbody2D>();
+        Rigidbody2D upperRb = controlledCloudUpper.GetComponent<Rigidbody2D>();
+        if (lowerRb == null || middleRb == null || upperRb == null) yield break;
+
+        Vector2 lowerOriginal = lowerRb.position;
+        Vector2 middleOriginal = middleRb.position;
+        Vector2 upperOriginal = upperRb.position;
+        PositionCloudPairInRange(controlledCloudLower, controlledCloudUpper);
+        yield return new WaitForFixedUpdate();
+
+        Bounds lowerBounds = controlledCloudLower.GetBounds();
+        Bounds upperBounds = controlledCloudUpper.GetBounds();
+        float middleY = (lowerBounds.max.y + upperBounds.min.y) * 0.5f;
+        middleRb.MovePosition(new Vector2(lowerBounds.center.x, middleY));
+        yield return new WaitForFixedUpdate();
+        yield return null;
+        yield return null;
+
+        bool spansPastMiddle = ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper);
+        bool lowerBindsMiddle = ladderController.HasLadderBetween(controlledCloudLower, middle);
+        bool middleBindsUpper = ladderController.HasLadderBetween(middle, controlledCloudUpper);
+        bool lowerMiddleGeometry = ladderController.IsLadderGeometryValid(controlledCloudLower, middle);
+        bool middleUpperGeometry = ladderController.IsLadderGeometryValid(middle, controlledCloudUpper);
+        string middleUpperDiagnostic = ladderController.GetLadderGeometryDiagnostic(middle, controlledCloudUpper);
+
+        lowerRb.position = lowerOriginal;
+        middleRb.position = middleOriginal;
+        upperRb.position = upperOriginal;
+        yield return new WaitForFixedUpdate();
+
+        if (spansPastMiddle)
+            Fail("A ladder spanned through an intermediate cloud.", "Candidate validation must reject the long pair at its actual ladder X and bind to nearer surfaces instead.");
+        else if (!lowerBindsMiddle || !middleBindsUpper)
+            Fail("The outer ladder was blocked, but the middle cloud did not bind to both adjacent clouds.", $"lower-middle binding/geometry={lowerBindsMiddle}/{lowerMiddleGeometry}, middle-upper binding/geometry={middleBindsUpper}/{middleUpperGeometry} ({middleUpperDiagnostic}). Closest-surface routing must form the two valid adjacent links.");
+        else
+            Pass("The outer ladder was blocked and both adjacent ladders bound to the intermediate cloud.");
+    }
+
+    IEnumerator CheckForceLadderBuild()
     {
         if (ladderController == null || controlledCloudLower == null || controlledCloudUpper == null)
         {
             Warn("Skipping TryBuildLadder check — no controlled pair.");
-            return;
+            yield break;
         }
 
         // Ensure they're in range first
         PositionCloudPairInRange(controlledCloudLower, controlledCloudUpper);
+        yield return new WaitForFixedUpdate();
+        yield return null;
 
         bool result = ladderController.TryBuildLadder(controlledCloudLower, controlledCloudUpper);
         if (result)
             Pass($"TryBuildLadder returned true for '{controlledCloudLower.name}' / '{controlledCloudUpper.name}' — forced ladder API working.");
         else
             Fail("TryBuildLadder returned false for a valid in-range pair.", "Check: pair is not null, not same cloud, within maxDistance, gap in range, and neither cloud already has a ladder in that direction.");
+    }
+
+    IEnumerator CheckRapidEndpointReactivation()
+    {
+        if (ladderController == null || cloudManager == null || controlledCloudLower == null || controlledCloudUpper == null)
+            yield break;
+
+        PositionCloudPairInRange(controlledCloudLower, controlledCloudUpper);
+        yield return new WaitForFixedUpdate();
+        yield return null;
+        yield return null;
+
+        if (!ladderController.TryGetLadderBetween(controlledCloudLower, controlledCloudUpper, out _))
+        {
+            Fail("Cannot test endpoint generation reuse because the controlled pair has no ladder.", "A current managed binding is required before reactivating an endpoint.");
+            yield break;
+        }
+
+        int previousVersion = controlledCloudLower.ActivationVersion;
+        GameObject endpoint = controlledCloudLower.gameObject;
+        endpoint.SetActive(false);
+        endpoint.SetActive(true);
+        cloudManager.ActivateNonPooledCloud(endpoint);
+        yield return null;
+        yield return null;
+
+        bool versionAdvanced = controlledCloudLower.ActivationVersion > previousVersion;
+        bool rebound = ladderController.TryGetLadderBetween(controlledCloudLower, controlledCloudUpper, out GameObject currentLadder) &&
+            currentLadder.activeInHierarchy;
+        if (versionAdvanced && rebound)
+            Pass("Rapid endpoint reactivation advanced its generation and replaced the stale ladder binding.");
+        else
+            Fail("Rapid endpoint reactivation left no current ladder binding.", $"versionAdvanced={versionAdvanced}, rebound={rebound}. Old pool-generation references must be removed before rebinding.");
     }
 
     void CheckMaxLadderCapEnforced()
@@ -511,22 +646,19 @@ public class LadderManagerTestRunner : MonoBehaviour
     {
         if (ladderController == null || lower == null || upper == null) return;
 
-        float targetGap = (ladderController.minVerticalGap + ladderController.maxVerticalGap) * 0.5f;
+        float targetGap = ladderController.minVerticalGap +
+            Mathf.Min(1f, (ladderController.maxVerticalGap - ladderController.minVerticalGap) * 0.5f);
         Bounds lowerBounds = lower.GetMainBounds();
         Bounds upperBounds = upper.GetMainBounds();
-        float lowerHeight = lowerBounds.size.y;
-        float upperHeight = upperBounds.size.y;
-
-        // Place lower cloud at its current position; move upper cloud above it
-        Vector3 lowerPos = lower.transform.position;
-        float upperY = lowerPos.y + lowerHeight * 0.5f + targetGap + upperHeight * 0.5f;
-
-        var lowerRb = lower.GetComponent<Rigidbody2D>();
+        // Align actual physical-bounds centers and place the upper bounds edge at the
+        // requested surface gap. Prefab collider centers are not necessarily at the root.
         var upperRb = upper.GetComponent<Rigidbody2D>();
-
-        if (lowerRb != null)
-            lowerRb.MovePosition(new Vector2(lowerPos.x, lowerPos.y));
         if (upperRb != null)
-            upperRb.MovePosition(new Vector2(lowerPos.x, upperY));
+        {
+            Vector2 correction = new Vector2(
+                lowerBounds.center.x - upperBounds.center.x,
+                lowerBounds.max.y + targetGap - upperBounds.min.y);
+            upperRb.MovePosition(upperRb.position + correction);
+        }
     }
 }

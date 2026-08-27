@@ -1,231 +1,122 @@
-# Cloud Ladder Bug Analysis
-**Date:** 2026-03-03
-**Commits analyzed:** `c667395` (Cloud lane changes), `730f4a7` (better lane management), `563f13d` (minor code cleanup)
-**Author of changes:** Maya (Ram-Head)
+# Cloud and Ladder Incident Analysis
 
----
+**Updated:** 2026-08-27
+**Scope:** `SimpleLevel`, cloud pooling/generation, FishNet cloud prefabs, ladders, and riding/ground detection
 
-## The Bug
+## Reported symptoms
 
-**Symptom:** Ladder between the two initial scene cloud prefabs (Cloud_1 at ~(-1.34, -0.52) and Cloud_2) in SimpleLevel flickers — appearing and disappearing rapidly — and is uninteractable by the player.
+- Dynamic clouds stopped spawning entirely.
+- Large cloud sprites could overlap even when their platform colliders did not.
+- Ladders could bind to a farther cloud, pass through an intermediate cloud, flicker, or remain disconnected after pooling.
+- Cloud movement and the local squirrel riding a cloud could appear stuttery.
+- A collaborator observed that changing a cloud prefab could break FishNet spawning.
 
----
+The missing-image cursor shown by the browser/Codex UI was explicitly excluded from this investigation.
 
-## What Maya's New System Does (Summary)
+## Root causes and fixes
 
-### CloudManager (730f4a7 + c667395)
-The old system **recycled** clouds — when a cloud drifted past the active window, it was teleported back to the entry side. The new system **pools** clouds — when a cloud drifts outside the **viewport** (`player.x ± viewportHalfWidth`), it is returned to the pool and despawned. New clouds spawn at the viewport edge + `spawnMargin`, travelling in from off-screen.
+### 1. No clouds: physical collider size was used as visual size
 
-Key architectural changes:
-- `activeWindowHalfWidth` / `recycleMargin` / `recycleReentryMaxGap` → replaced by `viewportHalfWidth` / `spawnMargin`
-- Cloud **scale** is now derived from `minCloudRadius`/`maxCloudRadius` (radius = half-height in world units) so all clouds have predictable physical size regardless of prefab native scale
-- Cloud spacing is now `baseSpacing` (edge-to-edge gap) randomized per lane from `minCloudSpacing`/`maxCloudSpacing`
-- `_forceFill` flag: on first Update and on player join/respawn, runs 10 fill iterations to populate the viewport immediately
-- `IsLaneUnderpopulated` now uses `baseSpacing + spacingVariation` as the max gap threshold (instead of a flat `maxCloudSpacing`)
-- Two new guards before despawning: `IsPlayerOnAnyLadderPartner(cloud)` and `ShouldKeepCloudActiveForLadders(cloud, viewportLeft, viewportRight)` — prevents despawning a cloud that's part of an active ladder pair while the partner is still visible
+The larger decorative colliders on the cloud prefabs had been disabled, leaving a thin platform collider about `2.337 x 0.06` world units. `CloudManager` used that physical collider height to derive the allowed scale. With the configured visual radius constraints this produced an impossible interval on affected prefabs (approximately `minScale 9.17 > maxScale 2.28`), so every spawn attempt was rejected.
 
-### CloudLadderController (c667395)
-- Old: `_usedCloudsScratch` — once a cloud appeared in any pair it was blocked from ALL further pairing that frame
-- New: `_hasLadderAboveScratch` / `_hasLadderBelowScratch` — separate tracking. A cloud can now be the lower end of one ladder AND the upper end of another (supports "chain" ladders up a column of clouds)
-- `GetEdgeYAtX()` — polygon-aware edge detection. If `mainCollider` is a `PolygonCollider2D`, samples the actual polygon boundary at a given world X to find the true top/bottom surface rather than the AABB edge
-- `ladderInsetIntoCloud = 0.2f` — ladder visuals/collider extend 0.2 units **into** each cloud from its surface edge, so there's no floating gap at the connection point
-- `ShouldKeepCloudActiveForLadders` and `IsPlayerOnAnyLadderPartner` — new CloudManager helpers to prevent viewport culling from breaking active ladders
+`CloudManager` now caches the complete rendered bounds from all child `SpriteRenderer`s and derives scale limits from the rendered width and height. Physical colliders remain the source of collision surfaces, not art dimensions. The spawn path also assigns both `Transform.position` and `Rigidbody2D.position` before callbacks/network spawning so the initial authoritative physics pose is coherent.
 
----
+### 2. Sprite overlap: lane spacing ignored the largest rendered sprite
 
-## Bug 1: The Flicker — Root Cause
+The configured lane spacing was `1.25`, while the largest rendered cloud height is about `2.73` at its allowed scale. Separate lanes could therefore be physically valid but visibly overlap. `CloudManagerSettings_Basic` now uses `2.8` lane spacing and zero random lane-height offset. Horizontal edge spacing continues to use rendered extents.
 
-### The `ComputeValidPairs` seeding problem
+### 3. Wrong ladder target and skipped intermediate clouds
 
-In `CloudLadderController.ComputeValidPairs()`, the very first thing that happens is:
+The former ladder scan was sensitive to iteration order and pair-level bookkeeping. It could accept a distant high/low pair before considering the nearer cloud between them.
 
-```csharp
-// Step 1 — seed from EXISTING ladders
-foreach (var kvp in _ladders)
-{
-    var (lower, upper) = kvp.Key;
-    if (lower != null) _hasLadderAboveScratch.Add(lower);
-    if (upper != null) _hasLadderBelowScratch.Add(upper);
-}
+`CloudLadderController` now:
 
-// Step 2 — main pairing loop
-for (int i ...) for (int j ...)
-{
-    ...
-    if (_hasLadderAboveScratch.Contains(lower) || _hasLadderBelowScratch.Contains(upper))
-        continue;   // ← SKIPS the existing (A,B) pair entirely
-    if (ShouldHaveLadder(a, b))
-    {
-        _validPairsScratch.Add(pair);
-        ...
-    }
-}
+- builds globally ranked candidates from actual cloud surface gaps and actual ladder X;
+- prefers valid existing pairs only through bounded hysteresis rather than unconditional retention;
+- reserves a cloud's independent above/below slots only after the best candidate is selected;
+- rejects a candidate when a `Physics2D.OverlapBox` through the open ladder span intersects an enabled, non-trigger collider owned by another active managed `CloudPlatform`;
+- revalidates forced pairs with the same obstruction and lifecycle rules.
 
-// Step 4 — re-validate existing ladders
-foreach (var kvp in _ladders)
-{
-    if (ShouldHaveLadder(kvp.Key.Item1, kvp.Key.Item2))
-        _validPairsScratch.Add(kvp.Key);  // re-adds them here
-}
-```
+This means a ladder from a very high cloud to a very low cloud is not allowed to tunnel through an eligible middle cloud.
 
-**The intended safety net is Step 4.** Existing ladders are re-added to `_validPairsScratch` if `ShouldHaveLadder` still returns true. If `ShouldHaveLadder` consistently returns true for static scene clouds, this should be stable.
+### 4. Floating ladders after cloud pooling
 
-**However**, `ShouldHaveLadder` calls `GetMainBounds()` on both clouds. `GetMainBounds()` returns `mainCollider.bounds` — this is the physics-computed AABB, which is finalized at the end of each physics step (FixedUpdate). The Rigidbody2D on CloudPlatform uses `RigidbodyInterpolation2D.Interpolate`, meaning the **visual/transform position** can differ from the **physics position** between FixedUpdate steps.
+An active or retiring ladder could outlive an endpoint that had been returned to the cloud pool, and the same pooled object could be reactivated while an old retirement callback still referred to it.
 
-For scene clouds with `moveSpeed = 0`, the physics position never changes — this should be stable. But see **Bug 2** for an edge case.
+Each cloud activation now increments a generation number. Active and retiring ladder entries capture both endpoints' generations and are discarded if an endpoint is inactive, missing, or has since been reused. Invalid ladders are removed before replacements are created. Pool-retirement callbacks therefore cannot mutate a ladder belonging to a newer activation.
 
-### The real trigger: `ShouldHaveLadder` geometric check with `minVerticalGap`
+### 5. Riding jitter and incorrect ground binding
 
-The gap check in `ShouldHaveLadder`:
-```csharp
-float gap = bu.min.y - bl.max.y;
-if (gap < minVerticalGap) return false;  // minVerticalGap = 0.5f
-```
+Ground selection used an allocation-limited overlap query and mostly collider-center distance. On composite cloud art this could select a visually nearby but physically wrong collider, and the fixed 32-entry buffer could silently omit the best contact.
 
-The default `ladderInsetIntoCloud = 0.2f` introduced in this commit means `UpdateLadderPosition` now computes the ladder so it **extends 0.2 units into each cloud**:
-```csharp
-yMin = lowerTopY - 0.2f;   // below the cloud's top surface
-yMax = upperBottomY + 0.2f; // above the cloud's bottom surface
-```
+`GroundChecker` now grows its reusable overlap buffer up to 256 entries when full and ranks candidates by the collider's `ClosestPoint` to the character. Together with the authoritative `Rigidbody2D.position` initialization and server-authenticated position-only `NetworkTransform`, this reduces ground-parent switching and spawn-frame corrections while a squirrel rides a moving cloud.
 
-But `ShouldHaveLadder` still uses the AABB gap (`bu.min.y - bl.max.y`). If the scene clouds were placed with a gap of exactly ~0.5 (right at `minVerticalGap`), floating-point jitter in `mainCollider.bounds` (which is recalculated each physics step from the RB position) can cause this check to flip between `true` and `false` on alternating frames → **ladder created on frame N, removed on frame N+1, created on N+2...** = visible flicker.
+### 6. Ambiguous boundary dependency
 
-**Compounding factor:** `GetEdgeYAtX` is called with `x = (bl.center.x + bu.center.x) / 2`. Cloud_1 is at (-1.34, -0.52). If Cloud_2 has a significantly different X position, the midpoint X may lie **outside** the polygon bounds of one or both clouds. `GetEdgeYAtX` then falls back to AABB anyway, making `ladderInsetIntoCloud` compute `yMin = bl.max.y - 0.2` and `yMax = bu.min.y + 0.2`. The resulting ladder height = `gap - 0.4f` if inset pushes INTO a negative-gap scenario, or if `gap < 0.4f` (overlap), `Mathf.Max(0.1f, ...)` clamps to 0.1, creating a nearly-invisible zero-height collider. The BoxCollider2D is effectively invisible/zero-size = **uninteractable**.
+`CloudManager` first binds a `BoundaryManager` on its own GameObject. It only falls back to a scene search when exactly one candidate exists; multiple candidates fail with an explicit error instead of binding nondeterministically. `SimpleLevel` carries the intended serialized override.
 
----
+## FishNet prefab gotchas
 
-## Bug 2: Uninteractable Ladder — Root Cause
+The collaborator warning is directionally correct: an arbitrary sprite or collider edit does not inherently break networking, but a prefab edit can change the network protocol when it changes the `NetworkObject`, its `NetworkBehaviour` component set/order, or the generated spawnable-prefab table.
 
-Even if the ladder is stable (not flickering), `ladderInsetIntoCloud = 0.2f` causes the ladder's `BoxCollider2D` (which is a **trigger**) to be embedded 0.2 units inside the solid cloud colliders. The cloud colliders are on a physics layer that the player collides with. The player's collider hits the cloud's solid surface before ever reaching the ladder trigger's center. Depending on layer collision matrix settings, the player may never actually enter the ladder trigger at all.
+FishNet sends a prefab identifier and the receiving peer resolves that identifier through its local spawnable-prefab collection. It also serializes `NetworkBehaviour` identity by component index. Consequently, an old server and a new WebGL client can instantiate the wrong asset or deserialize state into the wrong behaviour if either table or behaviour order differs.
 
-**Separately:** `ShouldHaveLadder` uses AABB but `UpdateLadderPosition` uses the polygon edge. The two clouds' polygon tops/bottoms might be at different Y positions than the AABB edges. It's possible for `ShouldHaveLadder` to say the gap is fine but `UpdateLadderPosition` computes a negative or near-zero ladder height if the polygon edge is lower (for lower cloud top) or higher (for upper cloud bottom) than the AABB edge at the sampled X.
+Project-specific findings:
 
----
+- The August 19 default-prefab table had 19 entries; the current table has 24, with cloud IDs shifted.
+- `Cloud_2` previously serialized duplicate `NetworkCloud` components and an order equivalent to `[NetworkCloud, NetworkCloud, NetworkTransform]`. It is repaired to exactly `[NetworkTransform, NetworkCloud]`, matching the other six cloud prefabs.
+- `Cloud_2`'s variant-local `NetworkObject` despawn policy and `NetworkTransform` interpolation are aligned with `Cloud_Base`; its stale serialized prefab ID is deliberately not hand-edited because FishNet assigns the current generated-table index during initialization.
+- All seven configured cloud prefabs now have exactly one root `NetworkObject`, one `NetworkTransform`, one `NetworkCloud`, a `CloudPlatform`, and at least one enabled non-trigger collider.
+- The automated invariant validates unique IDs and round-trips each prefab through both FishNet's server and client spawnable-prefab lookup.
+- A same-build Unity Multiplayer Play Mode run was required because a host-only test does not exercise client prefab instantiation.
 
-## Networking Gotcha: Server Owns CloudManager — Will Maya's System Work?
+Official FishNet references:
 
-**Short answer: Mostly yes, but with one real gotcha.**
+- [Spawnable Prefabs](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/scriptableobjects/spawnableprefabs)
+- [Default Prefab Objects](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/scriptableobjects/spawnableprefabs/defaultprefabobjects)
+- [Configuration and Tools](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/configuration-and-tools)
+- [Network Transform](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/components/network-transform)
 
-### What works correctly
-- `CloudManager.Update()` runs only on the server. Server physics runs for all objects (including remote players' `NetworkObject`s). `CloudPlatform.OnCollisionEnter2D`/`OnCollisionExit2D` fires correctly on the server, so `IsPlayerOnCloud` is accurate.
-- `ShouldKeepCloudActiveForLadders` and `IsPlayerOnAnyLadderPartner` both run on the server where physics is authoritative. Safe.
-- `CloudLadderController.LateUpdate()` runs on the server → creates/despawns ladders as FishNet NetworkObjects. Clients receive them via replication.
-- `NetworkCloudLadderController.LateUpdate()` on pure clients rebuilds ladder geometry from synced cloud positions. Correct.
+If FishNet reports prefab-ID or behaviour-index errors after a future prefab change, use its supported **Refresh Default Prefabs** / **Reserialize NetworkObjects** tools and retest a pure client. Do not hand-edit IDs. Client and server must be deployed from the same commit; keep the previous server available until the matching replacement is selected and ready.
 
-### The gotcha: `wasActiveAtStart` set in `NetworkCloud.Awake()` — BEFORE `NetworkCloudManager.Awake()` disables `CloudManager`
+`Cloud_2` is runtime-valid but remains structurally more fragile than a clean independent prefab because it inherits `NetworkCloud` while owning variant-local `NetworkObject` and `NetworkTransform` components. Its YAML still carries the historical prefab ID 14 while the generated current table resolves it at 18; FishNet overwrites that runtime value and the server/client round-trip test passes. A post-release cleanup should use FishNet's supported reserialization flow and either recreate it as a clean variant or use one networked cloud prefab with a separately selected cosmetic variant. That cleanup must not be mixed into this incident release.
 
-```csharp
-// NetworkCloud.Awake():
-_platformWasEnabledAtStart = _platform != null && _platform.enabled;
-_platform.wasActiveAtStart = _platformWasEnabledAtStart;
+## Why the suggested rollback was not used
 
-// NetworkCloudManager.Awake():
-_cloudManager.CollectSceneClouds();  // reads wasActiveAtStart
-```
+The August 19 state was inspected as a reference, not restored wholesale. It predates the current 24-entry FishNet prefab table and would reintroduce incompatible component/table mappings. It also would not address the impossible rendered-scale interval that caused the current no-cloud regression. The safer repair keeps the current table, restores a consistent schema on all seven cloud prefabs, and changes size measurement at its source.
 
-`Awake()` order between sibling components on different GameObjects is not guaranteed. If `NetworkCloudManager.Awake()` (and thus `CollectSceneClouds()`) runs **before** `NetworkCloud.Awake()` sets `wasActiveAtStart`, the scene clouds will have `wasActiveAtStart = false` (default) when `CollectSceneClouds()` reads them. Result: scene clouds are added to `_nonPooled` but **not** to `_active`. The ladder controller never sees them. **No ladder ever forms.**
+## Verification performed
 
-In practice on the editor host path, Unity processes components in the order they appear on GameObjects, and scene cloud GOs are separate from the CloudManager GO, so execution order depends on scene hierarchy order. This is fragile.
+- `LadderManagerTest`: **14 passed, 0 failed**, twice after the final adversarial fixes. The harness uses three isolated kinematic clouds and checks exact pairs, including movement/removal, truthful forced creation, both adjacent bindings around an obstructing middle cloud, and rapid endpoint-generation reuse.
+- `CloudManagerTest`: all seven prefabs passed rendered-scale, physical-collider, FishNet behaviour-order, and unique server/client spawn-table round-trip invariants. Dynamic clouds also spawned in offline fallback. The scene's pre-existing `NetworkBootstrapper` fixture still reports `Server did not start`; this is recorded as a test-fixture limitation, not treated as server validation.
+- `SimpleLevel` host run: server log confirmed first authoritative cloud spawn, all seven variants and pooled ladders appeared, and the filtered run showed **0 warnings / 0 errors**.
+- Unity Multiplayer Play Mode: one virtual pure client joined the host. It completed with **15 informational logs, 0 warnings, 0 errors**, while the host received both players and all cloud variants. No prefab-ID or behaviour-index fault appeared.
 
-**Fix:** `wasActiveAtStart` should be set in `CloudPlatform.Awake()` itself (not in `NetworkCloud.Awake()`), so it's always ready before any manager runs `CollectSceneClouds()`. Or, make `CollectSceneClouds()` use `cloud.gameObject.activeSelf` directly instead of relying on `wasActiveAtStart`.
+The publish/deployment record and live WebGL smoke results should be appended to the release handoff after the matching client and Edgegap server are online.
 
-### The other gotcha: `GetPrefabNativeHeightY` destroys a temp instance immediately
+## Release and rollback checklist
 
-```csharp
-var temp = Instantiate(prefab, _poolParent);
-...
-Bounds b = p.GetMainBounds();
-Object.Destroy(temp);         // ← frame-delayed destroy
-h = b.size.y;
-```
+1. Run `git diff --check` and compile after the final file refresh.
+2. Commit the client/server changes together in one `[publish]` commit.
+3. Require the foreground publisher's explicit `Published ... successfully` line; its process exit code alone is not sufficient.
+4. Verify the GitHub Pages output corresponds to that commit.
+5. Rebuild the Edgegap source from the same commit and select that exact newest tag in stable settings.
+6. Save/confirm the replacement before terminating the prior deployment.
+7. Wake the homepage, wait for the new server to become ready, then run a real WebGL pure-client smoke test.
+8. If clouds, prefab deserialization, or readiness fails, restore the previous stable server tag/deployment and matching client rather than running mixed protocol versions.
 
-`Object.Destroy` is deferred to end-of-frame. The temp GO exists on-screen for one frame. More critically, if the cloud prefab has a `NetworkObject`, instantiating it without going through `ServerManager.Spawn()` may log FishNet warnings or cause a brief NetworkObject in an unspawned/detached state. If this causes `GetMainBounds()` to return zero bounds (because the collider hasn't had a physics step yet), `h = 0f` → `SpawnCloudInLane` returns early → **no dynamic clouds ever spawn in that lane**. The fix is to use `Physics2D.SyncTransforms()` before measuring, or read the native bounds from the prefab asset directly rather than instantiating it.
+## Files changed by this repair
 
----
-
-## Suggested Debug Logs (Add Temporarily)
-
-In `CloudLadderController.RemoveInvalidLadders()`, before the second removal loop:
-```csharp
-foreach (var kvp in _ladders)
-{
-    bool inValid = validPairs.Contains(kvp.Key);
-    Debug.Log($"[Ladder] ({kvp.Key.Item1?.name}, {kvp.Key.Item2?.name}) inValidPairs={inValid} shouldHave={ShouldHaveLadder(kvp.Key.Item1, kvp.Key.Item2)}");
-}
-```
-
-In `CloudLadderController.CreateLadder()`:
-```csharp
-Debug.Log($"[Ladder] CREATE ({lower.name}, {upper.name}) gap={upper.GetMainBounds().min.y - lower.GetMainBounds().max.y:F3}");
-```
-
-In `CloudLadderController.DespawnLadder()` (before `if (_onLadderDeactivated != null)`):
-```csharp
-Debug.Log($"[Ladder] DESPAWN {ladder.name}", ladder);
-```
-
-In `CloudManager.DeactivateCloud()` (for scene clouds):
-```csharp
-if (_nonPooled.Contains(cloud))
-    Debug.Log($"[CloudManager] DEACTIVATE nonpooled scene cloud: {cloud.name}");
-```
-
-### Testing Steps
-1. Hit Play in editor (offline mode — no server required for initial test)
-2. Watch Console for `[Ladder] CREATE` / `[Ladder] DESPAWN` alternating each frame → confirms flicker
-3. Check the `gap=` value logged on CREATE — if it's near 0.5 (`minVerticalGap`), that's the oscillation trigger
-4. Check `inValidPairs=false` on a frame where the ladder is about to be removed — tells you whether Step 4 is failing to re-add it
-5. Look for `shouldHave=false` on a frame where the gap is borderline — confirms the floating-point gap oscillation theory
-6. In a network HOST play session, also watch for `[Ladder] CREATE` on frame 1 — if it never appears, check that `wasActiveAtStart` is true on both clouds (select them in the Hierarchy → Inspector → CloudPlatform)
-
----
-
-## Recommended Fixes
-
-### Fix 1: Stabilize `ShouldHaveLadder` gap check (flicker)
-Add a small epsilon buffer to the gap check so near-`minVerticalGap` clouds don't oscillate:
-```csharp
-// In ShouldHaveLadder:
-float gap = bu.min.y - bl.max.y;
-if (gap < minVerticalGap - 0.05f) return false;  // 5cm hysteresis
-```
-
-### Fix 2: Reduce `ladderInsetIntoCloud` to 0 or make it opt-in (uninteractable)
-The current default of 0.2 causes the trigger collider to be buried inside solid cloud colliders. Set it to `0` by default in the Inspector, or ensure the clouds' solid colliders are on a layer that does NOT overlap with the player's ladder detection layer.
-
-Alternatively, change `yMin`/`yMax` to only inset relative to the **gap** midpoint, not penetrating the cloud body:
-```csharp
-// Instead of subtracting inset from surface edge:
-float midGap = (lowerTopY + upperBottomY) * 0.5f;
-float halfLadder = (upperBottomY - lowerTopY) * 0.5f + ladderInsetIntoCloud;
-yMin = midGap - halfLadder;
-yMax = midGap + halfLadder;
-```
-
-### Fix 3: `wasActiveAtStart` initialization order (networking gotcha)
-Move the `wasActiveAtStart` assignment to `CloudPlatform.Awake()` so it's always set before any manager reads it:
-```csharp
-// In CloudPlatform.Awake():
-wasActiveAtStart = gameObject.activeSelf && enabled;
-```
-And remove it from `NetworkCloud.Awake()`.
-
-### Fix 4: `GetPrefabNativeHeightY` — avoid instantiating networked prefabs
-Cache native height in the prefab's `CloudPlatform` component itself, or measure via `PrefabUtility` in editor only, or call `Physics2D.SyncTransforms()` before measuring bounds on the temp instance.
-
----
-
-## Files Involved
-| File | Role |
-|------|------|
-| `Assets/Scripts/Environment/CloudManager.cs` | Viewport pool/despawn, lane management |
-| `Assets/Scripts/Environment/CloudLadderController.cs` | Ladder pair logic, polygon edge sampling |
-| `Assets/Scripts/Environment/CloudPlatform.cs` | Per-cloud movement, bounds, despawn anim |
-| `Assets/Scripts/Environment/CloudBehaviorSettings.cs` | All tunable parameters |
-| `Assets/Scripts/Environment/BoundaryManager.cs` | Extended/inner bounds for lane clamping |
-| `Assets/Scripts/Network/NetworkCloudManager.cs` | Server enables CloudManager, client disables |
-| `Assets/Scripts/Network/NetworkCloudLadderController.cs` | Client rebuilds ladder geometry each LateUpdate |
-| `Assets/Scripts/Network/NetworkCloud.cs` | Sets `wasActiveAtStart`, disables CloudPlatform on pure clients |
-| `Assets/Levels/SimpleLevel.unity` | Cloud_1 at (-1.34, -0.52), Cloud_2 — both `isMoving=0`, `canBuildLadder=1` |
-| `Assets/Scene/Clouds/CloudManagerSettings_Basic.asset` | `minVerticalGap` not set here — default 0.5f in CloudLadderController Inspector |
+| File | Purpose |
+|---|---|
+| `Assets/Scripts/Environment/CloudManager.cs` | Rendered-bounds scaling, deterministic dependency binding, coherent initial physics pose |
+| `Assets/Scripts/Environment/CloudLadderController.cs` | Global candidate ranking, obstruction detection, forced-pair and pooling-generation validation |
+| `Assets/Scripts/Environment/CloudPlatform.cs` | Activation generations and valid physical-bounds selection |
+| `Assets/Scripts/Player/GroundChecker.cs` | Robust overlap growth and closest-surface ground ranking |
+| `Assets/Scripts/Environment/CloudBehaviorSettings.cs` | Clarified tuning semantics |
+| `Assets/Scripts/Testing/CloudManagerTestRunner.cs` | Seven-prefab render/physics/FishNet invariants |
+| `Assets/Scripts/Testing/LadderManagerTestRunner.cs` | Deterministic exact-pair and intermediate-obstruction tests |
+| `Assets/Scene/Clouds/Cloud_Base.prefab` | Server-authenticated position-only transform configuration |
+| `Assets/Scene/Clouds/Cloud_2.prefab` | Repaired FishNet behaviour schema |
+| `Assets/Scene/Clouds/CloudManagerSettings_Basic.asset` | Non-overlapping visual lane spacing |
+| `Assets/Levels/SimpleLevel.unity` | Explicit boundary binding and four-unit ladder vertical reach |

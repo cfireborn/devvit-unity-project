@@ -2802,6 +2802,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      propertyPath: boundaryManager
+      value:
+      objectReference: {fileID: 1504431324}
     - target: {fileID: 559509340474929923, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -2852,7 +2856,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4449832523319277437, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: maxVerticalGap
-      value: 2
+      value: 4
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -103,7 +103,7 @@ public class CloudManager : MonoBehaviour
 
     readonly Dictionary<GameObject, Vector2> _prefabNativeMainSize = new Dictionary<GameObject, Vector2>();
     readonly Dictionary<GameObject, Vector2> _prefabNativeMainCenterOffset = new Dictionary<GameObject, Vector2>();
-    readonly Dictionary<GameObject, float> _prefabNativeVisualWidth = new Dictionary<GameObject, float>();
+    readonly Dictionary<GameObject, Vector2> _prefabNativeVisualSize = new Dictionary<GameObject, Vector2>();
 
     /// <summary>Last Update: player view rects (camera + viewportMargin, clipped). Used for lane activation, viewport cull, and TrySpawnSlot gate.</summary>
     readonly List<PlayerViewRect> _viewportCullRects = new List<PlayerViewRect>();
@@ -141,6 +141,7 @@ public class CloudManager : MonoBehaviour
         // NetworkCloudManager may collect in Awake before scene clouds have run Awake.
         // Repeat here after all Awake calls; collection is idempotent.
         CollectSceneClouds();
+        ResolveBoundaryManager();
 
         _poolParent = new GameObject("CloudPool").transform;
         _poolParent.SetParent(transform);
@@ -180,6 +181,20 @@ public class CloudManager : MonoBehaviour
         var sceneZones = Object.FindObjectsByType<CloudNoSpawnZone>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int z = 0; z < sceneZones.Length; z++)
             RegisterNoSpawnZone(sceneZones[z]);
+    }
+
+    void ResolveBoundaryManager()
+    {
+        if (boundaryManager != null) return;
+
+        boundaryManager = GetComponent<BoundaryManager>();
+        if (boundaryManager != null) return;
+
+        BoundaryManager[] candidates = Object.FindObjectsByType<BoundaryManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (candidates.Length == 1)
+            boundaryManager = candidates[0];
+        else if (candidates.Length > 1)
+            Debug.LogError("CloudManager: boundaryManager is unassigned and the scene contains multiple BoundaryManagers.");
     }
 
     void Update()
@@ -686,7 +701,11 @@ public class CloudManager : MonoBehaviour
         AcquireCloudFromPool(lane, scale, out GameObject cloud, out CloudPlatform platform);
         platform.pooledWorldY = spawnY;
         platform.slotIndex = slotIndex;
-        cloud.transform.position = new Vector3(targetX, spawnY, 0f);
+        Vector2 spawnPosition = new Vector2(targetX, spawnY);
+        cloud.transform.position = new Vector3(spawnPosition.x, spawnPosition.y, 0f);
+        Rigidbody2D rb = platform.GetComponent<Rigidbody2D>();
+        if (rb != null)
+            rb.position = spawnPosition;
         _onCloudActivated?.Invoke(cloud, scale);
         _active.Add(cloud);
         lane.clouds[slotIndex] = cloud;
@@ -744,38 +763,42 @@ public class CloudManager : MonoBehaviour
         return sz;
     }
 
-    float GetPrefabNativeVisualWidth(GameObject prefab)
+    Vector2 GetPrefabNativeVisualSize(GameObject prefab)
     {
-        if (_prefabNativeVisualWidth.TryGetValue(prefab, out float width)) return width;
+        if (_prefabNativeVisualSize.TryGetValue(prefab, out Vector2 size)) return size;
 
-        float minX = float.PositiveInfinity;
-        float maxX = float.NegativeInfinity;
+        Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+        Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
         SpriteRenderer[] renderers = prefab.GetComponentsInChildren<SpriteRenderer>(true);
         for (int i = 0; i < renderers.Length; i++)
         {
             SpriteRenderer renderer = renderers[i];
             if (renderer == null || !renderer.enabled || renderer.sprite == null) continue;
-            Bounds spriteBounds = renderer.sprite.bounds;
+            Bounds rendererBounds = renderer.localBounds;
             for (int corner = 0; corner < 4; corner++)
             {
                 Vector3 local = new Vector3(
-                    (corner & 1) == 0 ? spriteBounds.min.x : spriteBounds.max.x,
-                    (corner & 2) == 0 ? spriteBounds.min.y : spriteBounds.max.y,
+                    (corner & 1) == 0 ? rendererBounds.min.x : rendererBounds.max.x,
+                    (corner & 2) == 0 ? rendererBounds.min.y : rendererBounds.max.y,
                     0f);
-                float rootX = prefab.transform.InverseTransformPoint(renderer.transform.TransformPoint(local)).x;
-                minX = Mathf.Min(minX, rootX);
-                maxX = Mathf.Max(maxX, rootX);
+                Vector2 rootPoint = prefab.transform.InverseTransformPoint(renderer.transform.TransformPoint(local));
+                min = Vector2.Min(min, rootPoint);
+                max = Vector2.Max(max, rootPoint);
             }
         }
 
-        width = float.IsInfinity(minX) ? GetPrefabNativeMainSize(prefab).x : Mathf.Max(0.0001f, maxX - minX);
-        _prefabNativeVisualWidth[prefab] = width;
-        return width;
+        size = float.IsInfinity(min.x)
+            ? GetPrefabNativeMainSize(prefab)
+            : new Vector2(Mathf.Max(0.0001f, max.x - min.x), Mathf.Max(0.0001f, max.y - min.y));
+        _prefabNativeVisualSize[prefab] = size;
+        return size;
     }
+
+    float GetPrefabNativeVisualWidth(GameObject prefab) => GetPrefabNativeVisualSize(prefab).x;
 
     void ComputeScaleBoundsForPrefab(GameObject prefab, out float sMin, out float sMax)
     {
-        Vector2 native = GetPrefabNativeMainSize(prefab);
+        Vector2 native = GetPrefabNativeVisualSize(prefab);
         sMin = Mathf.Max(settings.minCloudMainBoundsWidth / native.x, settings.minCloudMainBoundsHeight / native.y);
         sMax = Mathf.Min(settings.maxCloudMainBoundsWidth / native.x, settings.maxCloudMainBoundsHeight / native.y);
     }
@@ -1160,6 +1183,19 @@ public class CloudManager : MonoBehaviour
 
     /// <summary>Native main-collider size for a prefab at scale 1 (same cache as pooled clouds).</summary>
     public Vector2 GetPrefabNativeMainSizePublic(GameObject prefab) => GetPrefabNativeMainSize(prefab);
+
+    /// <summary>Native rendered size for a prefab at scale 1.</summary>
+    public Vector2 GetPrefabNativeVisualSizePublic(GameObject prefab) => GetPrefabNativeVisualSize(prefab);
+
+    /// <summary>Valid uniform scale interval derived from configured rendered cloud dimensions.</summary>
+    public bool TryGetPrefabScaleRange(GameObject prefab, out float minScale, out float maxScale)
+    {
+        minScale = 0f;
+        maxScale = 0f;
+        if (prefab == null || settings == null) return false;
+        ComputeScaleBoundsForPrefab(prefab, out minScale, out maxScale);
+        return minScale > 0f && minScale <= maxScale && !float.IsNaN(minScale) && !float.IsNaN(maxScale);
+    }
 
     /// <summary>Horizontal travel speed for a lane while it is active; false if lane index is invalid or inactive.</summary>
     public bool TryGetActiveLaneSpeed(int laneIndex, out float speed)
