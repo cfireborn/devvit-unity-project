@@ -55,6 +55,28 @@ Ground selection used an allocation-limited overlap query and mostly collider-ce
 
 `CloudManager` first binds a `BoundaryManager` on its own GameObject. It only falls back to a scene search when exactly one candidate exists; multiple candidates fail with an explicit error instead of binding nondeterministically. `SimpleLevel` carries the intended serialized override.
 
+### 7. Floating client ladders: authoring sprite and fail-open endpoint resolution
+
+The ladder prefab carried an enabled root `SpriteRenderer` used only as an editor placeholder. The server/offline pool path removed that component at runtime, but a pure FishNet client never runs that path, so it could briefly show an unpositioned ladder as soon as the prefab spawned. Later, if either cloud ID or endpoint was temporarily unavailable, the client update loop skipped the ladder without hiding the last valid geometry or trigger.
+
+The authoring renderer is now disabled in the prefab and defensively in code. On a pure client, all derived ladder sprites and the root trigger fail closed until both endpoint IDs resolve to live `CloudPlatform`s. Losing either endpoint immediately hides both visuals and collision. Runtime geometry is rebuilt only from the lower/upper cloud surfaces; the root placeholder is never used as game art. Pool reuse now disables that placeholder rather than destroying a component, keeping pooled instances structurally stable.
+
+### 8. Cloud stutter: FishNet and Unity were advancing different physics clocks
+
+`SimpleLevel` configures FishNet `PhysicsMode.TimeManager` at 60 Hz. FishNet manually calls `Physics2D.Simulate` between `OnTick` and `OnPostTick`, while pooled clouds previously advanced in Unity `FixedUpdate`. During a slow render frame, several `MovePosition` targets could therefore be written before FishNet simulated its catch-up ticks; the last target won, producing a large step followed by empty physics ticks.
+
+Authoritative pooled clouds and non-pooled moving scene clouds now advance once per FishNet pre-physics tick when TimeManager physics is active, with `FixedUpdate` retained only for genuine Unity/offline physics. `OnEnable` plus a `Start` retry handles scene execution-order differences. NetworkTransform continues to sample the authoritative result after physics.
+
+On a pure client, FishNet `NetworkTransform` is the sole rendered root interpolator; `NetworkCloud` disables Rigidbody2D interpolation so two systems cannot alternately write the same transform. On the host/server, the reverse is intentional: the authoritative Rigidbody2D interpolates its physics poses, while NetworkTransform samples and sends them rather than moving that root.
+
+### 9. Rider stutter: visual rotation and platform carry had competing writers
+
+`NetworkPlayer.prefab` assigned `PlayerControllerM.spriteTransform` to the Rigidbody2D/NetworkTransform root. `UpdateSprite` rotated that root every rendered `Update`, while physics froze it and FishNet synchronized it, creating a visible correction loop. The reference now targets the dedicated `Sprite` child, root rotation synchronization is disabled, and the owner Rigidbody2D uses interpolation.
+
+For replicated clouds on a pure client, platform motion must be applied manually because the local `CloudPlatform` simulation is disabled. That manual delta and the measured platform velocity were both being applied to the squirrel. The controller now uses exactly one grounded carry path: physics-driven kinematic platforms rely on physics, while non-simulated replicated platforms apply the measured positional delta and suppress the duplicate grounded velocity term. The measured velocity remains available as detach momentum.
+
+Client-side prediction was deliberately not added. The owner squirrel is already locally authoritative, and predicting the authoritative cloud root would separate its collision, ladder geometry, and sprite. If live frame-displacement measurements still show residual render jitter after these writer/timing fixes, the safe next experiment is a dedicated visual-child smoother, not root prediction.
+
 ## FishNet prefab gotchas
 
 The collaborator warning is directionally correct: an arbitrary sprite or collider edit does not inherently break networking, but a prefab edit can change the network protocol when it changes the `NetworkObject`, its `NetworkBehaviour` component set/order, or the generated spawnable-prefab table.
@@ -91,6 +113,14 @@ The August 19 state was inspected as a reference, not restored wholesale. It pre
 - `CloudManagerTest`: all seven prefabs passed rendered-scale, physical-collider, FishNet behaviour-order, and unique server/client spawn-table round-trip invariants. Dynamic clouds also spawned in offline fallback. The scene's pre-existing `NetworkBootstrapper` fixture still reports `Server did not start`; this is recorded as a test-fixture limitation, not treated as server validation.
 - `SimpleLevel` host run: server log confirmed first authoritative cloud spawn, all seven variants and pooled ladders appeared, and the filtered run showed **0 warnings / 0 errors**.
 - Unity Multiplayer Play Mode: one virtual pure client joined the host. It completed with **15 informational logs, 0 warnings, 0 errors**, while the host received both players and all cloud variants. No prefab-ID or behaviour-index fault appeared.
+
+Follow-up motion/ladder verification added after the initial release:
+
+- The ladder prefab invariant now rejects an enabled placeholder root sprite.
+- A network presentation probe constructs derived ladder geometry, verifies it is visible only while bound, then verifies every renderer and the trigger are disabled while unbound.
+- The cloud harness now verifies that TimeManager-mode clouds are subscribed to FishNet's physics clock.
+- The network-player invariant verifies the sprite-child reference, owner Rigidbody2D interpolation, and disabled root rotation synchronization.
+- The production O(N²) ladder candidate scan remains allocation-free: rejection strings are built only when `GetLadderGeometryDiagnostic` is explicitly called by a test/debugger.
 
 The publish/deployment record and live WebGL smoke results should be appended to the release handoff after the matching client and Edgegap server are online.
 

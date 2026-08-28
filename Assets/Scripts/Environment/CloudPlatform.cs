@@ -6,7 +6,8 @@ using FishNet.Managing.Timing;
 using UnityEngine;
 
 /// <summary>
-/// Pooled clouds: CloudManager drives Rigidbody2D.MovePosition in FixedUpdate (isPooled, isMoving false).
+/// Pooled clouds: CloudManager drives Rigidbody2D.MovePosition on the active physics clock
+/// (isPooled, isMoving false).
 /// Non-pooled scene clouds move themselves here when isMoving.
 /// Stops and despawns when entering CloudNoSpawnZone with blockEntry (non-pooled or when zones enabled).
 ///
@@ -118,6 +119,14 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
             slotIndex = -1;
             pooledWorldY = 0f;
         }
+    }
+
+    void Start()
+    {
+        // OnEnable can precede NetworkManager.Awake depending on scene/component order.
+        // Retry after all Awake calls so an already-enabled scene cloud cannot remain
+        // on Unity FixedUpdate while FishNet manually simulates physics.
+        SubscribeToNetworkPhysicsClock();
     }
 
     void OnDisable()

@@ -4,9 +4,10 @@ using UnityEngine;
 /// <summary>
 /// Attach to every cloud prefab alongside NetworkObject + NetworkTransform.
 ///
-/// - Server / host: Pooled clouds are moved by CloudManager.FixedUpdate (Rigidbody2D.MovePosition).
+/// - Server / host: Pooled clouds are moved once per active physics tick by CloudManager
+///   (Rigidbody2D.MovePosition).
 ///   FishNet NetworkTransform (on the prefab) replicates transform/Rigidbody state to clients.
-///   Non-pooled scene clouds may still move via CloudPlatform.FixedUpdate when isPooled is false.
+///   Non-pooled scene clouds use the same physics clock through CloudPlatform when isPooled is false.
 ///   Scene clouds that were active at load are re-enabled in OnStartServer so they behave once the network is up.
 /// - Clients: CloudPlatform is disabled so local physics does not fight replication; NetworkTransform applies positions.
 ///
@@ -49,10 +50,10 @@ public class NetworkCloud : NetworkBehaviour
         if (_rb != null)
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
-            // NetworkTransform already interpolates the root every rendered update.
-            // Rigidbody interpolation would be a second transform writer and visibly
-            // pull the cloud between physics poses after FishNet has smoothed it.
-            _rb.interpolation = RigidbodyInterpolation2D.None;
+            // The authoritative root is moved only by the physics pipeline. Let the
+            // Rigidbody interpolate those physics poses for the host's rendered view;
+            // NetworkTransform only samples this object for remote observers.
+            _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         }
     }
 
@@ -84,7 +85,9 @@ public class NetworkCloud : NetworkBehaviour
         if (_rb != null)
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
-            _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+            // NetworkTransform already interpolates the replicated root each rendered
+            // update. Rigidbody interpolation here would add a second transform writer.
+            _rb.interpolation = RigidbodyInterpolation2D.None;
         }
     }
 

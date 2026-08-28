@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using FishNet;
 using FishNet.Component.Transforming;
 using FishNet.Managing;
@@ -290,12 +291,14 @@ public class CloudManagerTestRunner : MonoBehaviour
             controller.spriteTransform == controller.spriteRenderer.transform &&
             controller.spriteTransform != prefab.transform;
         bool interpolatedBody = playerRb != null && playerRb.interpolation == RigidbodyInterpolation2D.Interpolate;
-        bool rotationFrozenAtRuntime = controller != null && networkTransform != null;
+        FieldInfo syncRotationField = typeof(NetworkTransform).GetField("_synchronizeRotation", BindingFlags.Instance | BindingFlags.NonPublic);
+        bool rotationSyncDisabled = networkTransform != null && syncRotationField != null &&
+            syncRotationField.GetValue(networkTransform) is bool synchronizeRotation && !synchronizeRotation;
 
-        if (dedicatedSprite && interpolatedBody && rotationFrozenAtRuntime)
+        if (dedicatedSprite && interpolatedBody && rotationSyncDisabled)
             Pass("Network player tilts only its Sprite child and interpolates the owner Rigidbody2D.");
         else
-            Fail("Network player motion configuration can reintroduce root jitter.", $"dedicatedSprite={dedicatedSprite}, interpolatedBody={interpolatedBody}, componentsPresent={rotationFrozenAtRuntime}");
+            Fail("Network player motion configuration can reintroduce root jitter.", $"dedicatedSprite={dedicatedSprite}, interpolatedBody={interpolatedBody}, rotationSyncDisabled={rotationSyncDisabled}");
     }
 
     IEnumerator CheckCloudManagerEnabledOnServer()
