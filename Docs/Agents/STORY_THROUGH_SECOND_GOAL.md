@@ -21,7 +21,7 @@ The distinction between serialized validation and a runtime playthrough is inten
 
 The streamlined story is linear:
 
-1. Gray greets Hermes and asks Hermes to deliver a letter to Spike.
+1. Gray greets Hermes, briefly explains the town's ambient cloud ladders, and asks Hermes to deliver a letter to Spike.
 2. Completing Gray's dialogue creates `Deliver Gray's Letter to Spike`.
 3. Reaching Spike completes the first goal.
 4. The animated `COMPERSION` definition card appears before Spike speaks.
@@ -37,7 +37,7 @@ The streamlined story is linear:
 
 These are design decisions, not missing implementation:
 
-- **No fixed ladder tutorial.** Players enter the world with the normal multiplayer ladder system already operating. Gray's opening dialogue must not enable a `LadderTrigger` or call `BuildLadder`.
+- **No fixed ladder-building tutorial.** Players enter the world with the normal multiplayer ladder system already operating. Gray briefly explains that everyday-magic ladders form between drifting clouds and that holding `up` climbs them, but the opening must not enable a `LadderTrigger` or call `BuildLadder`.
 - **No ordinary-mail/postbox side goal.** Spike does not offer a randomly placed delivery-cloud or postbox goal. The story moves directly back to Gray.
 - **No goal-choice screen in this sequence.** There is only one active story delivery at a time.
 - **No flower choice.** The current opening dialogue treats the pressed flower as part of Gray's letter. Adding a choice would require a dialogue-choice feature and is outside the no-new-feature adaptation.
@@ -345,6 +345,7 @@ Clear the Console immediately before each pass. Test from a freshly reloaded sce
 ### Offline or host pass
 
 - [ ] Gray's opening appears once.
+- [ ] Gray briefly explains that ambient ladders form between clouds and that holding `up` climbs them.
 - [ ] Completing it queues `Deliver Gray's Letter to Spike`; the goal appears after the 1.5-second give-item animation wait.
 - [ ] The goal indicator points to Spike.
 - [ ] No fixed ladder tutorial dialogue or forced ladder build occurs.

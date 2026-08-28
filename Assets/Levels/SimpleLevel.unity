@@ -2803,6 +2803,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
+      propertyPath: settings
+      value:
+      objectReference: {fileID: 11400000, guid: e59afd6808b9e4a27b05718be67c855c, type: 2}
+    - target: {fileID: -4670278498999781767, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
       propertyPath: boundaryManager
       value:
       objectReference: {fileID: 1504431324}

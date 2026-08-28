@@ -23,18 +23,26 @@ MonoBehaviour:
     text: ...
   - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
     text: Just because we can't cuddle right now doesn't mean I'm not happy to
-      see you. I have multiple priorities! :<
+      see you.
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: I have multiple priorities! :<
   - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
     text: ......
   - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
     text: I don't deny that some priorities are... bigger than others.
   - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
     text: Actually, perfect timing. Spike just moved into the old balloon across
-      town, and I wrote them a welcome letter.
+      town.
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: I wrote them a welcome letter.
   - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
     text: I tucked in a pressed flower. It's less intense than a bouquet. Right?
       Probably.
   - characterSprite: {fileID: 21300000, guid: 8f4dd71feaee8d84ab55b30b45a37c8e, type: 3}
     text: ...
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: Getting there is easy. Town ladders form between clouds—everyday magic.
+  - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
+    text: Just hold "up" to climb one. The ladder handles the complicated part.
   - characterSprite: {fileID: 21300000, guid: 739841fa48a2e7148997e9a9aef1d933, type: 3}
     text: Please take it before I rethink every word.
