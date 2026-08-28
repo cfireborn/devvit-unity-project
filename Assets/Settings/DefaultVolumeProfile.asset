@@ -465,6 +465,7 @@ MonoBehaviour:
   - {fileID: -6288072647309666549}
   - {fileID: 7518938298396184218}
   - {fileID: -1410297666881709256}
+  - {fileID: 7864531164637360267}
 --- !u!114 &853819529557874667
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -922,6 +923,37 @@ MonoBehaviour:
   scale:
     m_OverrideState: 1
     m_Value: 1
+--- !u!114 &7864531164637360267
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfbfcd97c1e05384cb26cdedcdc1d65b, type: 3}
+  m_Name: CRTEffectSettings
+  m_EditorClassIdentifier: Assembly-CSharp::CRTEffectSettings
+  active: 1
+  strength:
+    m_OverrideState: 1
+    m_Value: 1
+  pixelsPerUnit:
+    m_OverrideState: 1
+    m_Value: 100
+  horizontalScanlineIntensity:
+    m_OverrideState: 1
+    m_Value: 0.3
+  verticalScanlineIntensity:
+    m_OverrideState: 1
+    m_Value: 0.3
+  curvature:
+    m_OverrideState: 1
+    m_Value: 0.5
+  colorBleed:
+    m_OverrideState: 1
+    m_Value: 0.0015
 --- !u!114 &9001657382290151224
 MonoBehaviour:
   m_ObjectHideFlags: 3

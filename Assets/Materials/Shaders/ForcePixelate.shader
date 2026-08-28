@@ -5,20 +5,15 @@ Shader "Custom/SinglePassPixelShadow"
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
 
+        [Header(Pixelation Settings)]
+        _PixelsPerWorldUnit ("Pixels Per World Unit", Float) = 100
+        _PixelSizeMultiplier ("Pixel Size Multiplier", Float) = 1
+
         [Header(Shadow Settings)]
-
         _ShadowColor ("Shadow Color", Color) = (0, 0, 0, 0.5)
-
-        // World-space direction and distance of the shadow.
         _ShadowOffset ("World Shadow Offset (X, Y)", Vector) = (-0.5, -0.5, 0, 0)
-
-        // Amount of blur applied to the shadow.
-        // 0 = crisp shadow.
-        // Larger values = softer/larger blur.
-        _ShadowBlur ("Shadow Blur", Range(0, 0.05)) = 0.005
-
-        // Additional edge feathering.
-        _ShadowSoftness ("Shadow Softness (Edge Feather)", Range(0, 0.05)) = 0.01
+        _ShadowBlur ("Shadow Blur (World Units)", Range(0, 0.2)) = 0.01
+        _ShadowSoftness ("Shadow Softness", Range(0, 0.05)) = 0.005
 
         [HideInInspector] _Flip ("Flip", Vector) = (1,1,1,1)
         [PerRendererData] _AlphaSplitEnabled ("Alpha Split Enabled", Float) = 0
@@ -38,8 +33,6 @@ Shader "Custom/SinglePassPixelShadow"
         Cull Off
         Lighting Off
         ZWrite Off
-
-        // Premultiplied alpha blending
         Blend One OneMinusSrcAlpha
 
         Pass
@@ -55,11 +48,6 @@ Shader "Custom/SinglePassPixelShadow"
 
             #include "UnityCG.cginc"
 
-
-            // =========================================================
-            // STRUCTS
-            // =========================================================
-
             struct appdata_t
             {
                 float4 vertex   : POSITION;
@@ -72,47 +60,25 @@ Shader "Custom/SinglePassPixelShadow"
                 float4 vertex   : SV_POSITION;
                 fixed4 color    : COLOR;
                 float2 texcoord : TEXCOORD0;
-
-                // UV used for the shadow.
-                float2 shadowUV : TEXCOORD1;
+                float3 worldPos : TEXCOORD1;
             };
 
-
-            // =========================================================
-            // PROPERTIES
-            // =========================================================
-
             fixed4 _Color;
+            float _PixelsPerWorldUnit;
+            float _PixelSizeMultiplier;
 
             fixed4 _ShadowColor;
-
-            // WORLD-SPACE shadow displacement.
             float4 _ShadowOffset;
-
-            // Shadow blur radius in UV space.
             float _ShadowBlur;
-
-            // Additional edge feathering.
             float _ShadowSoftness;
-
-
-            // =========================================================
-            // TEXTURES
-            // =========================================================
 
             sampler2D _MainTex;
             sampler2D _AlphaTex;
 
-
-            // =========================================================
-            // VERTEX SHADER
-            // =========================================================
-
             v2f vert(appdata_t IN)
             {
                 v2f OUT;
-
-                // Normal sprite rendering.
+                OUT.worldPos = mul(unity_ObjectToWorld, IN.vertex).xyz;
                 OUT.vertex = UnityObjectToClipPos(IN.vertex);
                 OUT.texcoord = IN.texcoord;
                 OUT.color = IN.color * _Color;
@@ -121,278 +87,140 @@ Shader "Custom/SinglePassPixelShadow"
                     OUT.vertex = UnityPixelSnap(OUT.vertex);
                 #endif
 
-
-                // -----------------------------------------------------
-                // WORLD-SPACE SHADOW OFFSET
-                // -----------------------------------------------------
-                //
-                // _ShadowOffset is specified in world space.
-                //
-                // Convert it into the sprite's local space using the
-                // inverse object transform.
-                //
-                // Using a 3x3 matrix means translation is ignored,
-                // which is correct because this is a direction/vector,
-                // not a position.
-                //
-                float3 localShadowOffset =
-                    mul(
-                        (float3x3)unity_WorldToObject,
-                        _ShadowOffset.xyz
-                    );
-
-
-                // -----------------------------------------------------
-                // UV OFFSET
-                // -----------------------------------------------------
-                //
-                // Unity sprites use a local-space mesh corresponding
-                // to their texture UVs.
-                //
-                // The shadow offset is converted into UV space here.
-                //
-                // NOTE:
-                // This assumes the normal rectangular SpriteRenderer
-                // mesh relationship between local coordinates and UVs.
-                //
-                // The offset is negated because we want to sample the
-                // source sprite from the position displaced toward the
-                // light, creating the shadow in the opposite direction.
-                //
-                float2 uvOffset = localShadowOffset.xy;
-
-
-                OUT.shadowUV = IN.texcoord - uvOffset;
-
                 return OUT;
             }
 
-
-            // =========================================================
-            // SAFE TEXTURE SAMPLING
-            // =========================================================
-
-            fixed4 SampleSpriteTextureWithBounds(float2 uv)
+            float2x2 Inverse2x2(float2x2 m)
             {
-                // Anything outside the sprite's UV range is transparent.
-                if (uv.x < 0.0 ||
-                    uv.x > 1.0 ||
-                    uv.y < 0.0 ||
-                    uv.y > 1.0)
+                float determinant = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+                float absDet = abs(determinant);
+                
+                if (absDet < 1e-12)
                 {
-                    return fixed4(0, 0, 0, 0);
+                    determinant = (determinant < 0.0) ? -1e-12 : 1e-12;
                 }
+
+                return float2x2(
+                     m[1][1] / determinant,
+                    -m[0][1] / determinant,
+                    -m[1][0] / determinant,
+                     m[0][0] / determinant
+                );
+            }
+
+            // Optimized branchless sampling with precomputed inverse target
+            fixed4 SampleSpriteTextureWithBounds(float2 uv, float2 targetPixels, float2 invTargetPixels)
+            {
+                // Multiply-add instead of divide-add
+                uv = (floor(uv * targetPixels) + 0.5) * invTargetPixels;
 
                 fixed4 color = tex2D(_MainTex, uv);
 
                 #if defined(ETC1_EXTERNAL_ALPHA)
-
-                    fixed4 alpha = tex2D(_AlphaTex, uv);
-
-                    color.a = alpha.r;
-
+                    color.a = tex2D(_AlphaTex, uv).r;
                 #endif
 
-                return color;
+                // Branchless bounds check (returns 1 if 0 <= uv <= 1, else 0)
+                float2 s = step(0.0, uv) * step(uv, 1.0);
+                float inBounds = s.x * s.y;
+
+                return color * inBounds;
             }
-
-
-            // =========================================================
-            // FRAGMENT SHADER
-            // =========================================================
 
             fixed4 frag(v2f IN) : SV_Target
             {
                 // =====================================================
-                // 1. SHADOW BLUR
+                // 1. CALCULATE MATRICES AND TARGET PIXEL RESOLUTION
                 // =====================================================
 
-                //
-                // _ShadowBlur controls the size of the blur.
-                //
-                // _ShadowSoftness provides additional edge feathering.
-                //
-                // Add them together so both properties contribute to
-                // the final blur radius.
-                //
-                float blur = _ShadowBlur + _ShadowSoftness;
+                float2 uvDx = ddx(IN.texcoord);
+                float2 uvDy = ddy(IN.texcoord);
+                float3 worldDx = ddx(IN.worldPos);
+                float3 worldDy = ddy(IN.worldPos);
 
-                float2 sUV = IN.shadowUV;
+                float2x2 screenToUV = float2x2(uvDx.x, uvDy.x, uvDx.y, uvDy.y);
+                float2x2 screenToWorld = float2x2(worldDx.x, worldDy.x, worldDx.y, worldDy.y);
+                
+                // Optimized: Matrix properties allow us to bypass one inversion
+                // (A * B^-1)^-1 == B * A^-1
+                float2x2 uvToWorld = mul(screenToWorld, Inverse2x2(screenToUV));
+                float2x2 worldToUVMat = mul(screenToUV, Inverse2x2(screenToWorld));
 
+                float worldWidth = length(mul(uvToWorld, float2(1.0, 0.0)));
+                float worldHeight = length(mul(uvToWorld, float2(0.0, 1.0)));
 
-                // -----------------------------------------------------
-                // 13-TAP BLUR
-                // -----------------------------------------------------
-                //
-                //             1
-                //
-                //       2     3     4
-                //
-                //   5   6     7     8   9
-                //
-                //       10    11    12
-                //
-                //             13
-                //
-                // This is a lightweight approximation of a Gaussian
-                // blur while keeping the number of texture samples
-                // reasonably low.
-                //
+                float ppu = max(_PixelsPerWorldUnit, 0.001);
+                float mult = max(_PixelSizeMultiplier, 0.001);
 
+                float pixelsX = max(round(worldWidth * ppu / mult), 1.0);
+                float pixelsY = max(round(worldHeight * ppu / mult), 1.0);
+                
+                float2 targetPixels = float2(pixelsX, pixelsY);
+                float2 invTargetPixels = 1.0 / targetPixels;
 
-                // Center
-                fixed a0 =
-                    SampleSpriteTextureWithBounds(
-                        sUV
-                    ).a;
+                // =====================================================
+                // 2. CONVERT OFFSETS & BLUR SCALES
+                // =====================================================
 
+                float2 shadowUVOffset = mul(worldToUVMat, _ShadowOffset.xy);
+                float2 shadowUV = IN.texcoord - shadowUVOffset;
 
-                // First ring
-                fixed a1 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(0, blur)
-                    ).a;
+                float2 blurUVX = mul(worldToUVMat, float2(_ShadowBlur, 0));
+                float2 blurUVY = mul(worldToUVMat, float2(0, _ShadowBlur));
+                float2 diagonal = (blurUVX + blurUVY) * 0.70710678;
 
-                fixed a2 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(blur, 0)
-                    ).a;
+                // =====================================================
+                // 3. 13-TAP BLUR (WITH PIXELATION GRID)
+                // =====================================================
 
-                fixed a3 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(0, -blur)
-                    ).a;
+                fixed a0 = SampleSpriteTextureWithBounds(shadowUV, targetPixels, invTargetPixels).a;
 
-                fixed a4 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(-blur, 0)
-                    ).a;
+                fixed a1 = SampleSpriteTextureWithBounds(shadowUV + blurUVY, targetPixels, invTargetPixels).a;
+                fixed a2 = SampleSpriteTextureWithBounds(shadowUV + blurUVX, targetPixels, invTargetPixels).a;
+                fixed a3 = SampleSpriteTextureWithBounds(shadowUV - blurUVY, targetPixels, invTargetPixels).a;
+                fixed a4 = SampleSpriteTextureWithBounds(shadowUV - blurUVX, targetPixels, invTargetPixels).a;
 
+                fixed a5 = SampleSpriteTextureWithBounds(shadowUV + diagonal, targetPixels, invTargetPixels).a;
+                fixed a6 = SampleSpriteTextureWithBounds(shadowUV + float2(-diagonal.x, diagonal.y), targetPixels, invTargetPixels).a;
+                fixed a7 = SampleSpriteTextureWithBounds(shadowUV - diagonal, targetPixels, invTargetPixels).a;
+                fixed a8 = SampleSpriteTextureWithBounds(shadowUV + float2(diagonal.x, -diagonal.y), targetPixels, invTargetPixels).a;
 
-                // Diagonal ring
-                float diagonal = blur * 0.7071;
-
-                fixed a5 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(diagonal, diagonal)
-                    ).a;
-
-                fixed a6 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(-diagonal, diagonal)
-                    ).a;
-
-                fixed a7 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(-diagonal, -diagonal)
-                    ).a;
-
-                fixed a8 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(diagonal, -diagonal)
-                    ).a;
-
-
-                // Second ring.
-                float outer = blur * 2.0;
-
-                fixed a9 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(0, outer)
-                    ).a;
-
-                fixed a10 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(outer, 0)
-                    ).a;
-
-                fixed a11 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(0, -outer)
-                    ).a;
-
-                fixed a12 =
-                    SampleSpriteTextureWithBounds(
-                        sUV + float2(-outer, 0)
-                    ).a;
-
-
-                // -----------------------------------------------------
-                // BLUR WEIGHTS
-                // -----------------------------------------------------
-                //
-                // Center gets the highest weight.
-                // Inner samples provide most of the blur.
-                // Outer samples extend the falloff.
-                //
+                fixed a9 =  SampleSpriteTextureWithBounds(shadowUV + blurUVY * 2.0, targetPixels, invTargetPixels).a;
+                fixed a10 = SampleSpriteTextureWithBounds(shadowUV + blurUVX * 2.0, targetPixels, invTargetPixels).a;
+                fixed a11 = SampleSpriteTextureWithBounds(shadowUV - blurUVY * 2.0, targetPixels, invTargetPixels).a;
+                fixed a12 = SampleSpriteTextureWithBounds(shadowUV - blurUVX * 2.0, targetPixels, invTargetPixels).a;
 
                 fixed shadowAlpha =
                     a0 * 0.25 +
-
                     (a1 + a2 + a3 + a4) * 0.125 +
-
                     (a5 + a6 + a7 + a8) * 0.0625 +
-
                     (a9 + a10 + a11 + a12) * 0.015625;
 
-
-                // Normalize approximately so increasing blur doesn't
-                // dramatically change the shadow's opacity.
-                shadowAlpha *= 0.9142857;
-
-
                 // =====================================================
-                // 2. SHADOW COLOR
+                // 4. SHADOW COLOR & SOFTNESS
                 // =====================================================
 
                 fixed4 shadowColor = _ShadowColor;
-
                 shadowColor.a *= shadowAlpha;
-
-                // Premultiplied alpha.
                 shadowColor.rgb *= shadowColor.a;
 
+                if (_ShadowSoftness > 0.0)
+                {
+                    float softness = saturate(shadowAlpha / max(_ShadowSoftness, 0.00001));
+                    shadowColor.a *= softness;
+                    shadowColor.rgb *= softness;
+                }
 
                 // =====================================================
-                // 3. ORIGINAL SPRITE
+                // 5. ORIGINAL SPRITE & COMPOSITE
                 // =====================================================
 
-                fixed4 mainColor =
-                    tex2D(
-                        _MainTex,
-                        IN.texcoord
-                    ) * IN.color;
-
-
-                #if defined(ETC1_EXTERNAL_ALPHA)
-
-                    fixed4 mainAlpha =
-                        tex2D(
-                            _AlphaTex,
-                            IN.texcoord
-                        );
-
-                    mainColor.a = mainAlpha.r;
-
-                #endif
-
-
-                // Premultiplied alpha.
+                // Refactored to reuse the bounds and ETC1 check logic
+                fixed4 mainColor = SampleSpriteTextureWithBounds(IN.texcoord, targetPixels, invTargetPixels) * IN.color;
                 mainColor.rgb *= mainColor.a;
 
-
-                // =====================================================
-                // 4. COMPOSITE
-                // =====================================================
-
-                // The normal sprite is rendered over the shadow.
-                fixed4 finalColor =
-                    mainColor +
-                    shadowColor * (1.0 - mainColor.a);
-
-                return finalColor;
+                return mainColor + shadowColor * (1.0 - mainColor.a);
             }
-
             ENDCG
         }
     }
