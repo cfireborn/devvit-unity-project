@@ -49,7 +49,10 @@ public class NetworkCloud : NetworkBehaviour
         if (_rb != null)
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
-            _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+            // NetworkTransform already interpolates the root every rendered update.
+            // Rigidbody interpolation would be a second transform writer and visibly
+            // pull the cloud between physics poses after FishNet has smoothed it.
+            _rb.interpolation = RigidbodyInterpolation2D.None;
         }
     }
 

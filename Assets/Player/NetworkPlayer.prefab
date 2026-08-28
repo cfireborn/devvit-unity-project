@@ -57,7 +57,7 @@ MonoBehaviour:
   gameState: {fileID: 11400000, guid: 5e19fae09eb2b7943b0493781bfb3424, type: 2}
   groundChecker: {fileID: 2664351158205713804}
   inputActionAsset: {fileID: -944628639613478452, guid: fc5a20b69943f8b44b853b17198b50b6, type: 3}
-  spriteTransform: {fileID: 7753332726863775971}
+  spriteTransform: {fileID: 3939507212389416833}
   flipSpriteWithMovement: 1
   maxRotationAngle: 15
   spriteRenderer: {fileID: 6904677895501660201}
@@ -87,7 +87,7 @@ Rigidbody2D:
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_SleepingMode: 1
   m_CollisionDetection: 1
   m_Constraints: 0
@@ -228,7 +228,7 @@ MonoBehaviour:
     X: 0
     Y: 0
     Z: 0
-  _synchronizeRotation: 1
+  _synchronizeRotation: 0
   _rotationSnapping:
     X: 0
     Y: 0

@@ -24,6 +24,8 @@ public class NetworkPlayerSpawner : MonoBehaviour
 
     /// <summary>Read-only spawn marker used by local admin teleports.</summary>
     public Transform SpawnPoint => spawnPoint;
+    /// <summary>Read-only player prefab used by runtime configuration tests.</summary>
+    public NetworkObject PlayerPrefab => playerPrefab;
 
     void Start()
     {

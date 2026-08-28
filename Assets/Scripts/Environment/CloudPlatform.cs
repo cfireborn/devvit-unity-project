@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using FishNet;
+using FishNet.Managing.Timing;
 using UnityEngine;
 
 /// <summary>
@@ -67,6 +69,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     public bool wasActiveAtStart;
     Coroutine _despawnCoroutine;
     Rigidbody2D _rb;
+    TimeManager _subscribedTimeManager;
     Collider2D[] _boundsColliders;
     PlatformEffector2D _platformEffector;
     float _platformEffectorOffset;
@@ -94,6 +97,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void OnEnable()
     {
+        SubscribeToNetworkPhysicsClock();
         _activationVersion++;
         if (_platformEffector != null)
             _platformEffector.rotationalOffset = _platformEffectorOffset;
@@ -118,6 +122,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void OnDisable()
     {
+        UnsubscribeFromNetworkPhysicsClock();
         if (_despawnCoroutine != null)
         {
             StopCoroutine(_despawnCoroutine);
@@ -131,6 +136,18 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void FixedUpdate()
     {
+        if (_subscribedTimeManager != null) return;
+        AdvancePlatformPhysics(Time.fixedDeltaTime);
+    }
+
+    void OnNetworkPreTick()
+    {
+        if (!isActiveAndEnabled || _subscribedTimeManager == null) return;
+        AdvancePlatformPhysics((float)_subscribedTimeManager.TickDelta);
+    }
+
+    void AdvancePlatformPhysics(float deltaTime)
+    {
         if (_rb == null) return;
         if (_despawnRequested && !_isDespawning && !IsPlayerOnCloud)
             BeginDespawnAnimation();
@@ -139,7 +156,25 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
         // MovePosition on a Kinematic body is processed by the physics solver so
         // Dynamic bodies (players) in contact are correctly carried along.
-        _rb.MovePosition(_rb.position + new Vector2(moveSpeed * Time.fixedDeltaTime, 0f));
+        _rb.MovePosition(_rb.position + new Vector2(moveSpeed * deltaTime, 0f));
+    }
+
+    void SubscribeToNetworkPhysicsClock()
+    {
+        if (_subscribedTimeManager != null) return;
+
+        TimeManager timeManager = InstanceFinder.TimeManager;
+        if (timeManager == null || timeManager.PhysicsMode != PhysicsMode.TimeManager) return;
+
+        _subscribedTimeManager = timeManager;
+        _subscribedTimeManager.OnPreTick += OnNetworkPreTick;
+    }
+
+    void UnsubscribeFromNetworkPhysicsClock()
+    {
+        if (_subscribedTimeManager == null) return;
+        _subscribedTimeManager.OnPreTick -= OnNetworkPreTick;
+        _subscribedTimeManager = null;
     }
 
     /// <summary>True when the player is in contact with this cloud. Used by CloudManager for boundary stop vs despawn.</summary>

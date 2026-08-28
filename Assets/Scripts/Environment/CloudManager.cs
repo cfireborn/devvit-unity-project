@@ -1,11 +1,14 @@
 using System.Collections.Generic;
+using FishNet;
+using FishNet.Managing.Timing;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
 /// <summary>
 /// Server/offline: activates horizontal lanes by player viewport, runs a fixed-spacing loop per lane,
-/// drives pooled clouds via Rigidbody2D.MovePosition in FixedUpdate. Clients receive NetworkObjects from FishNet.
+/// drives pooled clouds via Rigidbody2D.MovePosition immediately before the active physics clock.
+/// Clients receive NetworkObjects from FishNet.
 /// </summary>
 public class CloudManager : MonoBehaviour
 {
@@ -113,10 +116,21 @@ public class CloudManager : MonoBehaviour
     bool _cloudsFrozen;
     int _localPooledCloudCount;
     int _nextLocalPoolWarning = 50;
+    TimeManager _subscribedTimeManager;
 
     #endregion
 
     #region Lifecycle
+
+    void OnEnable()
+    {
+        SubscribeToNetworkPhysicsClock();
+    }
+
+    void OnDisable()
+    {
+        UnsubscribeFromNetworkPhysicsClock();
+    }
 
     public void CollectSceneClouds()
     {
@@ -138,6 +152,11 @@ public class CloudManager : MonoBehaviour
 
     void Start()
     {
+        // OnEnable may run before FishNet's InstanceFinder is populated. Try again
+        // after all scene Awake calls so networked clouds never fall back to Unity's
+        // unrelated FixedUpdate clock.
+        SubscribeToNetworkPhysicsClock();
+
         // NetworkCloudManager may collect in Awake before scene clouds have run Awake.
         // Repeat here after all Awake calls; collection is idempotent.
         CollectSceneClouds();
@@ -210,9 +229,20 @@ public class CloudManager : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (UsesNetworkPhysicsClock) return;
+        AdvanceCloudPhysics(Time.fixedDeltaTime);
+    }
+
+    void OnNetworkPreTick()
+    {
+        if (!isActiveAndEnabled || _subscribedTimeManager == null) return;
+        AdvanceCloudPhysics((float)_subscribedTimeManager.TickDelta);
+    }
+
+    void AdvanceCloudPhysics(float dt)
+    {
         if (settings == null || _lanes == null) return;
         GetLaneHorizontalSpan(out float left, out float right);
-        float dt = Time.fixedDeltaTime;
 
         foreach (var lane in _lanes)
         {
@@ -279,12 +309,34 @@ public class CloudManager : MonoBehaviour
 
     void OnDestroy()
     {
+        UnsubscribeFromNetworkPhysicsClock();
         var gameServices = FindFirstObjectByType<GameServices>();
         if (gameServices != null)
         {
             gameServices.onPlayerRegistered -= TryRegisterPlayer;
             gameServices.onPlayerDeregistered -= OnPlayerDeregisteredFromServices;
         }
+    }
+
+    bool UsesNetworkPhysicsClock => _subscribedTimeManager != null;
+    internal bool UsesNetworkPhysicsClockForTests => UsesNetworkPhysicsClock;
+
+    void SubscribeToNetworkPhysicsClock()
+    {
+        if (_subscribedTimeManager != null) return;
+
+        TimeManager timeManager = InstanceFinder.TimeManager;
+        if (timeManager == null || timeManager.PhysicsMode != PhysicsMode.TimeManager) return;
+
+        _subscribedTimeManager = timeManager;
+        _subscribedTimeManager.OnPreTick += OnNetworkPreTick;
+    }
+
+    void UnsubscribeFromNetworkPhysicsClock()
+    {
+        if (_subscribedTimeManager == null) return;
+        _subscribedTimeManager.OnPreTick -= OnNetworkPreTick;
+        _subscribedTimeManager = null;
     }
 
     #endregion

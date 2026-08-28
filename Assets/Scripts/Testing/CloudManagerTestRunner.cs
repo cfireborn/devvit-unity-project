@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using FishNet;
 using FishNet.Component.Transforming;
 using FishNet.Managing;
+using FishNet.Managing.Timing;
 using FishNet.Object;
 using UnityEngine;
 
@@ -23,8 +24,10 @@ using UnityEngine;
 ///   9. CloudManager spawns at least one cloud within timeout.
 ///  10. Active cloud count stays at or below maxDynamicClouds cap.
 ///  11. All active clouds have valid Rigidbody2D and are Kinematic.
-///  12. Clouds are moving (position delta observed over two FixedUpdate cycles).
-///  13. CloudManager disables on a pure client (offline mode bypass test).
+///  12. Clouds are moving (position delta observed over the active physics clock).
+///  13. Networked clouds use FishNet's physics tick rather than Unity FixedUpdate.
+///  14. The owner player keeps visuals off the physics root and enables interpolation.
+///  15. CloudManager disables on a pure client (offline mode bypass test).
 /// </summary>
 public class CloudManagerTestRunner : MonoBehaviour
 {
@@ -123,6 +126,8 @@ public class CloudManagerTestRunner : MonoBehaviour
         yield return StartCoroutine(CheckCloudSpawnsWithinTimeout());
         CheckMaxCloudCapRespected();
         CheckActiveCloudsAreKinematic();
+        CheckNetworkPhysicsClock();
+        CheckNetworkPlayerMotionConfiguration();
         yield return StartCoroutine(CheckCloudsAreMoving());
         CheckClientPathDisablesCloudManager();
 
@@ -249,6 +254,48 @@ public class CloudManagerTestRunner : MonoBehaviour
             Pass("Server is started (InstanceFinder.IsServerStarted = true). NetworkBootstrapper server path confirmed.");
         else
             Fail("Server did not start.", "NetworkBootstrapper may not have reached TryStartServer, or editorStartAsHost is false.");
+    }
+
+    void CheckNetworkPhysicsClock()
+    {
+        TimeManager timeManager = InstanceFinder.TimeManager;
+        if (cloudManager == null || timeManager == null) return;
+
+        if (timeManager.PhysicsMode != PhysicsMode.TimeManager)
+        {
+            Info("FishNet PhysicsMode is Unity; CloudManager correctly retains its FixedUpdate fallback.");
+            return;
+        }
+
+        if (cloudManager.UsesNetworkPhysicsClockForTests)
+            Pass("CloudManager advances once per FishNet pre-physics tick in TimeManager physics mode.");
+        else
+            Fail("CloudManager is not subscribed to FishNet's pre-physics tick.", "Unity FixedUpdate and FishNet TimeManager ticks must not drive clouds on different clocks.");
+    }
+
+    void CheckNetworkPlayerMotionConfiguration()
+    {
+        NetworkPlayerSpawner spawner = FindFirstObjectByType<NetworkPlayerSpawner>(FindObjectsInactive.Include);
+        GameObject prefab = spawner != null && spawner.PlayerPrefab != null ? spawner.PlayerPrefab.gameObject : null;
+        if (prefab == null)
+        {
+            Fail("Network player prefab is unavailable for motion validation.");
+            return;
+        }
+
+        PlayerControllerM controller = prefab.GetComponent<PlayerControllerM>();
+        Rigidbody2D playerRb = prefab.GetComponent<Rigidbody2D>();
+        NetworkTransform networkTransform = prefab.GetComponent<NetworkTransform>();
+        bool dedicatedSprite = controller != null && controller.spriteRenderer != null &&
+            controller.spriteTransform == controller.spriteRenderer.transform &&
+            controller.spriteTransform != prefab.transform;
+        bool interpolatedBody = playerRb != null && playerRb.interpolation == RigidbodyInterpolation2D.Interpolate;
+        bool rotationFrozenAtRuntime = controller != null && networkTransform != null;
+
+        if (dedicatedSprite && interpolatedBody && rotationFrozenAtRuntime)
+            Pass("Network player tilts only its Sprite child and interpolates the owner Rigidbody2D.");
+        else
+            Fail("Network player motion configuration can reintroduce root jitter.", $"dedicatedSprite={dedicatedSprite}, interpolatedBody={interpolatedBody}, componentsPresent={rotationFrozenAtRuntime}");
     }
 
     IEnumerator CheckCloudManagerEnabledOnServer()
@@ -423,9 +470,9 @@ public class CloudManagerTestRunner : MonoBehaviour
         float delta = Vector2.Distance(posA, posB);
 
         if (delta > 0.001f)
-            Pass($"Cloud '{target.name}' moved {delta:F4} world units over {movementSampleIntervalSeconds}s — Rigidbody2D.MovePosition pipeline is healthy.");
+            Pass($"Cloud '{target.name}' moved {delta:F4} world units over {movementSampleIntervalSeconds}s — active physics-clock MovePosition pipeline is healthy.");
         else
-            Fail($"Cloud '{target.name}' did not move over {movementSampleIntervalSeconds}s.", $"Delta = {delta:F6}. Verify CloudManager.FixedUpdate is running and CloudBehaviorSettings.speedRange is non-zero.");
+            Fail($"Cloud '{target.name}' did not move over {movementSampleIntervalSeconds}s.", $"Delta = {delta:F6}. Verify CloudManager is subscribed to the active physics clock and CloudBehaviorSettings.speedRange is non-zero.");
     }
 
     void CheckClientPathDisablesCloudManager()

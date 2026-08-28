@@ -95,6 +95,7 @@ public class PlayerControllerM : MonoBehaviour
     private Vector2 _lastMovingPlatformPosition;
     private Vector2 _currentPlatformVelocity;
     private Vector2 _pendingPlatformVelocity;
+    private bool _platformDeltaAppliedManually;
     private readonly ContactPoint2D[] _contactBuffer = new ContactPoint2D[8];
     private ContactFilter2D _contactFilter;
 
@@ -118,6 +119,11 @@ public class PlayerControllerM : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         playerCollider = GetComponent<Collider2D>();
+        if ((spriteTransform == null || spriteTransform == transform) &&
+            spriteRenderer != null && spriteRenderer.transform != transform)
+        {
+            spriteTransform = spriteRenderer.transform;
+        }
         if (rb != null)
             rb.constraints |= RigidbodyConstraints2D.FreezeRotation;
         _contactFilter.useTriggers = false;
@@ -363,7 +369,9 @@ public class PlayerControllerM : MonoBehaviour
         bool canJump = (_isGroundedFixed || _coyoteTimeRemaining > 0f) && (jumpPressed || _jumpBufferRemaining > 0f);
 
         // Horizontal movement (interpolate if in air); jump is independent of L/R input
-        float carryVx = _isGroundedFixed ? _currentPlatformVelocity.x : _pendingPlatformVelocity.x;
+        float carryVx = _isGroundedFixed
+            ? (_platformDeltaAppliedManually ? 0f : _currentPlatformVelocity.x)
+            : _pendingPlatformVelocity.x;
         float targetVx = moveInput * settings.moveSpeed + carryVx;
         float lerpFactor = _isGroundedFixed ? 1f : settings.airControlMultiplier;
         float newVx = Mathf.Lerp(rb.linearVelocity.x, targetVx, lerpFactor);
@@ -614,6 +622,8 @@ public class PlayerControllerM : MonoBehaviour
     {
         if (groundChecker == null || rb == null) return;
 
+        _platformDeltaAppliedManually = false;
+
         IMovingPlatform current = groundChecker.IsOnLadder ? groundChecker.CurrentLadder : groundChecker.CurrentPlatform;
         if (current == null)
         {
@@ -635,6 +645,7 @@ public class PlayerControllerM : MonoBehaviour
         {
             _lastMovingPlatform = current;
             _lastMovingPlatformPosition = pos;
+            _currentPlatformVelocity = Vector2.zero;
             _pendingPlatformVelocity = Vector2.zero;
             return;
         }
@@ -647,6 +658,7 @@ public class PlayerControllerM : MonoBehaviour
         if (groundChecker.IsOnLadder || !physicsDrivenPlatform)
         {
             rb.position += delta;
+            _platformDeltaAppliedManually = true;
         }
 
         float dt = Mathf.Max(0.0001f, TickOrFixedDelta());

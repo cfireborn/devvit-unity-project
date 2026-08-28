@@ -22,7 +22,8 @@ using UnityEngine;
 ///  12.  A middle cloud prevents a ladder from spanning past it.
 ///  13.  TryBuildLadder gives a valid pair forced priority.
 ///  14.  Rapid endpoint reactivation replaces stale generation bindings.
-///  15.  maxLadders cap is respected — extra ladder creation is rejected.
+///  15.  Network ladder presentation fails closed without live endpoints.
+///  16.  maxLadders cap is respected — extra ladder creation is rejected.
 /// </summary>
 public class LadderManagerTestRunner : MonoBehaviour
 {
@@ -123,6 +124,7 @@ public class LadderManagerTestRunner : MonoBehaviour
 
         // Ensure controlled pair is selected before ladder tests
         AutoSelectControlledPair(allClouds);
+        CheckNetworkLadderPresentationFailsClosed();
 
         yield return StartCoroutine(CheckAutoLadderBuilds());
         CheckLadderColliderAndTag();
@@ -180,10 +182,57 @@ public class LadderManagerTestRunner : MonoBehaviour
         var prefab = ladderController.ladderPrefab;
         var col    = prefab.GetComponent<BoxCollider2D>();
 
-        if (col != null)
-            Pass("Ladder prefab has BoxCollider2D — collider presence check passed.");
+        var rootRenderer = prefab.GetComponent<SpriteRenderer>();
+        if (col != null && (rootRenderer == null || !rootRenderer.enabled))
+            Pass("Ladder prefab has BoxCollider2D and no enabled placeholder root sprite.");
+        else if (col != null)
+            Fail("Ladder prefab root SpriteRenderer is enabled.", "Pure clients receive the prefab directly, so the authoring placeholder must never render before endpoint binding.");
         else
             Fail("Ladder prefab is missing BoxCollider2D.", $"Add a BoxCollider2D to '{prefab.name}'. CloudLadderController sets isTrigger at runtime.");
+    }
+
+    void CheckNetworkLadderPresentationFailsClosed()
+    {
+        if (ladderController == null || ladderController.ladderPrefab == null ||
+            controlledCloudLower == null || controlledCloudUpper == null)
+            return;
+
+        GameObject probe = Instantiate(ladderController.ladderPrefab);
+        probe.name = "NetworkLadderPresentationProbe";
+        NetworkLadder networkLadder = probe.GetComponent<NetworkLadder>();
+        if (networkLadder == null)
+        {
+            Fail("Ladder prefab is missing NetworkLadder.");
+            probe.SetActive(false);
+            Destroy(probe);
+            return;
+        }
+
+        ladderController.UpdateLadderPosition(controlledCloudLower, controlledCloudUpper, probe);
+        networkLadder.SetPresentationActive(true);
+        BoxCollider2D collider = probe.GetComponent<BoxCollider2D>();
+        bool boundHasChildVisual = false;
+        SpriteRenderer[] renderers = probe.GetComponentsInChildren<SpriteRenderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer renderer = renderers[i];
+            if (renderer != null && renderer.transform != probe.transform && renderer.enabled)
+                boundHasChildVisual = true;
+        }
+
+        networkLadder.SetPresentationActive(false);
+        bool anyVisible = false;
+        for (int i = 0; i < renderers.Length; i++)
+            if (renderers[i] != null && renderers[i].enabled) anyVisible = true;
+        bool hiddenAndNonInteractive = !anyVisible && collider != null && !collider.enabled;
+
+        probe.SetActive(false);
+        Destroy(probe);
+
+        if (boundHasChildVisual && hiddenAndNonInteractive)
+            Pass("Network ladder shows derived child geometry only while bound and hides visuals/collider when unbound.");
+        else
+            Fail("Network ladder presentation did not fail closed.", $"boundChildVisual={boundHasChildVisual}, hiddenAndNonInteractive={hiddenAndNonInteractive}");
     }
 
     void CheckLadderSpritesAssigned()

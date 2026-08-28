@@ -547,7 +547,7 @@ public class CloudLadderController : MonoBehaviour
         if (col != null) col.isTrigger = true;
         var rootRenderer = newLadder.GetComponent<SpriteRenderer>();
         if (rootRenderer != null)
-            Destroy(rootRenderer);
+            rootRenderer.enabled = false;
         EnsureMovingPlatformLadder(newLadder);
         return newLadder;
     }
@@ -654,6 +654,12 @@ public class CloudLadderController : MonoBehaviour
     /// Public so NetworkCloudLadderController can call it on clients.</summary>
     public void UpdateLadderPosition(CloudPlatform lower, CloudPlatform upper, GameObject ladder)
     {
+        if (lower == null || upper == null || ladder == null) return;
+
+        var rootRenderer = ladder.GetComponent<SpriteRenderer>();
+        if (rootRenderer != null)
+            rootRenderer.enabled = false;
+
         GetLadderPlacement(lower, upper, out float x, out float y, out float height);
 
         ladder.transform.position = new Vector3(x, y, ladder.transform.position.z);

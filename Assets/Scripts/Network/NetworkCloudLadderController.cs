@@ -153,18 +153,32 @@ public class NetworkCloudLadderController : NetworkBehaviour
         foreach (var kvp in spawned)
         {
             var nl = kvp.Value.GetComponent<NetworkLadder>();
-            if (nl == null || nl.CloudAObjectId < 0 || nl.CloudBObjectId < 0) continue;
+            if (nl == null) continue;
+            if (nl.CloudAObjectId < 0 || nl.CloudBObjectId < 0)
+            {
+                nl.SetPresentationActive(false);
+                continue;
+            }
 
             // Look up the two cloud GOs via FishNet's spawned registry
-            if (!spawned.TryGetValue(nl.CloudAObjectId, out NetworkObject cloudANob) || cloudANob == null) continue;
-            if (!spawned.TryGetValue(nl.CloudBObjectId, out NetworkObject cloudBNob) || cloudBNob == null) continue;
+            if (!spawned.TryGetValue(nl.CloudAObjectId, out NetworkObject cloudANob) || cloudANob == null ||
+                !spawned.TryGetValue(nl.CloudBObjectId, out NetworkObject cloudBNob) || cloudBNob == null)
+            {
+                nl.SetPresentationActive(false);
+                continue;
+            }
 
             var platformA = cloudANob.GetComponent<CloudPlatform>();
             var platformB = cloudBNob.GetComponent<CloudPlatform>();
-            if (platformA == null || platformB == null) continue;
+            if (platformA == null || platformB == null)
+            {
+                nl.SetPresentationActive(false);
+                continue;
+            }
 
             var (lower, upper) = CloudLadderController.OrderPair(platformA, platformB);
             _ladderController.UpdateLadderPosition(lower, upper, kvp.Value.gameObject);
+            nl.SetPresentationActive(true);
         }
     }
 }
