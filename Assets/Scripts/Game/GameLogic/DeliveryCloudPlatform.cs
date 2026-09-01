@@ -111,13 +111,14 @@ public class DeliveryCloudPlatform : CloudPlatform
         _despawnAfterLeaveRoutine = StartCoroutine(CoDespawnAfterPlayerLeaves());
     }
 
-    void OnDisable()
+    protected override void OnDisable()
     {
         if (_despawnAfterLeaveRoutine != null)
         {
             StopCoroutine(_despawnAfterLeaveRoutine);
             _despawnAfterLeaveRoutine = null;
         }
+        base.OnDisable();
     }
 
     IEnumerator CoDespawnAfterPlayerLeaves()

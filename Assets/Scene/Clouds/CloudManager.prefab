@@ -82,4 +82,4 @@ MonoBehaviour:
   maxVerticalGap: 4
   maxLadders: 15
   ladderInsetIntoCloud: 0.2
-  ladderCloudEvaporationHoldSeconds: 1.25
+  ladderCloudEvaporationHoldSeconds: 0

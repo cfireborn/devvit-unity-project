@@ -115,6 +115,7 @@ public class CloudManager : MonoBehaviour
     Transform _poolParent;
     bool _cloudsFrozen;
     int _localPooledCloudCount;
+    int _dynamicCloudCount;
     int _nextLocalPoolWarning = 50;
     TimeManager _subscribedTimeManager;
 
@@ -233,10 +234,10 @@ public class CloudManager : MonoBehaviour
         AdvanceCloudPhysics(Time.fixedDeltaTime);
     }
 
-    void OnNetworkPreTick()
+    void OnNetworkPrePhysicsSimulation(float deltaTime)
     {
         if (!isActiveAndEnabled || _subscribedTimeManager == null) return;
-        AdvanceCloudPhysics((float)_subscribedTimeManager.TickDelta);
+        AdvanceCloudPhysics(deltaTime);
     }
 
     void AdvanceCloudPhysics(float dt)
@@ -329,13 +330,13 @@ public class CloudManager : MonoBehaviour
         if (timeManager == null || timeManager.PhysicsMode != PhysicsMode.TimeManager) return;
 
         _subscribedTimeManager = timeManager;
-        _subscribedTimeManager.OnPreTick += OnNetworkPreTick;
+        _subscribedTimeManager.OnPrePhysicsSimulation += OnNetworkPrePhysicsSimulation;
     }
 
     void UnsubscribeFromNetworkPhysicsClock()
     {
         if (_subscribedTimeManager == null) return;
-        _subscribedTimeManager.OnPreTick -= OnNetworkPreTick;
+        _subscribedTimeManager.OnPrePhysicsSimulation -= OnNetworkPrePhysicsSimulation;
         _subscribedTimeManager = null;
     }
 
@@ -760,19 +761,11 @@ public class CloudManager : MonoBehaviour
             rb.position = spawnPosition;
         _onCloudActivated?.Invoke(cloud, scale);
         _active.Add(cloud);
+        _dynamicCloudCount++;
         lane.clouds[slotIndex] = cloud;
     }
 
-    int DynamicCloudCount
-    {
-        get
-        {
-            int count = 0;
-            for (int i = 0; i < _active.Count; i++)
-                if (_active[i] != null && !_nonPooled.Contains(_active[i])) count++;
-            return count;
-        }
-    }
+    int DynamicCloudCount => _dynamicCloudCount;
 
     #endregion
 
@@ -877,7 +870,7 @@ public class CloudManager : MonoBehaviour
             if (z == null) continue;
             if (!z.blockSpawn) continue;
             if (!z.TryGetWorldBounds(out Bounds zb)) continue;
-            if (cloudMainBounds.Intersects(zb)) return true;
+            if (BoundsOverlap2D(cloudMainBounds, zb)) return true;
         }
         return false;
     }
@@ -890,11 +883,15 @@ public class CloudManager : MonoBehaviour
             CloudNoSpawnZone z = _noSpawnZones[i];
             if (z == null || !z.blockEntry) continue;
             if (!z.TryGetWorldBounds(out Bounds zb)) continue;
-            if (!sweptBounds.Intersects(zb)) continue;
-            if (z.blockSpawn || !currentBounds.Intersects(zb)) return true;
+            if (!BoundsOverlap2D(sweptBounds, zb)) continue;
+            if (z.blockSpawn || !BoundsOverlap2D(currentBounds, zb)) return true;
         }
         return false;
     }
+
+    static bool BoundsOverlap2D(Bounds a, Bounds b) =>
+        a.min.x <= b.max.x && a.max.x >= b.min.x &&
+        a.min.y <= b.max.y && a.max.y >= b.min.y;
 
     #endregion
 
@@ -1031,7 +1028,8 @@ public class CloudManager : MonoBehaviour
     {
         if (cloud == null || _nonPooled.Contains(cloud) || _queuedInPool.Contains(cloud)) return;
 
-        _active.Remove(cloud);
+        if (_active.Remove(cloud))
+            _dynamicCloudCount = Mathf.Max(0, _dynamicCloudCount - 1);
 
         var platform = GetCloudPlatform(cloud);
         if (_lanes != null && platform != null && platform.laneIndex >= 0 && platform.laneIndex < _lanes.Length)
@@ -1305,7 +1303,8 @@ public class CloudManager : MonoBehaviour
             return false;
 
         platform.pooledWorldY = spawnY;
-        _nonPooled.Remove(cloud);
+        if (_nonPooled.Remove(cloud) && _active.Contains(cloud))
+            _dynamicCloudCount++;
         lane.clouds[bestSlot] = cloud;
         if (bestSlot < lane.slotSpawnY.Count)
             lane.slotSpawnY[bestSlot] = spawnY;

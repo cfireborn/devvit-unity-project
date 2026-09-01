@@ -37,23 +37,48 @@ public class GroundChecker : MonoBehaviour
     public Collider2D CurrentGroundCollider { get; private set; }
 
     /// <summary>True when the player is inside at least one trigger tagged "Ladder".</summary>
-    public bool IsOnLadder => _ladderTriggers.Count > 0;
+    public bool IsOnLadder
+    {
+        get
+        {
+            PruneInvalidLadderTriggers();
+            return _ladderTriggers.Count > 0;
+        }
+    }
 
     /// <summary>Ladder we are inside (if any and it implements IMovingPlatform). Null when not on a ladder.</summary>
-    public IMovingPlatform CurrentLadder { get; private set; }
+    public IMovingPlatform CurrentLadder
+    {
+        get
+        {
+            PruneInvalidLadderTriggers();
+            return _currentLadder;
+        }
+    }
 
     private Collider2D[] _overlapBuffer;
     private ContactFilter2D _overlapFilter;
     private Collider2D[] _ourColliders;
+    private Collider2D _ownerCollider;
     private const int InitialOverlapBufferSize = 32;
     private const int MaxOverlapBufferSize = 256;
     private readonly List<Collider2D> _ladderTriggers = new List<Collider2D>();
+    private IMovingPlatform _currentLadder;
 
     void Awake()
     {
         _overlapBuffer = new Collider2D[InitialOverlapBufferSize];
         _overlapFilter = ContactFilter2D.noFilter;
         _ourColliders = GetComponentsInChildren<Collider2D>();
+
+        Rigidbody2D ownerBody = GetComponentInParent<Rigidbody2D>();
+        if (ownerBody != null)
+        {
+            Collider2D[] bodyColliders = ownerBody.GetComponents<Collider2D>();
+            for (int i = 0; i < bodyColliders.Length && _ownerCollider == null; i++)
+                if (!bodyColliders[i].isTrigger)
+                    _ownerCollider = bodyColliders[i];
+        }
     }
 
     /// <summary>Run the ground check and update isGrounded and CurrentPlatform. Call once per physics step (e.g. from player's FixedUpdate/OnTick).</summary>
@@ -84,6 +109,8 @@ public class GroundChecker : MonoBehaviour
             {
                 Collider2D other = _overlapBuffer[i];
                 if (other == null || IsOurCollider(other) || !other.CompareTag(platformTag)) continue;
+                if (other.GetComponent<PlayerHeadPlatformSurface>() != null &&
+                    (_ownerCollider == null || !_ownerCollider.IsTouching(other))) continue;
 
                 Vector2 closestPoint = other.ClosestPoint(origin);
                 float distance = (closestPoint - origin).sqrMagnitude;
@@ -141,15 +168,36 @@ public class GroundChecker : MonoBehaviour
 
     void UpdateCurrentLadder()
     {
-        CurrentLadder = null;
+        PruneInvalidLadderTriggers();
+        RebuildCurrentLadder();
+    }
+
+    void PruneInvalidLadderTriggers()
+    {
+        bool removed = false;
+        for (int i = _ladderTriggers.Count - 1; i >= 0; i--)
+        {
+            Collider2D collider = _ladderTriggers[i];
+            if (collider != null && collider.enabled && collider.gameObject.activeInHierarchy)
+                continue;
+            _ladderTriggers.RemoveAt(i);
+            removed = true;
+        }
+        if (removed)
+            RebuildCurrentLadder();
+    }
+
+    void RebuildCurrentLadder()
+    {
+        _currentLadder = null;
         for (int i = 0; i < _ladderTriggers.Count; i++)
         {
             var c = _ladderTriggers[i];
-            if (c == null) continue;
+            if (c == null || !c.enabled || !c.gameObject.activeInHierarchy) continue;
             var moving = c.GetComponent<IMovingPlatform>() ?? c.GetComponentInParent<IMovingPlatform>();
             if (moving != null)
             {
-                CurrentLadder = moving;
+                _currentLadder = moving;
                 return;
             }
         }

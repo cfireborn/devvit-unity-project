@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using FishNet.Object;
 using UnityEngine;
 
@@ -20,8 +21,12 @@ using UnityEngine;
 /// </summary>
 public class NetworkLadder : NetworkBehaviour
 {
+    static readonly HashSet<NetworkLadder> _activeClientLadders = new HashSet<NetworkLadder>();
+    internal static HashSet<NetworkLadder> ActiveClientLadders => _activeClientLadders;
+
     SpriteRenderer _rootRenderer;
     BoxCollider2D _rootCollider;
+    MovingPlatformLadder _presentation;
     bool _presentationInitialized;
     bool _presentationActive;
 
@@ -35,6 +40,9 @@ public class NetworkLadder : NetworkBehaviour
     {
         _rootRenderer = GetComponent<SpriteRenderer>();
         _rootCollider = GetComponent<BoxCollider2D>();
+        _presentation = GetComponent<MovingPlatformLadder>();
+        if (_presentation == null)
+            _presentation = gameObject.AddComponent<MovingPlatformLadder>();
 
         // The prefab sprite is an authoring placeholder. Runtime geometry is built
         // exclusively from Bottom/Middle/Top children on both server and clients.
@@ -45,6 +53,7 @@ public class NetworkLadder : NetworkBehaviour
     public override void OnStartClient()
     {
         base.OnStartClient();
+        _activeClientLadders.Add(this);
 
         // Hosts already have authoritative geometry and collision. Pure clients
         // must fail closed until the buffered endpoint RPC can be resolved.
@@ -54,9 +63,15 @@ public class NetworkLadder : NetworkBehaviour
 
     public override void OnStopClient()
     {
+        _activeClientLadders.Remove(this);
         if (!IsServerStarted)
             SetPresentationActive(false);
         base.OnStopClient();
+    }
+
+    void OnDestroy()
+    {
+        _activeClientLadders.Remove(this);
     }
 
     /// <summary>
@@ -82,6 +97,8 @@ public class NetworkLadder : NetworkBehaviour
             _rootRenderer = GetComponent<SpriteRenderer>();
         if (_rootCollider == null)
             _rootCollider = GetComponent<BoxCollider2D>();
+        if (_presentation == null)
+            _presentation = GetComponent<MovingPlatformLadder>();
 
         if (_rootRenderer != null)
             _rootRenderer.enabled = false;
@@ -91,15 +108,9 @@ public class NetworkLadder : NetworkBehaviour
 
         _presentationInitialized = true;
         _presentationActive = active;
-        if (_rootCollider != null)
+        if (_presentation != null)
+            _presentation.SetPresentationActive(active);
+        else if (_rootCollider != null)
             _rootCollider.enabled = active;
-
-        SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            SpriteRenderer renderer = renderers[i];
-            if (renderer == null || renderer == _rootRenderer) continue;
-            renderer.enabled = active && renderer.sprite != null && renderer.gameObject.activeSelf;
-        }
     }
 }

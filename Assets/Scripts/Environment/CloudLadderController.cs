@@ -14,11 +14,8 @@ using UnityEngine;
 /// </summary>
 public class CloudLadderController : MonoBehaviour
 {
-    const string ChildNameBottom = "Bottom";
-    const string ChildNameTop = "Top";
-    const string ChildNameMiddlePrefix = "Middle_";
-    const int MaxLadderMiddleSegments = 64;
     const float HorizontalEdgeTolerance = 0.001f;
+    const float PairEvaluationInterval = 0.1f;
 
     [Header("References")]
     public CloudManager cloudManager;
@@ -50,7 +47,7 @@ public class CloudLadderController : MonoBehaviour
     public float ladderInsetIntoCloud = 0.2f;
     [Tooltip("How long a ladder remains usable after a connected cloud begins its evaporation animation.")]
     [Min(0f)]
-    public float ladderCloudEvaporationHoldSeconds = 1.25f;
+    public float ladderCloudEvaporationHoldSeconds = 0f;
 
     // Injected by NetworkCloudLadderController before CloudLadderController is enabled.
     internal Action<GameObject, CloudPlatform, CloudPlatform> _onLadderActivated;
@@ -77,6 +74,7 @@ public class CloudLadderController : MonoBehaviour
     }
 
     readonly List<CloudPlatform> _cachedPlatformList = new List<CloudPlatform>();
+    readonly Dictionary<CloudPlatform, Bounds> _platformBoundsScratch = new Dictionary<CloudPlatform, Bounds>();
     readonly HashSet<(CloudPlatform, CloudPlatform)> _validPairsScratch = new HashSet<(CloudPlatform, CloudPlatform)>();
     readonly HashSet<CloudPlatform> _hasLadderAboveScratch = new HashSet<CloudPlatform>();
     readonly HashSet<CloudPlatform> _hasLadderBelowScratch = new HashSet<CloudPlatform>();
@@ -92,6 +90,8 @@ public class CloudLadderController : MonoBehaviour
     readonly List<RetiringLadder> _retiringLadders = new List<RetiringLadder>();
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
     Transform _ladderParent;
+    float _nextPairEvaluationTime;
+    int _lastActiveCloudCount = -1;
 
     void Start()
     {
@@ -109,25 +109,36 @@ public class CloudLadderController : MonoBehaviour
             if (go != null) activeSet.Add(go);
 
         UpdateRetiringLadders(activeSet);
-        var platformList = GetActiveCloudPlatforms();
-        var validPairs = ComputeValidPairs(platformList);
-        RemoveInvalidLadders(validPairs, activeSet);
-        CreateMissingLadders(validPairs);
+        PruneUnavailableLadders(activeSet);
+
+        bool activeCloudCountChanged = activeSet.Count != _lastActiveCloudCount;
+        if (activeCloudCountChanged || Time.unscaledTime >= _nextPairEvaluationTime)
+        {
+            var platformList = GetActiveCloudPlatforms();
+            var validPairs = ComputeValidPairs(platformList);
+            RemoveInvalidLadders(validPairs, activeSet);
+            CreateMissingLadders(validPairs);
+            _lastActiveCloudCount = activeSet.Count;
+            _nextPairEvaluationTime = Time.unscaledTime + PairEvaluationInterval;
+        }
         UpdateAllLadderPositions();
     }
 
     List<CloudPlatform> GetActiveCloudPlatforms()
     {
         _cachedPlatformList.Clear();
+        _platformBoundsScratch.Clear();
         foreach (var go in cloudManager.GetActiveClouds())
         {
             if (go == null) continue;
             var p = go.GetComponent<CloudPlatform>();
-            if (p != null) _cachedPlatformList.Add(p);
+            if (p == null) continue;
+            _cachedPlatformList.Add(p);
+            _platformBoundsScratch[p] = p.GetMainBounds();
         }
         _cachedPlatformList.Sort((a, b) =>
         {
-            int byHeight = a.GetMainBounds().center.y.CompareTo(b.GetMainBounds().center.y);
+            int byHeight = _platformBoundsScratch[a].center.y.CompareTo(_platformBoundsScratch[b].center.y);
             return byHeight != 0 ? byHeight : a.GetInstanceID().CompareTo(b.GetInstanceID());
         });
         return _cachedPlatformList;
@@ -152,6 +163,15 @@ public class CloudLadderController : MonoBehaviour
             {
                 var a = platformList[i];
                 var b = platformList[j];
+                Bounds boundsA = _platformBoundsScratch[a];
+                Bounds boundsB = _platformBoundsScratch[b];
+                if (Mathf.Abs(boundsA.center.x - boundsB.center.x) > maxDistance)
+                    continue;
+                if (boundsA.max.x <= boundsB.min.x || boundsB.max.x <= boundsA.min.x)
+                    continue;
+                float aabbSurfaceGap = Mathf.Max(boundsB.min.y - boundsA.max.y, boundsA.min.y - boundsB.max.y);
+                if (aabbSurfaceGap > maxVerticalGap)
+                    continue;
                 var pair = OrderPair(a, b);
                 bool forced = _forcedPairs.Contains(pair);
                 if ((!forced && (!a.canBuildLadder || !b.canBuildLadder)) || a.IsDespawning || b.IsDespawning)
@@ -246,6 +266,22 @@ public class CloudLadderController : MonoBehaviour
             RemoveOrRetireLadder(pair, activeSet);
     }
 
+    void PruneUnavailableLadders(HashSet<GameObject> activeSet)
+    {
+        _toRemoveScratch.Clear();
+        foreach (var kvp in _ladders)
+        {
+            var pair = kvp.Key;
+            if (pair.Item1 == null || pair.Item2 == null ||
+                !activeSet.Contains(pair.Item1.gameObject) || !activeSet.Contains(pair.Item2.gameObject) ||
+                pair.Item1.IsDespawning || pair.Item2.IsDespawning || !IsCurrentBinding(pair) ||
+                !TryGetLadderGeometry(pair.Item1, pair.Item2, out _, out _))
+                _toRemoveScratch.Add(pair);
+        }
+        for (int i = 0; i < _toRemoveScratch.Count; i++)
+            RemoveOrRetireLadder(_toRemoveScratch[i], activeSet);
+    }
+
     int TotalManagedLadderCount => _ladders.Count + _retiringLadders.Count;
 
     void RemoveOrRetireLadder((CloudPlatform, CloudPlatform) pair, HashSet<GameObject> activeSet)
@@ -260,7 +296,7 @@ public class CloudLadderController : MonoBehaviour
         bool upperGone = pair.Item2 == null || !activeSet.Contains(pair.Item2.gameObject);
         bool evaporating = (!lowerGone && pair.Item1.IsDespawning) || (!upperGone && pair.Item2.IsDespawning);
 
-        if (evaporating)
+        if (evaporating && ladderCloudEvaporationHoldSeconds > 0f)
             RetireLadder(ladder, pair, ladderCloudEvaporationHoldSeconds);
         else
             DespawnLadder(ladder);
@@ -472,7 +508,7 @@ public class CloudLadderController : MonoBehaviour
             if (collider == null || !collider.enabled || collider.isTrigger) continue;
             CloudPlatform other = collider.GetComponentInParent<CloudPlatform>();
             if (other == null || other == lower || other == upper) continue;
-            if (_cachedPlatformList.Contains(other))
+            if (_activeSetScratch.Contains(other.gameObject) || _cachedPlatformList.Contains(other))
             {
                 if (collectDiagnostic)
                     diagnostic = $"blocked by active cloud '{other.name}' at x={ladderX:F3}, gap={surfaceGap:F3}";
@@ -552,39 +588,16 @@ public class CloudLadderController : MonoBehaviour
         return newLadder;
     }
 
-    static void EnsureMovingPlatformLadder(GameObject ladder)
+    static MovingPlatformLadder EnsureMovingPlatformLadder(GameObject ladder)
     {
-        if (ladder != null && ladder.GetComponent<MovingPlatformLadder>() == null)
-            ladder.AddComponent<MovingPlatformLadder>();
+        if (ladder == null) return null;
+        MovingPlatformLadder moving = ladder.GetComponent<MovingPlatformLadder>();
+        return moving != null ? moving : ladder.AddComponent<MovingPlatformLadder>();
     }
 
     static float GetSpriteWorldHeight(Sprite sprite)
     {
         return sprite != null ? sprite.bounds.size.y : 0f;
-    }
-
-    static SpriteRenderer GetOrCreateLadderPart(GameObject root, string childName, Sprite sprite)
-    {
-        var existing = root.transform.Find(childName);
-        if (existing != null)
-        {
-            var sr = existing.GetComponent<SpriteRenderer>();
-            if (sr != null)
-            {
-                sr.sprite = sprite;
-                sr.enabled = sprite != null;
-                return sr;
-            }
-        }
-        var go = new GameObject(childName);
-        go.transform.SetParent(root.transform, false);
-        go.transform.localPosition = Vector3.zero;
-        go.transform.localScale = Vector3.one;
-        go.transform.localRotation = Quaternion.identity;
-        var renderer = go.AddComponent<SpriteRenderer>();
-        renderer.sprite = sprite;
-        renderer.enabled = sprite != null;
-        return renderer;
     }
 
     void ReturnLadderToPool(GameObject ladder)
@@ -656,14 +669,14 @@ public class CloudLadderController : MonoBehaviour
     {
         if (lower == null || upper == null || ladder == null) return;
 
-        var rootRenderer = ladder.GetComponent<SpriteRenderer>();
-        if (rootRenderer != null)
-            rootRenderer.enabled = false;
-
         GetLadderPlacement(lower, upper, out float x, out float y, out float height);
 
-        ladder.transform.position = new Vector3(x, y, ladder.transform.position.z);
-        ladder.transform.localScale = Vector3.one;
+        MovingPlatformLadder presentation = EnsureMovingPlatformLadder(ladder);
+        if (presentation == null) return;
+        presentation.SetRootPose(x, y);
+        if (!presentation.NeedsGeometryRebuild(height, ladderWidth, middleOverlap,
+            ladderBottomSprite, ladderMiddleSprite, ladderTopSprite))
+            return;
 
         float topH = GetSpriteWorldHeight(ladderTopSprite);
         float bottomH = GetSpriteWorldHeight(ladderBottomSprite);
@@ -695,7 +708,7 @@ public class CloudLadderController : MonoBehaviour
             }
         }
 
-        var bottomTr = GetOrCreateLadderPart(ladder, ChildNameBottom, ladderBottomSprite).transform;
+        var bottomTr = presentation.GetBottom(ladderBottomSprite).transform;
         bottomTr.localPosition = new Vector3(0f, -height * 0.5f + bottomH * 0.5f, 0f);
         bottomTr.localScale = Vector3.one;
 
@@ -704,29 +717,26 @@ public class CloudLadderController : MonoBehaviour
             float localY = middleCount == 1
                 ? (firstMiddleY + lastMiddleY) * 0.5f
                 : Mathf.Lerp(firstMiddleY, lastMiddleY, i / (float)(middleCount - 1));
-            var partName = ChildNameMiddlePrefix + i;
-            var middleSr = GetOrCreateLadderPart(ladder, partName, ladderMiddleSprite);
+            var middleSr = presentation.GetMiddle(i, ladderMiddleSprite);
+            if (middleSr == null) break;
             middleSr.transform.localPosition = new Vector3(0f, localY, 0f);
             middleSr.transform.localScale = Vector3.one;
             middleSr.gameObject.SetActive(true);
         }
-        for (int i = middleCount; i < MaxLadderMiddleSegments; i++)
-        {
-            var excess = ladder.transform.Find(ChildNameMiddlePrefix + i);
-            if (excess != null) excess.gameObject.SetActive(false);
-            else break;
-        }
+        presentation.SetActiveMiddleCount(middleCount);
 
-        var topTr = GetOrCreateLadderPart(ladder, ChildNameTop, ladderTopSprite).transform;
+        var topTr = presentation.GetTop(ladderTopSprite).transform;
         topTr.localPosition = new Vector3(0f, height * 0.5f - topH * 0.5f, 0f);
         topTr.localScale = Vector3.one;
 
-        var col = ladder.GetComponent<BoxCollider2D>();
+        var col = presentation.RootCollider;
         if (col != null)
         {
             col.size = new Vector2(ladderWidth, height);
             col.offset = Vector2.zero;
         }
+        presentation.MarkGeometryRebuilt(height, ladderWidth, middleOverlap,
+            ladderBottomSprite, ladderMiddleSprite, ladderTopSprite);
     }
 
     void GetLadderPlacement(CloudPlatform lower, CloudPlatform upper, out float x, out float y, out float height)

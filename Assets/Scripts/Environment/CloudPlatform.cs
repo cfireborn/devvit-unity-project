@@ -129,7 +129,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         SubscribeToNetworkPhysicsClock();
     }
 
-    void OnDisable()
+    protected virtual void OnDisable()
     {
         UnsubscribeFromNetworkPhysicsClock();
         if (_despawnCoroutine != null)
@@ -149,10 +149,10 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         AdvancePlatformPhysics(Time.fixedDeltaTime);
     }
 
-    void OnNetworkPreTick()
+    void OnNetworkPrePhysicsSimulation(float deltaTime)
     {
         if (!isActiveAndEnabled || _subscribedTimeManager == null) return;
-        AdvancePlatformPhysics((float)_subscribedTimeManager.TickDelta);
+        AdvancePlatformPhysics(deltaTime);
     }
 
     void AdvancePlatformPhysics(float deltaTime)
@@ -170,19 +170,19 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
 
     void SubscribeToNetworkPhysicsClock()
     {
-        if (_subscribedTimeManager != null) return;
+        if (_subscribedTimeManager != null || isPooled) return;
 
         TimeManager timeManager = InstanceFinder.TimeManager;
         if (timeManager == null || timeManager.PhysicsMode != PhysicsMode.TimeManager) return;
 
         _subscribedTimeManager = timeManager;
-        _subscribedTimeManager.OnPreTick += OnNetworkPreTick;
+        _subscribedTimeManager.OnPrePhysicsSimulation += OnNetworkPrePhysicsSimulation;
     }
 
     void UnsubscribeFromNetworkPhysicsClock()
     {
         if (_subscribedTimeManager == null) return;
-        _subscribedTimeManager.OnPreTick -= OnNetworkPreTick;
+        _subscribedTimeManager.OnPrePhysicsSimulation -= OnNetworkPrePhysicsSimulation;
         _subscribedTimeManager = null;
     }
 

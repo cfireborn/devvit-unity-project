@@ -331,9 +331,11 @@ public class PlayerControllerM : MonoBehaviour
         else
             _isGroundedFixed = false;
 
-        bool isOnLadder = groundChecker != null && groundChecker.IsOnLadder;
+        bool isInsideLadder = groundChecker != null && groundChecker.IsOnLadder;
         bool dropThroughPressed = verticalInput < -0.5f;
         bool droppedThrough = _isGroundedFixed && dropThroughPressed && TryDropThroughCurrentPlatform();
+        bool isOnLadder = isInsideLadder && !jumpPressed && !droppedThrough &&
+            (_wasOnLadder || Mathf.Abs(verticalInput) > 0.5f);
         if (droppedThrough || (isOnLadder && dropThroughPressed))
         {
             jumpPressed = false;
@@ -380,7 +382,8 @@ public class PlayerControllerM : MonoBehaviour
         // Jumping (works when moving left/right; consume buffer and coyote on jump)
         if (canJump)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, settings.jumpForce);
+            float carryVy = _isGroundedFixed ? _currentPlatformVelocity.y : _pendingPlatformVelocity.y;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, settings.jumpForce + carryVy);
             isGliding = false;
             _jumpBufferRemaining = 0f;
             _coyoteTimeRemaining = 0f;
@@ -473,7 +476,7 @@ public class PlayerControllerM : MonoBehaviour
             spriteTransform.localScale = s;
         }
 
-        bool onLadder = groundChecker != null && groundChecker.IsOnLadder;
+        bool onLadder = _wasOnLadder;
         _isJumping = !_isGroundedFixed && !isGliding && !onLadder
             && rb != null && rb.linearVelocity.y > 0.01f;
 
@@ -624,7 +627,7 @@ public class PlayerControllerM : MonoBehaviour
 
         _platformDeltaAppliedManually = false;
 
-        IMovingPlatform current = groundChecker.IsOnLadder ? groundChecker.CurrentLadder : groundChecker.CurrentPlatform;
+        IMovingPlatform current = _wasOnLadder ? groundChecker.CurrentLadder : groundChecker.CurrentPlatform;
         if (current == null)
         {
             _currentPlatformVelocity = Vector2.zero;
@@ -637,7 +640,8 @@ public class PlayerControllerM : MonoBehaviour
         if (current is Component component)
         {
             var platformRb = component.GetComponent<Rigidbody2D>();
-            physicsDrivenPlatform = platformRb != null && platformRb.bodyType == RigidbodyType2D.Kinematic;
+            physicsDrivenPlatform = platformRb != null && platformRb.simulated &&
+                platformRb.bodyType == RigidbodyType2D.Kinematic;
             if (current is CloudPlatform cloudPlatform && !cloudPlatform.enabled)
                 physicsDrivenPlatform = false;
         }
@@ -655,7 +659,7 @@ public class PlayerControllerM : MonoBehaviour
 
         // Only manually move the player if it's NOT a physics-driven platform (which handles it automatically)
         // OR if the player is on a ladder (ladders are usually triggers, so no physics contact movement)
-        if (groundChecker.IsOnLadder || !physicsDrivenPlatform)
+        if (_wasOnLadder || !physicsDrivenPlatform)
         {
             rb.position += delta;
             _platformDeltaAppliedManually = true;
@@ -675,13 +679,13 @@ public class PlayerControllerM : MonoBehaviour
         int contacts = rb.GetContacts(_contactFilter, _contactBuffer);
         if (contacts == 0) return;
 
-        float halfHeight = playerCollider != null ? playerCollider.bounds.extents.y : 0.5f;
-
         for (int i = 0; i < contacts; i++)
         {
             var contact = _contactBuffer[i];
             var other = contact.collider;
             if (other == null || !other.CompareTag(platformTag)) continue;
+            var effector = other.GetComponent<PlatformEffector2D>() ?? other.GetComponentInParent<PlatformEffector2D>();
+            if (other.usedByEffector && effector != null && effector.useOneWay) continue;
 
             Vector2 normal = contact.normal;
             if (Mathf.Abs(normal.x) < 0.6f || normal.y > 0.3f) continue;

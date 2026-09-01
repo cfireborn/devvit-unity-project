@@ -26,6 +26,8 @@ public class NetworkPlayerController : NetworkBehaviour
     bool _syncedGliding;
     bool _syncedGrounded;
     bool _syncedJumping;
+    Vector2 _lastRemoteVisualPosition;
+    bool _remoteVisualPositionInitialized;
 
     // Throttle: sync visuals at 15Hz, not every frame
     float _visualSyncTimer;
@@ -71,6 +73,8 @@ public class NetworkPlayerController : NetworkBehaviour
         {
             if (_controller != null) _controller.enabled = false;
             if (_rb != null) _rb.simulated = false;
+            _lastRemoteVisualPosition = transform.position;
+            _remoteVisualPositionInitialized = true;
 
             // Apply rainbow tint to remote players
             if (_spriteRenderer != null)
@@ -220,6 +224,25 @@ public class NetworkPlayerController : NetworkBehaviour
         // Facing direction
         if (_spriteRenderer != null && Mathf.Abs(_syncedMoveDir) > 0.05f)
             _spriteRenderer.flipX = _syncedMoveDir < 0f;
+
+        Transform spriteTransform = _controller.spriteTransform;
+        if (spriteTransform != null && spriteTransform != transform)
+        {
+            Vector2 currentPosition = transform.position;
+            Vector2 visualVelocity = Vector2.zero;
+            if (_remoteVisualPositionInitialized)
+                visualVelocity = (currentPosition - _lastRemoteVisualPosition) /
+                    Mathf.Max(0.0001f, Time.deltaTime);
+            _lastRemoteVisualPosition = currentPosition;
+            _remoteVisualPositionInitialized = true;
+
+            float desiredAngle = -_syncedMoveDir * _controller.maxRotationAngle - visualVelocity.y * 0.5f;
+            desiredAngle = Mathf.Clamp(desiredAngle,
+                -Mathf.Abs(_controller.maxRotationAngle), Mathf.Abs(_controller.maxRotationAngle));
+            Quaternion target = Quaternion.Euler(0f, 0f, desiredAngle);
+            spriteTransform.localRotation = Quaternion.Lerp(
+                spriteTransform.localRotation, target, Time.deltaTime * 10f);
+        }
 
         _controller.SetSpriteAnimatorState(_syncedMoveDir, _syncedGliding, _syncedGrounded, _syncedJumping);
     }

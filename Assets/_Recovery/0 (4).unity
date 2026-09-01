@@ -1381,7 +1381,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 3.0132847, y: -4.8474307}
+  m_Offset: {x: 0, y: -2.4870238}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -1391,7 +1391,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 55.5088, y: 5.7333136}
+  m_Size: {x: 21.76, y: 1.6151567}
   m_EdgeRadius: 0
 --- !u!1 &685484874 stripped
 GameObject:
@@ -1474,8 +1474,8 @@ Transform:
   m_GameObject: {fileID: 801604407}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 31.6, y: 34, z: 0}
-  m_LocalScale: {x: 1, y: 3.4375, z: 1}
+  m_LocalPosition: {x: 10.88, y: 6.65682, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 672455899}
@@ -2579,7 +2579,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 6.608917, y: 9.852705}
+  m_Offset: {x: 2.5302029, y: 8.446506}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -2589,7 +2589,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 43.20127, y: 28.81139}
+  m_Size: {x: 35.043827, y: 25.998991}
   m_EdgeRadius: 0
 --- !u!114 &1504431324
 MonoBehaviour:
@@ -2919,10 +2919,6 @@ PrefabInstance:
       propertyPath: m_SizeDelta.x
       value: 537.0357
       objectReference: {fileID: 0}
-    - target: {fileID: 2253878790705494987, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 9.800049
-      objectReference: {fileID: 0}
     - target: {fileID: 2718442114300018778, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -3013,7 +3009,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2873052586741194834, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 105.1001
+      value: 105.099976
       objectReference: {fileID: 0}
     - target: {fileID: 5564850375466545011, guid: 553a7e7151dd90147b22a017ff503de7, type: 3}
       propertyPath: m_Camera
@@ -3472,8 +3468,8 @@ Transform:
   m_GameObject: {fileID: 2024412199}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -15.3, y: 34.2, z: 0}
-  m_LocalScale: {x: 1, y: 3.525, z: 1}
+  m_LocalPosition: {x: -10.849999, y: 6.65682, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 672455899}

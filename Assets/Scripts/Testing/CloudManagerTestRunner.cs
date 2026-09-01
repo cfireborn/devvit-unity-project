@@ -128,6 +128,7 @@ public class CloudManagerTestRunner : MonoBehaviour
         CheckMaxCloudCapRespected();
         CheckActiveCloudsAreKinematic();
         CheckNetworkPhysicsClock();
+        CheckCloudPerformanceConfiguration();
         CheckNetworkPlayerMotionConfiguration();
         yield return StartCoroutine(CheckCloudsAreMoving());
         CheckClientPathDisablesCloudManager();
@@ -269,9 +270,47 @@ public class CloudManagerTestRunner : MonoBehaviour
         }
 
         if (cloudManager.UsesNetworkPhysicsClockForTests)
-            Pass("CloudManager advances once per FishNet pre-physics tick in TimeManager physics mode.");
+            Pass("CloudManager advances from FishNet OnPrePhysicsSimulation in TimeManager physics mode.");
         else
-            Fail("CloudManager is not subscribed to FishNet's pre-physics tick.", "Unity FixedUpdate and FishNet TimeManager ticks must not drive clouds on different clocks.");
+            Fail("CloudManager is not subscribed to FishNet's pre-physics simulation.", "Unity FixedUpdate and FishNet TimeManager physics must not drive clouds on different clocks.");
+    }
+
+    void CheckCloudPerformanceConfiguration()
+    {
+        if (cloudManager == null) return;
+
+        FieldInfo platformClockField = typeof(CloudPlatform).GetField(
+            "_subscribedTimeManager", BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo intervalField = typeof(NetworkTransform).GetField(
+            "_interval", BindingFlags.Instance | BindingFlags.NonPublic);
+        bool pooledPlatformsUnsubscribed = true;
+        bool transformIntervalHealthy = true;
+        int checkedClouds = 0;
+
+        foreach (GameObject cloud in cloudManager.GetActiveClouds())
+        {
+            if (cloud == null || !cloudManager.IsDynamicCloud(cloud)) continue;
+            CloudPlatform platform = cloud.GetComponent<CloudPlatform>();
+            NetworkTransform networkTransform = cloud.GetComponent<NetworkTransform>();
+            checkedClouds++;
+            if (platform != null && platformClockField != null &&
+                platformClockField.GetValue(platform) != null)
+                pooledPlatformsUnsubscribed = false;
+            if (networkTransform != null && intervalField != null &&
+                intervalField.GetValue(networkTransform) is byte interval && interval != 3)
+                transformIntervalHealthy = false;
+        }
+
+        if (checkedClouds == 0)
+        {
+            Warn("No dynamic cloud was available for performance-configuration validation.");
+            return;
+        }
+        if (pooledPlatformsUnsubscribed && transformIntervalHealthy)
+            Pass($"{checkedClouds} dynamic clouds use one manager physics callback and 20 Hz NetworkTransform sends.");
+        else
+            Fail("Dynamic cloud performance configuration is invalid.",
+                $"pooledPlatformsUnsubscribed={pooledPlatformsUnsubscribed}, transformIntervalHealthy={transformIntervalHealthy}");
     }
 
     void CheckNetworkPlayerMotionConfiguration()

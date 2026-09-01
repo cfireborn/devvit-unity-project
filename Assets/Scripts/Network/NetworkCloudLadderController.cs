@@ -14,7 +14,7 @@ using UnityEngine;
 ///           NetworkLadder.SyncCloudIds() is called right after Spawn so every client
 ///           knows which two clouds the ladder bridges (BufferLast covers late joiners).
 /// - Clients: disables CloudLadderController. FishNet spawns ladder GOs automatically.
-///            Each LateUpdate, iterates spawned NetworkLadder instances and calls
+///            Each LateUpdate, iterates the active NetworkLadder registry and calls
 ///            UpdateLadderPosition() so visuals and collider are rebuilt from already-
 ///            synced cloud positions. No separate position sync or manual dict needed.
 /// - Offline fallback: ActivateOfflineMode() re-enables CloudLadderController.
@@ -150,10 +150,9 @@ public class NetworkCloudLadderController : NetworkBehaviour
 
         var spawned = InstanceFinder.ClientManager.Objects.Spawned;
 
-        foreach (var kvp in spawned)
+        foreach (NetworkLadder nl in NetworkLadder.ActiveClientLadders)
         {
-            var nl = kvp.Value.GetComponent<NetworkLadder>();
-            if (nl == null) continue;
+            if (nl == null || !nl.IsSpawned) continue;
             if (nl.CloudAObjectId < 0 || nl.CloudBObjectId < 0)
             {
                 nl.SetPresentationActive(false);
@@ -177,7 +176,7 @@ public class NetworkCloudLadderController : NetworkBehaviour
             }
 
             var (lower, upper) = CloudLadderController.OrderPair(platformA, platformB);
-            _ladderController.UpdateLadderPosition(lower, upper, kvp.Value.gameObject);
+            _ladderController.UpdateLadderPosition(lower, upper, nl.gameObject);
             nl.SetPresentationActive(true);
         }
     }

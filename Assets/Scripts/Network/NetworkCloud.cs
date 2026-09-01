@@ -1,4 +1,5 @@
 using FishNet.Object;
+using FishNet.Component.Transforming;
 using UnityEngine;
 
 /// <summary>
@@ -6,7 +7,8 @@ using UnityEngine;
 ///
 /// - Server / host: Pooled clouds are moved once per active physics tick by CloudManager
 ///   (Rigidbody2D.MovePosition).
-///   FishNet NetworkTransform (on the prefab) replicates transform/Rigidbody state to clients.
+///   FishNet NetworkTransform replicates transform/Rigidbody state to clients at 20 Hz;
+///   its render interpolation fills the frames between authoritative poses.
 ///   Non-pooled scene clouds use the same physics clock through CloudPlatform when isPooled is false.
 ///   Scene clouds that were active at load are re-enabled in OnStartServer so they behave once the network is up.
 /// - Clients: CloudPlatform is disabled so local physics does not fight replication; NetworkTransform applies positions.
@@ -17,8 +19,10 @@ using UnityEngine;
 /// </summary>
 public class NetworkCloud : NetworkBehaviour
 {
+    const byte TransformSendInterval = 3;
     CloudPlatform _platform;
     Rigidbody2D _rb;
+    NetworkTransform _networkTransform;
 
     // Whether CloudPlatform was enabled when the scene loaded, recorded before any
     // network lifecycle callback can change it. Used to distinguish:
@@ -30,12 +34,17 @@ public class NetworkCloud : NetworkBehaviour
     {
         _platform = GetComponent<CloudPlatform>();
         _rb = GetComponent<Rigidbody2D>();
+        _networkTransform = GetComponent<NetworkTransform>();
         _platformWasEnabledAtStart = _platform != null && _platform.enabled;
     }
 
     public override void OnStartServer()
     {
         base.OnStartServer();
+
+        // Clouds move continuously but do not need a 60 Hz global transform stream.
+        // FishNet interpolates the 20 Hz poses produced by a three-tick interval.
+        _networkTransform?.SetInterval(TransformSendInterval);
 
         if (_platform != null)
             _platform.DespawnStarted += OnServerDespawnStarted;

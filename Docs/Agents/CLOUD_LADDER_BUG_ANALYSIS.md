@@ -77,6 +77,27 @@ For replicated clouds on a pure client, platform motion must be applied manually
 
 Client-side prediction was deliberately not added. The owner squirrel is already locally authoritative, and predicting the authoritative cloud root would separate its collision, ladder geometry, and sprite. If live frame-displacement measurements still show residual render jitter after these writer/timing fixes, the safe next experiment is a dedicated visual-child smoother, not root prediction.
 
+The player-head one-way platform is also isolated from competing writers. Its collider is detached onto an independent simulated kinematic body so a rider cannot transfer impulses into the lower squirrel. The driver subscribes to FishNet's pre/post physics callbacks, samples the authoritative Rigidbody2D pose for simulated owners, and closes each tick at the exact owner offset after simulation. FishNet intentionally disables non-owner player rigidbodies and interpolates their Transforms; that path therefore reads the Transform and uses `MovePosition` so the solver sees real kinematic travel and carries a local rider instead of receiving a pre-simulation teleport. Teleports/respawns above the configured threshold still snap. Offline physics mirrors the same pre/post behavior with `FixedUpdate`/`LateUpdate`.
+
+### 10. Build-4 WebGL performance regression
+
+The `d209f0f` Pages release included a cloud shader merge in addition to denser horizontal spacing. The merged fragment shader evaluated the full two-layer cellular dissolve fourteen times per fragment: thirteen blurred shadow taps plus the main sprite. Since every cloud has two renderers, this dominated WebGL frame time. The cloud shader and material are restored to the known-playable `99c2db2` single-sample implementation.
+
+Density also exposed CPU and network scaling costs. The repair now:
+
+- retains SimpleLevel's smaller positive horizontal gaps and `2.8` non-overlapping lane spacing without a first-fit global cap that could starve later lanes or a separated player's viewport;
+- evaluates automatic ladder topology at 10 Hz or immediately when active-cloud count changes, while each existing ladder's endpoint generation, exact surface geometry, and intermediate-cloud obstruction still fail closed every frame;
+- removes the former 1.25-second ladder evaporation hold, which could leave two collinear one-ended ladders around an already invisible middle cloud;
+- prefilters pairs by cached AABB distance/overlap before exact polygon and physics obstruction work;
+- caches ladder cap/middle renderers and skips child/collider rebuilds when only the root pose changed, eliminating steady-state `"Middle_" + index` and `Transform.Find` garbage;
+- sends cloud NetworkTransform poses every three 60 Hz ticks (20 Hz) and relies on FishNet render interpolation between them;
+- prevents pooled clouds from registering redundant per-platform physics callbacks; only `CloudManager` drives them;
+- maintains a pure-client active-ladder registry instead of scanning every spawned FishNet object every rendered frame.
+
+The authoritative cloud move hook is `TimeManager.OnPrePhysicsSimulation(float)`, not `OnPreTick`. This uses FishNet's actual scaled physics delta after incoming/reconciliation and immediately before `Physics2D.Simulate`. `DeliveryCloudPlatform` now overrides and calls the base disable cleanup so no subscription survives deactivation.
+
+Network cloud despawn explicitly uses `DespawnType.Destroy` for every cloud variant. This removes the prior one-prefab pooling-policy inconsistency without changing prefab component order or FishNet spawnable identity.
+
 ## FishNet prefab gotchas
 
 The collaborator warning is directionally correct: an arbitrary sprite or collider edit does not inherently break networking, but a prefab edit can change the network protocol when it changes the `NetworkObject`, its `NetworkBehaviour` component set/order, or the generated spawnable-prefab table.
@@ -109,10 +130,10 @@ The August 19 state was inspected as a reference, not restored wholesale. It pre
 
 ## Verification performed
 
-- `LadderManagerTest`: **14 passed, 0 failed**, twice after the final adversarial fixes. The harness uses three isolated kinematic clouds and checks exact pairs, including movement/removal, truthful forced creation, both adjacent bindings around an obstructing middle cloud, and rapid endpoint-generation reuse.
+- `LadderManagerTest`: **16 passed, 0 failed** on the current combined tree. The harness uses three isolated kinematic clouds and checks exact pairs, including cached presentation/stale-trigger cleanup, movement/removal, truthful forced creation, both adjacent bindings around an obstructing middle cloud, and rapid endpoint-generation reuse. The latter two waits explicitly cover one throttled 10 Hz topology scan; invalid existing bindings still fail closed in the first `LateUpdate`.
 - `CloudManagerTest`: all seven prefabs passed rendered-scale, physical-collider, FishNet behaviour-order, and unique server/client spawn-table round-trip invariants. Dynamic clouds also spawned in offline fallback. The scene's pre-existing `NetworkBootstrapper` fixture still reports `Server did not start`; this is recorded as a test-fixture limitation, not treated as server validation.
-- `SimpleLevel` host run: server log confirmed first authoritative cloud spawn, all seven variants and pooled ladders appeared, and the filtered run showed **0 warnings / 0 errors**.
-- Unity Multiplayer Play Mode: one virtual pure client joined the host. It completed with **15 informational logs, 0 warnings, 0 errors**, while the host received both players and all cloud variants. No prefab-ID or behaviour-index fault appeared.
+- `SimpleLevel` host run after the head-clock and ladder lifecycle fixes: server log confirmed the first authoritative cloud spawn, pooled clouds and ladders appeared, and the current run showed **20 informational logs / 0 warnings / 0 errors**.
+- Unity Multiplayer Play Mode on the current combined tree: one virtual pure client joined the host. The client completed with **18 informational logs / 0 warnings / 0 errors** while the host showed both network players, both detached head surfaces, replicated clouds/ladders, and **22 informational logs / 0 warnings / 0 errors**. No prefab-ID or behaviour-index fault appeared.
 
 Follow-up motion/ladder verification added after the initial release:
 
@@ -120,7 +141,7 @@ Follow-up motion/ladder verification added after the initial release:
 - A network presentation probe constructs derived ladder geometry, verifies it is visible only while bound, then verifies every renderer and the trigger are disabled while unbound.
 - The cloud harness now verifies that TimeManager-mode clouds are subscribed to FishNet's physics clock.
 - The network-player invariant verifies the sprite-child reference, owner Rigidbody2D interpolation, and disabled root rotation synchronization.
-- The production O(N²) ladder candidate scan remains allocation-free: rejection strings are built only when `GetLadderGeometryDiagnostic` is explicitly called by a test/debugger.
+- Production pair rejection strings are built only when `GetLadderGeometryDiagnostic` is explicitly called by a test/debugger. Topology reevaluation is bounded to 10 Hz and cached presentation updates are allocation-free after warm-up.
 
 The publish/deployment record and live WebGL smoke results should be appended to the release handoff after the matching client and Edgegap server are online.
 
@@ -143,6 +164,8 @@ The publish/deployment record and live WebGL smoke results should be appended to
 | `Assets/Scripts/Environment/CloudLadderController.cs` | Global candidate ranking, obstruction detection, forced-pair and pooling-generation validation |
 | `Assets/Scripts/Environment/CloudPlatform.cs` | Activation generations and valid physical-bounds selection |
 | `Assets/Scripts/Player/GroundChecker.cs` | Robust overlap growth and closest-surface ground ranking |
+| `Assets/Scripts/Player/PlayerControllerM.cs` | Single-writer platform carry and physics/manual platform classification |
+| `Assets/Scripts/Player/PlayerHeadPlatform.cs` | Detached one-way head surface driven on FishNet pre/post physics clocks |
 | `Assets/Scripts/Environment/CloudBehaviorSettings.cs` | Clarified tuning semantics |
 | `Assets/Scripts/Testing/CloudManagerTestRunner.cs` | Seven-prefab render/physics/FishNet invariants |
 | `Assets/Scripts/Testing/LadderManagerTestRunner.cs` | Deterministic exact-pair and intermediate-obstruction tests |

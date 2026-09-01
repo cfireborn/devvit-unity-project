@@ -125,6 +125,7 @@ public class LadderManagerTestRunner : MonoBehaviour
         // Ensure controlled pair is selected before ladder tests
         AutoSelectControlledPair(allClouds);
         CheckNetworkLadderPresentationFailsClosed();
+        CheckLadderPresentationCacheAndStaleTriggerCleanup();
 
         yield return StartCoroutine(CheckAutoLadderBuilds());
         CheckLadderColliderAndTag();
@@ -158,6 +159,9 @@ public class LadderManagerTestRunner : MonoBehaviour
 
         if (hasCloudManager && hasPrefab)
             Pass($"CloudLadderController found on '{ladderController.gameObject.name}' with CloudManager and ladderPrefab assigned.");
+
+        if (ladderController.ladderCloudEvaporationHoldSeconds > 0f)
+            Fail("Ladders outlive evaporating endpoints.", "Set ladderCloudEvaporationHoldSeconds to 0 so one-ended ladders fail closed in the same frame.");
     }
 
     void CheckCloudManagerPresent()
@@ -233,6 +237,41 @@ public class LadderManagerTestRunner : MonoBehaviour
             Pass("Network ladder shows derived child geometry only while bound and hides visuals/collider when unbound.");
         else
             Fail("Network ladder presentation did not fail closed.", $"boundChildVisual={boundHasChildVisual}, hiddenAndNonInteractive={hiddenAndNonInteractive}");
+    }
+
+    void CheckLadderPresentationCacheAndStaleTriggerCleanup()
+    {
+        if (ladderController == null || ladderController.ladderPrefab == null ||
+            controlledCloudLower == null || controlledCloudUpper == null)
+            return;
+
+        GameObject probe = Instantiate(ladderController.ladderPrefab);
+        probe.name = "LadderCacheAndTriggerProbe";
+        ladderController.UpdateLadderPosition(controlledCloudLower, controlledCloudUpper, probe);
+        int childCountAfterWarmup = probe.transform.childCount;
+        MovingPlatformLadder cache = probe.GetComponent<MovingPlatformLadder>();
+        ladderController.UpdateLadderPosition(controlledCloudLower, controlledCloudUpper, probe);
+        bool stableChildCount = probe.transform.childCount == childCountAfterWarmup;
+
+        GameObject checkerObject = new GameObject("GroundCheckerStaleLadderProbe");
+        checkerObject.AddComponent<BoxCollider2D>();
+        GroundChecker checker = checkerObject.AddComponent<GroundChecker>();
+        BoxCollider2D ladderCollider = probe.GetComponent<BoxCollider2D>();
+        checkerObject.SendMessage("OnTriggerEnter2D", ladderCollider);
+        bool registered = checker.IsOnLadder && checker.CurrentLadder != null;
+        if (ladderCollider != null)
+            ladderCollider.enabled = false;
+        bool pruned = !checker.IsOnLadder && checker.CurrentLadder == null;
+
+        probe.SetActive(false);
+        Destroy(probe);
+        Destroy(checkerObject);
+
+        if (cache != null && stableChildCount && registered && pruned)
+            Pass("Ladder geometry cache stays stable after warm-up and disabled ladder triggers are pruned immediately.");
+        else
+            Fail("Ladder cache or stale-trigger cleanup failed.",
+                $"cache={cache != null}, stableChildCount={stableChildCount}, registered={registered}, pruned={pruned}");
     }
 
     void CheckLadderSpritesAssigned()
@@ -591,8 +630,11 @@ public class LadderManagerTestRunner : MonoBehaviour
         float middleY = (lowerBounds.max.y + upperBounds.min.y) * 0.5f;
         middleRb.MovePosition(new Vector2(lowerBounds.center.x, middleY));
         yield return new WaitForFixedUpdate();
-        yield return null;
-        yield return null;
+        // Automatic pair selection is intentionally throttled to 10 Hz to keep the
+        // O(n^2) candidate scan out of every rendered frame. Existing long ladders
+        // still fail closed immediately; allow one scheduled scan for the two
+        // replacement links to be created before asserting the final topology.
+        yield return new WaitForSecondsRealtime(0.15f);
 
         bool spansPastMiddle = ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper);
         bool lowerBindsMiddle = ladderController.HasLadderBetween(controlledCloudLower, middle);
@@ -655,8 +697,9 @@ public class LadderManagerTestRunner : MonoBehaviour
         endpoint.SetActive(false);
         endpoint.SetActive(true);
         cloudManager.ActivateNonPooledCloud(endpoint);
-        yield return null;
-        yield return null;
+        // The stale activation-version binding is pruned immediately, while the
+        // replacement pair is selected on the controller's throttled 10 Hz scan.
+        yield return new WaitForSecondsRealtime(0.15f);
 
         bool versionAdvanced = controlledCloudLower.ActivationVersion > previousVersion;
         bool rebound = ladderController.TryGetLadderBetween(controlledCloudLower, controlledCloudUpper, out GameObject currentLadder) &&

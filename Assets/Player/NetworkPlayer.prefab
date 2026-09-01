@@ -57,7 +57,7 @@ Rigidbody2D:
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_Interpolate: 1
+  m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 1
   m_Constraints: 4
@@ -391,6 +391,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 83eeddb15f4f549c2a8cbb96e223ade0, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHeadPlatform
+  surfaceBody: {fileID: 1127958551550974686}
+  surfaceCollider: {fileID: 61679244968425195}
+  teleportSnapDistance: 0.75
 --- !u!1 &3878536211169584731
 GameObject:
   m_ObjectHideFlags: 0

@@ -97,7 +97,7 @@ public class NetworkCloudManager : NetworkBehaviour
         _cloudManager._onCloudDeactivated = go =>
         {
             var nob = go.GetComponent<NetworkObject>();
-            if (nob != null && nob.IsSpawned) InstanceFinder.ServerManager.Despawn(nob);
+            if (nob != null && nob.IsSpawned) InstanceFinder.ServerManager.Despawn(nob, DespawnType.Destroy);
             else Destroy(go);
         };
     }
