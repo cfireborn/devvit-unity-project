@@ -18,6 +18,11 @@ public sealed class PlayerHeadPlatform : MonoBehaviour
     Rigidbody2D _ownerBody;
     TimeManager _subscribedTimeManager;
     Vector2 _localOffset;
+    Vector2 _lastRemoteTarget;
+    Vector2 _sampledRemoteVelocity;
+    Vector2 _reportedVelocity;
+    double _lastRemoteSampleTime;
+    bool _remoteSnapPending;
     bool _initialized;
 
     public Rigidbody2D SurfaceBody => surfaceBody;
@@ -60,6 +65,8 @@ public sealed class PlayerHeadPlatform : MonoBehaviour
         surfaceBody.constraints = RigidbodyConstraints2D.FreezeRotation;
 
         Vector2 target = TargetPosition();
+        _lastRemoteTarget = target;
+        _lastRemoteSampleTime = Time.timeAsDouble;
         surfaceBody.position = target;
         surfaceBody.rotation = 0f;
         surfaceBody.linearVelocity = Vector2.zero;
@@ -117,21 +124,37 @@ public sealed class PlayerHeadPlatform : MonoBehaviour
 
         Vector2 target = TargetPosition();
         float snapDistance = Mathf.Max(0f, teleportSnapDistance);
-        bool snap = snapDistance == 0f ||
-            (target - surfaceBody.position).sqrMagnitude > snapDistance * snapDistance;
+        bool remoteOwner = _ownerBody != null && !_ownerBody.simulated;
+        if (remoteOwner)
+            SampleRemoteTarget(target);
+        bool snap = remoteOwner
+            ? _remoteSnapPending
+            : snapDistance == 0f ||
+                (target - surfaceBody.position).sqrMagnitude > snapDistance * snapDistance;
 
         if (snap)
         {
             surfaceBody.position = target;
             surfaceBody.linearVelocity = Vector2.zero;
+            _lastRemoteTarget = target;
+            _sampledRemoteVelocity = Vector2.zero;
+            _reportedVelocity = Vector2.zero;
+            _lastRemoteSampleTime = Time.timeAsDouble;
+            _remoteSnapPending = false;
         }
-        else if (_ownerBody != null && !_ownerBody.simulated)
+        else if (remoteOwner)
         {
             // FishNet drives remote roots by interpolating their Transform while the
-            // root Rigidbody2D is unsimulated. MovePosition preserves real kinematic
-            // travel through this simulation so a local rider is carried instead of
-            // seeing the surface teleport before the solver runs.
-            surfaceBody.MovePosition(target);
+            // root Rigidbody2D is unsimulated. Follow it at the measured rendered
+            // velocity instead of accelerating to consume a backlog in one tick.
+            // This keeps catch-up ticks from launching a rider at a multiple of the
+            // remote player's actual speed.
+            float maxStep = _sampledRemoteVelocity.magnitude * Mathf.Max(0f, deltaTime);
+            Vector2 next = Vector2.MoveTowards(surfaceBody.position, target, maxStep);
+            _reportedVelocity = (next - surfaceBody.position) / Mathf.Max(0.0001f, deltaTime);
+            surfaceBody.MovePosition(next);
+            if ((target - next).sqrMagnitude <= 0.00000001f)
+                _sampledRemoteVelocity = Vector2.zero;
         }
         else
         {
@@ -139,7 +162,8 @@ public sealed class PlayerHeadPlatform : MonoBehaviour
             // lets the kinematic surface carry riders during the simulation itself;
             // the post-simulation alignment closes any gravity/contact divergence.
             surfaceBody.position = target;
-            surfaceBody.linearVelocity = SurfaceVelocityForSimulation();
+            _reportedVelocity = SurfaceVelocityForSimulation();
+            surfaceBody.linearVelocity = _reportedVelocity;
         }
 
         surfaceBody.angularVelocity = 0f;
@@ -152,6 +176,14 @@ public sealed class PlayerHeadPlatform : MonoBehaviour
         if (!_initialized || surfaceBody == null) return;
 
         Vector2 target = TargetPosition();
+        if (_ownerBody != null && !_ownerBody.simulated)
+        {
+            surfaceBody.SetRotation(0f);
+            surfaceBody.linearVelocity = Vector2.zero;
+            surfaceBody.angularVelocity = 0f;
+            _surface?.SetTargetPosition(surfaceBody.position);
+            return;
+        }
         surfaceBody.position = target;
         surfaceBody.SetRotation(0f);
         surfaceBody.linearVelocity = Vector2.zero;
@@ -167,6 +199,37 @@ public sealed class PlayerHeadPlatform : MonoBehaviour
         // Use only solved/current velocity. Predicting gravity here makes the head
         // move down while a grounded owner is collision-constrained, then snap back.
         return _ownerBody.linearVelocity;
+    }
+
+    void SampleRemoteTarget(Vector2 target)
+    {
+        if (_ownerBody == null || _ownerBody.simulated) return;
+
+        double now = Time.timeAsDouble;
+        Vector2 targetDelta = target - _lastRemoteTarget;
+        if (targetDelta.sqrMagnitude <= 0.00000001f)
+        {
+            // Keep the clock current while idle so the first movement sample does
+            // not include stationary time in its velocity denominator.
+            _lastRemoteSampleTime = now;
+            if ((target - surfaceBody.position).sqrMagnitude <= 0.00000001f)
+                _sampledRemoteVelocity = Vector2.zero;
+            return;
+        }
+
+        float sampleSeconds = (float)(now - _lastRemoteSampleTime);
+        if (sampleSeconds <= 0.0001f)
+            sampleSeconds = _subscribedTimeManager != null
+                ? Mathf.Max(0.0001f, (float)_subscribedTimeManager.TickDelta)
+                : Mathf.Max(0.0001f, Time.fixedDeltaTime);
+        float snapDistance = Mathf.Max(0f, teleportSnapDistance);
+        _remoteSnapPending = snapDistance == 0f ||
+            targetDelta.sqrMagnitude > snapDistance * snapDistance;
+        _sampledRemoteVelocity = _remoteSnapPending
+            ? Vector2.zero
+            : targetDelta / sampleSeconds;
+        _lastRemoteTarget = target;
+        _lastRemoteSampleTime = now;
     }
 
     void SubscribeToPhysicsClock()
@@ -228,16 +291,38 @@ public sealed class PlayerHeadPlatform : MonoBehaviour
         if (!_initialized || surfaceBody == null)
             return TargetPosition();
 
+        // Remote surfaces may be partway through a low-frame-rate catch-up step;
+        // report the pose the physics solver actually processed.
+        if (_ownerBody != null && !_ownerBody.simulated)
+            return surfaceBody.position;
+
         Vector2 target = TargetPosition();
         float snapDistance = Mathf.Max(0f, teleportSnapDistance);
         bool pendingSnap = snapDistance == 0f ||
             (target - surfaceBody.position).sqrMagnitude > snapDistance * snapDistance;
 
-        // Ordinary remote interpolation is reported immediately so a rider's
-        // OnTick carry velocity matches this tick's MovePosition sweep. For a
-        // respawn/teleport, keep reporting the old physical pose until the solver
-        // processes contact exit instead of producing a huge delta/TickDelta burst.
+        // For a respawn/teleport, keep reporting the old physical pose until the
+        // solver processes contact exit instead of producing a huge delta burst.
         return pendingSnap ? surfaceBody.position : target;
+    }
+
+    internal Vector2 GetReportedPlatformVelocity()
+    {
+        if (_ownerBody != null && _ownerBody.simulated)
+            return _ownerBody.linearVelocity;
+
+        if (_ownerBody != null)
+        {
+            Vector2 target = TargetPosition();
+            SampleRemoteTarget(target);
+            if (_remoteSnapPending)
+                return Vector2.zero;
+            if ((target - surfaceBody.position).sqrMagnitude > 0.00000001f)
+                return _sampledRemoteVelocity;
+            return Vector2.zero;
+        }
+
+        return _reportedVelocity;
     }
 }
 
@@ -263,4 +348,8 @@ public sealed class PlayerHeadPlatformSurface : MonoBehaviour, IMovingPlatform
             return _driver.GetReportedPlatformPosition();
         return _body != null ? _body.position : _targetPosition;
     }
+
+    public Vector2 GetVelocity() => _driver != null
+        ? _driver.GetReportedPlatformVelocity()
+        : (_body != null ? _body.linearVelocity : Vector2.zero);
 }

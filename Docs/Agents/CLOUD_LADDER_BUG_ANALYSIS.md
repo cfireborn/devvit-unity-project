@@ -1,6 +1,6 @@
 # Cloud and Ladder Incident Analysis
 
-**Updated:** 2026-08-27
+**Updated:** 2026-09-01
 **Scope:** `SimpleLevel`, cloud pooling/generation, FishNet cloud prefabs, ladders, and riding/ground detection
 
 ## Reported symptoms
@@ -98,6 +98,18 @@ The authoritative cloud move hook is `TimeManager.OnPrePhysicsSimulation(float)`
 
 Network cloud despawn explicitly uses `DespawnType.Destroy` for every cloud variant. This removes the prior one-prefab pooling-policy inconsistency without changing prefab component order or FishNet spawnable identity.
 
+### 11. Remote head carry, catch-up ticks, and respawn state
+
+The first detached-head implementation still had a low-frame-rate correction loop. A remote player's FishNet `NetworkTransform` advances its render root during `TimeManager.OnUpdate`, then FishNet invokes gameplay `OnTick` handlers before `OnPrePhysicsSimulation`. The head driver did not sample the new render target until pre-physics, so a rider jumping during `OnTick` inherited the previous tick's velocity. Its catch-up budget also reset to the current render-frame delta every time the target changed; at a 25 FPS 2/2/3-tick cadence this alternated the reported speed and could kick a rider.
+
+The head driver now lazily samples a remote target from both the rider's velocity query and the pre-physics hook. It divides target displacement by the actual scaled elapsed time between samples, advances the kinematic surface by at most that measured speed per physics tick, reports the upcoming sample to same-tick jump logic, and reports zero immediately when the surface stops. Simulated owners expose their live `Rigidbody2D.linearVelocity`. First-contact head velocity is persisted on both axes so a buffered landing-jump retains momentum rather than losing most horizontal carry on the next airborne tick.
+
+Respawn now clears current and pending platform velocity, manual-carry state, fixed grounded state, and `GroundChecker`'s cached ground collider/platform before clearing ladder state. A boundary teleport therefore cannot reapply motion from the pre-respawn cloud or player head.
+
+`SimpleLevel` runs 60 Hz FishNet physics with `Maximum Frame Ticks = 3` and tick dropping enabled. This gives a defined 20 FPS physics floor: above that floor the bounded remote surface remains within one fractional physics tick at 25/30/60/90/144 Hz. Sustained rendering below 20 FPS advances a render-interpolated remote root faster than the permitted physics time, so no head algorithm can simultaneously stay attached, keep true velocity, and retain the three-tick performance cap. The current implementation deliberately avoids accelerating a rider to consume that backlog; sub-20 FPS attachment remains a documented degradation case rather than a claimed fix.
+
+An additional proposal to increase cloud `NetworkTransform` interpolation from 3 to 6 was rejected before release. In the bundled FishNet version interpolation is maintained against received goal snapshots, while clouds send only every three ticks; treating the value as raw simulation ticks could add roughly 300 ms rather than the assumed 100 ms. Any cloud-buffer change must be selected from an instrumented pure-client comparison (presentation latency, cloud frame-step variance, squirrel-to-cloud relative offset, ladder binding/churn, GC, and late join), not from send-interval arithmetic alone.
+
 ## FishNet prefab gotchas
 
 The collaborator warning is directionally correct: an arbitrary sprite or collider edit does not inherently break networking, but a prefab edit can change the network protocol when it changes the `NetworkObject`, its `NetworkBehaviour` component set/order, or the generated spawnable-prefab table.
@@ -119,6 +131,8 @@ Official FishNet references:
 - [Default Prefab Objects](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/scriptableobjects/spawnableprefabs/defaultprefabobjects)
 - [Configuration and Tools](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/configuration-and-tools)
 - [Network Transform](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/components/network-transform)
+- [Time Manager](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/components/managers/time-manager)
+- [Network Tick Smoother](https://fish-networking.gitbook.io/docs/fishnet-building-blocks/components/tick-smoothers/networkticksmoother)
 
 If FishNet reports prefab-ID or behaviour-index errors after a future prefab change, use its supported **Refresh Default Prefabs** / **Reserialize NetworkObjects** tools and retest a pure client. Do not hand-edit IDs. Client and server must be deployed from the same commit; keep the previous server available until the matching replacement is selected and ready.
 
@@ -142,6 +156,13 @@ Follow-up motion/ladder verification added after the initial release:
 - The cloud harness now verifies that TimeManager-mode clouds are subscribed to FishNet's physics clock.
 - The network-player invariant verifies the sprite-child reference, owner Rigidbody2D interpolation, and disabled root rotation synchronization.
 - Production pair rejection strings are built only when `GetLadderGeometryDiagnostic` is explicitly called by a test/debugger. Topology reevaluation is bounded to 10 Hz and cached presentation updates are allocation-free after warm-up.
+
+Final head-carry verification on the September 1 exact disk state:
+
+- C# compilation against the current Unity Bee response completed with no errors; `git diff --check` passed.
+- `SimpleLevel` host spawned 22-23 clouds and active ladders, retained the squirrel on a moving cloud, accepted a jump/traversal input, and settled after boundary respawn without continuing stale motion. The Editor Console remained at 0 warnings / 0 errors.
+- A late MPPM pure client connected with 14 informational logs / 0 warnings / 0 errors and no FishNet prefab/RPC faults. Reconnects produced three network players and three detached head surfaces; the three-squirrel vertical stack remained attached while the underlying cloud traversed the viewport, providing an additional distributed stack smoke test.
+- The adversarial timing review found no remaining release blocker for the supported 20 FPS-and-above path. Sustained sub-20 FPS remains the explicit TimeManager tick-dropping limitation described above.
 
 The publish/deployment record and live WebGL smoke results should be appended to the release handoff after the matching client and Edgegap server are online.
 

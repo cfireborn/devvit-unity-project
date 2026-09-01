@@ -331,6 +331,16 @@ public class PlayerControllerM : MonoBehaviour
         else
             _isGroundedFixed = false;
 
+        // ApplyMovingPlatformDelta uses the contact from the previous simulation.
+        // A head first detected by this refresh must expose its current velocity now
+        // so a buffered landing-jump inherits and retains both axes immediately.
+        if (_isGroundedFixed && groundChecker.CurrentPlatform is PlayerHeadPlatformSurface refreshedHeadSurface)
+        {
+            _currentPlatformVelocity = refreshedHeadSurface.GetVelocity();
+            _pendingPlatformVelocity = _currentPlatformVelocity;
+            _platformDeltaAppliedManually = false;
+        }
+
         bool isInsideLadder = groundChecker != null && groundChecker.IsOnLadder;
         bool dropThroughPressed = verticalInput < -0.5f;
         bool droppedThrough = _isGroundedFixed && dropThroughPressed && TryDropThroughCurrentPlatform();
@@ -611,8 +621,14 @@ public class PlayerControllerM : MonoBehaviour
         isGliding = false;
         _wasOnLadder = false;
         _lastMovingPlatform = null;
+        _lastMovingPlatformPosition = Vector2.zero;
+        _currentPlatformVelocity = Vector2.zero;
+        _pendingPlatformVelocity = Vector2.zero;
+        _platformDeltaAppliedManually = false;
+        _isGroundedFixed = false;
         _coyoteTimeRemaining = 0f;
         _jumpBufferRemaining = 0f;
+        groundChecker?.ClearGroundState();
         groundChecker?.ClearLadderState();
     }
 
@@ -649,8 +665,10 @@ public class PlayerControllerM : MonoBehaviour
         {
             _lastMovingPlatform = current;
             _lastMovingPlatformPosition = pos;
-            _currentPlatformVelocity = Vector2.zero;
-            _pendingPlatformVelocity = Vector2.zero;
+            _currentPlatformVelocity = current is PlayerHeadPlatformSurface initialHeadSurface
+                ? initialHeadSurface.GetVelocity()
+                : Vector2.zero;
+            _pendingPlatformVelocity = _currentPlatformVelocity;
             return;
         }
 
@@ -666,7 +684,9 @@ public class PlayerControllerM : MonoBehaviour
         }
 
         float dt = Mathf.Max(0.0001f, TickOrFixedDelta());
-        _currentPlatformVelocity = delta / dt;
+        _currentPlatformVelocity = current is PlayerHeadPlatformSurface movingHeadSurface
+            ? movingHeadSurface.GetVelocity()
+            : delta / dt;
     }
 
     void ResolveSideContacts()

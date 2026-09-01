@@ -210,6 +210,14 @@ public class GroundChecker : MonoBehaviour
         UpdateCurrentLadder();
     }
 
+    /// <summary>Clear cached ground contact immediately after a teleport or respawn.</summary>
+    public void ClearGroundState()
+    {
+        isGrounded = false;
+        CurrentPlatform = null;
+        CurrentGroundCollider = null;
+    }
+
     private bool IsOurCollider(Collider2D c)
     {
         if (_ourColliders == null) return false;
