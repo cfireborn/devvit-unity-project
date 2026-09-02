@@ -110,6 +110,14 @@ Respawn now clears current and pending platform velocity, manual-carry state, fi
 
 An additional proposal to increase cloud `NetworkTransform` interpolation from 3 to 6 was rejected before release. In the bundled FishNet version interpolation is maintained against received goal snapshots, while clouds send only every three ticks; treating the value as raw simulation ticks could add roughly 300 ms rather than the assumed 100 ms. Any cloud-buffer change must be selected from an instrumented pure-client comparison (presentation latency, cloud frame-step variance, squirrel-to-cloud relative offset, ladder binding/churn, GC, and late join), not from send-interval arithmetic alone.
 
+### 12. Dedicated-server CPU saturation on the 0.25-vCPU profile
+
+The first production smoke on Edgegap showed approximately 59-64% of the allocated 0.25 vCPU with no clients and 98-101% with two WebGL clients. Memory remained near 26%, so CPU—not memory—was the constrained resource. Although the short two-client cloud/head/jump test remained visually smooth, a saturated server has no durable headroom for tick bursts, garbage collection, or another player.
+
+`SimpleLevel` had both FishNet frame-rate fields set to their maximum value of 500. In a dedicated-server build, FishNet deliberately converts that sentinel to `TickRate + 15`, so this scene ran 75 Update/LateUpdate frames around a 60 Hz network/physics clock. The server-only setting is now explicitly 60. FishNet accepts a cap equal to `TickRate` without coercion, preserving all 60 simulation/network ticks while removing up to 15 non-tick server frame passes per second. The client setting remains unchanged; an Editor host still chooses the higher client rate.
+
+This is a capacity experiment, not a paper assumption. Release verification must repeat the same two-client Edgegap load and confirm sustained CPU headroom and smooth tick-dependent motion. If the quarter-core deployment remains near saturation or tick pacing becomes bunched, revert the cap and profile on a larger Edgegap allocation rather than reducing the network tick rate during this incident.
+
 ## FishNet prefab gotchas
 
 The collaborator warning is directionally correct: an arbitrary sprite or collider edit does not inherently break networking, but a prefab edit can change the network protocol when it changes the `NetworkObject`, its `NetworkBehaviour` component set/order, or the generated spawnable-prefab table.
@@ -163,6 +171,7 @@ Final head-carry verification on the September 1 exact disk state:
 - `SimpleLevel` host spawned 22-23 clouds and active ladders, retained the squirrel on a moving cloud, accepted a jump/traversal input, and settled after boundary respawn without continuing stale motion. The Editor Console remained at 0 warnings / 0 errors.
 - A late MPPM pure client connected with 14 informational logs / 0 warnings / 0 errors and no FishNet prefab/RPC faults. Reconnects produced three network players and three detached head surfaces; the three-squirrel vertical stack remained attached while the underlying cloud traversed the viewport, providing an additional distributed stack smoke test.
 - The adversarial timing review found no remaining release blocker for the supported 20 FPS-and-above path. Sustained sub-20 FPS remains the explicit TimeManager tick-dropping limitation described above.
+- The first Edgegap production load test exposed 98-101% CPU on the 0.25-vCPU profile with two clients. The dedicated-server 60 FPS cap described above therefore requires a fresh two-client production load test before final sign-off.
 
 The publish/deployment record and live WebGL smoke results should be appended to the release handoff after the matching client and Edgegap server are online.
 
