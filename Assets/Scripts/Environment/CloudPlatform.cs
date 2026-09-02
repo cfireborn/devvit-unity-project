@@ -366,11 +366,11 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
             if (collider == null || !collider.enabled || collider.isTrigger) continue;
             if (!found)
             {
-                bounds = collider.bounds;
+                bounds = GetCurrentColliderBounds(collider);
                 found = true;
             }
             else
-                bounds.Encapsulate(collider.bounds);
+                bounds.Encapsulate(GetCurrentColliderBounds(collider));
         }
         return bounds;
     }
@@ -379,8 +379,41 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     public Bounds GetMainBounds()
     {
         if (mainCollider != null)
-            return mainCollider.bounds;
+            return GetCurrentColliderBounds(mainCollider);
         return GetBounds();
+    }
+
+    /// <summary>
+    /// Returns bounds at the collider's current Transform pose. NetworkTransform updates
+    /// remote cloud Transforms during render frames, while Physics2D.autoSyncTransforms is
+    /// intentionally disabled; Collider2D.bounds can therefore lag the visible cloud until
+    /// the next simulation. Managed cloud collision shapes are boxes, so derive their AABB
+    /// directly without forcing a costly global Physics2D.SyncTransforms call.
+    /// </summary>
+    internal static Bounds GetCurrentColliderBounds(Collider2D collider)
+    {
+#if UNITY_SERVER && !UNITY_EDITOR
+        // Dedicated servers do not render interpolated NetworkTransform poses, and
+        // ladder CPU is the limiting deployment resource. Keep their native fast path.
+        return collider.bounds;
+#else
+        if (collider is not BoxCollider2D box)
+            return collider.bounds;
+
+        Vector2 half = box.size * 0.5f + Vector2.one * box.edgeRadius;
+        Vector2 offset = box.offset;
+        Transform colliderTransform = box.transform;
+        Vector3 corner = colliderTransform.TransformPoint(
+            new Vector3(offset.x - half.x, offset.y - half.y, 0f));
+        Bounds bounds = new Bounds(corner, Vector3.zero);
+        bounds.Encapsulate(colliderTransform.TransformPoint(
+            new Vector3(offset.x - half.x, offset.y + half.y, 0f)));
+        bounds.Encapsulate(colliderTransform.TransformPoint(
+            new Vector3(offset.x + half.x, offset.y - half.y, 0f)));
+        bounds.Encapsulate(colliderTransform.TransformPoint(
+            new Vector3(offset.x + half.x, offset.y + half.y, 0f)));
+        return bounds;
+#endif
     }
 
     public void SetCanBuildLadder(bool canBuildLadder)

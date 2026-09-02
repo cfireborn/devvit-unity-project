@@ -4452,7 +4452,7 @@ MonoBehaviour:
   edgegapBayouPort: 443
   edgegapTugboatAddress: b88db290f79d.pr.edgegap.net
   edgegapTugboatPort: 30473
-  editorStartAsHost: 0
+  editorStartAsHost: 1
   connectionTimeoutSeconds: 0.2
   joystick: {fileID: 1564902180}
 --- !u!114 &1319779693

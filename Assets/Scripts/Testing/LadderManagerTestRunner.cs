@@ -24,6 +24,7 @@ using UnityEngine;
 ///  14.  Rapid endpoint reactivation replaces stale generation bindings.
 ///  15.  Network ladder presentation fails closed without live endpoints.
 ///  16.  maxLadders cap is respected — extra ladder creation is rejected.
+///  17.  Cloud bounds track render-time Transform motion without a global physics sync.
 /// </summary>
 public class LadderManagerTestRunner : MonoBehaviour
 {
@@ -119,6 +120,7 @@ public class LadderManagerTestRunner : MonoBehaviour
         EnsureTestClouds(allClouds);
         CheckMinimumCloudsPresent(allClouds);
         CheckCloudsAreKinematic(allClouds);
+        CheckBoundsTrackCurrentTransform(allClouds);
 
         yield return StartCoroutine(CheckMovingCloudsActuallyMove(allClouds));
 
@@ -177,6 +179,38 @@ public class LadderManagerTestRunner : MonoBehaviour
             Warn("CloudManager.settings is null — dynamic lane spawning is disabled. Scene-placed clouds are still usable.");
 
         Pass($"CloudManager found on '{cloudManager.gameObject.name}'. Settings assigned: {hasSettings}.");
+    }
+
+    void CheckBoundsTrackCurrentTransform(List<CloudPlatform> clouds)
+    {
+        CloudPlatform cloud = clouds.Find(candidate =>
+            candidate != null && candidate.GetComponent<BoxCollider2D>() != null);
+        if (cloud == null)
+        {
+            Fail(
+                "Render-pose bounds fixture is missing.",
+                "The ladder regression scene requires a CloudPlatform with a root BoxCollider2D.");
+            return;
+        }
+
+        const float testOffset = 0.137f;
+        Vector3 originalPosition = cloud.transform.position;
+        Bounds before = cloud.GetMainBounds();
+        cloud.transform.position = originalPosition + Vector3.right * testOffset;
+        Bounds after = cloud.GetMainBounds();
+        cloud.transform.position = originalPosition;
+
+        float observedOffset = after.center.x - before.center.x;
+        if (Mathf.Abs(observedOffset - testOffset) <= 0.001f)
+        {
+            Pass("Cloud main bounds follow render-time Transform motion before the next Physics2D sync.");
+        }
+        else
+        {
+            Fail(
+                "Cloud main bounds lagged behind its current Transform pose.",
+                $"Expected x delta {testOffset:F3}, observed {observedOffset:F3}. Ladder placement must not read stale Collider2D.bounds on pure clients.");
+        }
     }
 
     void CheckLadderPrefabConfigured()
@@ -662,7 +696,9 @@ public class LadderManagerTestRunner : MonoBehaviour
         lowerRb.position = lowerOriginal;
         middleRb.position = middleOriginal;
         upperRb.position = upperOriginal;
-        yield return new WaitForFixedUpdate();
+        // Let the normal 10 Hz topology pass remove the temporary adjacent ladders
+        // before the forced-pair check reuses the controlled endpoints.
+        yield return new WaitForSecondsRealtime(0.15f);
 
         if (spansPastMiddle || !removedWithinBudget)
             Fail("A ladder spanned through an intermediate cloud beyond the validation budget.", $"removedWithinBudget={removedWithinBudget}, delay={obstructionRemovalSeconds:F3}s. Existing geometry validation must reject the long pair within 0.11s.");

@@ -671,7 +671,7 @@ public class CloudLadderController : MonoBehaviour
         {
             var col = colliders[i];
             if (col == null || !col.enabled || col.isTrigger) continue;
-            Bounds cb = col.bounds;
+            Bounds cb = CloudPlatform.GetCurrentColliderBounds(col);
             if (worldX < cb.min.x - HorizontalEdgeTolerance || worldX > cb.max.x + HorizontalEdgeTolerance)
                 continue;
 
@@ -879,12 +879,12 @@ public class CloudLadderController : MonoBehaviour
         {
             var lc = lowerCols[i];
             if (lc == null || !lc.enabled || lc.isTrigger) continue;
-            Bounds lb = lc.bounds;
+            Bounds lb = CloudPlatform.GetCurrentColliderBounds(lc);
             for (int j = 0; j < upperCols.Length; j++)
             {
                 var uc = upperCols[j];
                 if (uc == null || !uc.enabled || uc.isTrigger) continue;
-                Bounds ub = uc.bounds;
+                Bounds ub = CloudPlatform.GetCurrentColliderBounds(uc);
                 float min = Mathf.Max(lb.min.x, ub.min.x);
                 float max = Mathf.Min(lb.max.x, ub.max.x);
                 if (min < max)
