@@ -22,6 +22,7 @@ public class NetworkCloud : NetworkBehaviour
     const float TargetTransformSendRate = 20f;
     CloudPlatform _platform;
     Rigidbody2D _rb;
+    RigidbodyInterpolation2D _initialInterpolation;
     NetworkTransform _networkTransform;
 #if UNITY_SERVER && !UNITY_EDITOR
     Animator _serverDespawnAnimator;
@@ -37,6 +38,8 @@ public class NetworkCloud : NetworkBehaviour
     {
         _platform = GetComponent<CloudPlatform>();
         _rb = GetComponent<Rigidbody2D>();
+        if (_rb != null)
+            _initialInterpolation = _rb.interpolation;
         _networkTransform = GetComponent<NetworkTransform>();
         _platformWasEnabledAtStart = _platform != null && _platform.enabled;
     }
@@ -79,10 +82,16 @@ public class NetworkCloud : NetworkBehaviour
         if (_rb != null)
         {
             _rb.bodyType = RigidbodyType2D.Kinematic;
+#if UNITY_SERVER && !UNITY_EDITOR
+            // A headless server never renders interpolated poses. Keeping Rigidbody2D
+            // interpolation enabled only adds per-step transform bookkeeping.
+            _rb.interpolation = RigidbodyInterpolation2D.None;
+#else
             // The authoritative root is moved only by the physics pipeline. Let the
             // Rigidbody interpolate those physics poses for the host's rendered view;
             // NetworkTransform only samples this object for remote observers.
             _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+#endif
         }
     }
 
@@ -94,6 +103,8 @@ public class NetworkCloud : NetworkBehaviour
         if (_serverDespawnAnimator != null)
             _serverDespawnAnimator.enabled = true;
         _serverDespawnAnimator = null;
+        if (_rb != null)
+            _rb.interpolation = _initialInterpolation;
 #endif
         base.OnStopServer();
     }

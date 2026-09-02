@@ -273,14 +273,18 @@ public class CloudManager : MonoBehaviour
 
             for (int i = 0; i < lane.clouds.Count; i++)
             {
-                float targetX = SlotCenterX(lane, left, i);
                 GameObject cloud = lane.clouds[i];
                 if (cloud == null)
                 {
                     if (attemptEmptySlotSpawns)
-                        TrySpawnSlot(lane, left, right, i, targetX);
+                    {
+                        float emptySlotTargetX = SlotCenterX(lane, left, i);
+                        TrySpawnSlot(lane, left, right, i, emptySlotTargetX);
+                    }
                     continue;
                 }
+
+                float targetX = SlotCenterX(lane, left, i);
 
                 var platform = GetCloudPlatform(cloud);
                 var rb = platform != null ? platform.GetComponent<Rigidbody2D>() : null;
@@ -294,7 +298,6 @@ public class CloudManager : MonoBehaviour
                 if (platform.IsDespawning || platform.IsBoundaryStopped)
                     continue;
 
-                Vector2 natLane = GetPrefabNativeMainSize(lane.prefab);
                 float scaleX = cloud.transform.localScale.x;
                 Bounds mainAtCurrent = PrefabMainBoundsWorld(rb.position.x, platform.pooledWorldY, lane.prefab, scaleX);
                 Bounds mainAtTarget = PrefabMainBoundsWorld(targetX, platform.pooledWorldY, lane.prefab, scaleX);
@@ -309,7 +312,9 @@ public class CloudManager : MonoBehaviour
                 }
 
                 // Only despawn pooled lane clouds when they reach the travel-direction exit boundary (see ShouldExitDespawnForTarget).
-                float cloudHalfW = Mathf.Max(natLane.x, GetPrefabNativeVisualWidth(lane.prefab)) * scaleX * 0.5f;
+                // Every slot in a lane uses laneScale, so this is the same value as
+                // recomputing the prefab's rendered/main width for every live cloud.
+                float cloudHalfW = lane.halfWidthCached;
                 bool crossedLoopSeam = lane.speed >= 0f
                     ? targetX < rb.position.x - ExitBoundaryEpsilon
                     : targetX > rb.position.x + ExitBoundaryEpsilon;

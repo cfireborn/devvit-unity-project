@@ -624,17 +624,33 @@ public class LadderManagerTestRunner : MonoBehaviour
         Vector2 upperOriginal = upperRb.position;
         PositionCloudPairInRange(controlledCloudLower, controlledCloudUpper);
         yield return new WaitForFixedUpdate();
+        bool longPairExisted = ladderController.TryBuildLadder(controlledCloudLower, controlledCloudUpper);
+        if (!longPairExisted)
+        {
+            Fail("Cannot time intermediate-cloud invalidation because the outer pair has no ladder.");
+            lowerRb.position = lowerOriginal;
+            middleRb.position = middleOriginal;
+            upperRb.position = upperOriginal;
+            yield break;
+        }
 
         Bounds lowerBounds = controlledCloudLower.GetBounds();
         Bounds upperBounds = controlledCloudUpper.GetBounds();
         float middleY = (lowerBounds.max.y + upperBounds.min.y) * 0.5f;
+        float obstructionStart = Time.realtimeSinceStartup;
         middleRb.MovePosition(new Vector2(lowerBounds.center.x, middleY));
         yield return new WaitForFixedUpdate();
-        // Automatic pair selection is intentionally throttled to 10 Hz to keep the
-        // O(n^2) candidate scan out of every rendered frame. Existing long ladders
-        // still fail closed immediately; allow one scheduled scan for the two
-        // replacement links to be created before asserting the final topology.
-        yield return new WaitForSecondsRealtime(0.15f);
+        while (ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper) &&
+               Time.realtimeSinceStartup - obstructionStart <= 0.11f)
+            yield return null;
+        float obstructionRemovalSeconds = Time.realtimeSinceStartup - obstructionStart;
+        bool removedWithinBudget = !ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper) &&
+            obstructionRemovalSeconds <= 0.11f;
+
+        // New adjacent links use the intentionally slower 10 Hz topology pass.
+        float topologyWaitRemaining = 0.15f - obstructionRemovalSeconds;
+        if (topologyWaitRemaining > 0f)
+            yield return new WaitForSecondsRealtime(topologyWaitRemaining);
 
         bool spansPastMiddle = ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper);
         bool lowerBindsMiddle = ladderController.HasLadderBetween(controlledCloudLower, middle);
@@ -648,12 +664,12 @@ public class LadderManagerTestRunner : MonoBehaviour
         upperRb.position = upperOriginal;
         yield return new WaitForFixedUpdate();
 
-        if (spansPastMiddle)
-            Fail("A ladder spanned through an intermediate cloud.", "Candidate validation must reject the long pair at its actual ladder X and bind to nearer surfaces instead.");
+        if (spansPastMiddle || !removedWithinBudget)
+            Fail("A ladder spanned through an intermediate cloud beyond the validation budget.", $"removedWithinBudget={removedWithinBudget}, delay={obstructionRemovalSeconds:F3}s. Existing geometry validation must reject the long pair within 0.11s.");
         else if (!lowerBindsMiddle || !middleBindsUpper)
             Fail("The outer ladder was blocked, but the middle cloud did not bind to both adjacent clouds.", $"lower-middle binding/geometry={lowerBindsMiddle}/{lowerMiddleGeometry}, middle-upper binding/geometry={middleBindsUpper}/{middleUpperGeometry} ({middleUpperDiagnostic}). Closest-surface routing must form the two valid adjacent links.");
         else
-            Pass("The outer ladder was blocked and both adjacent ladders bound to the intermediate cloud.");
+            Pass($"The outer ladder was removed in {obstructionRemovalSeconds:F3}s and both adjacent ladders bound to the intermediate cloud.");
     }
 
     IEnumerator CheckForceLadderBuild()

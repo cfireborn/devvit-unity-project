@@ -16,6 +16,7 @@ public class CloudLadderController : MonoBehaviour
 {
     const float HorizontalEdgeTolerance = 0.001f;
     const float PairEvaluationInterval = 0.1f;
+    const float ExistingGeometryValidationInterval = 0.05f;
 
     [Header("References")]
     public CloudManager cloudManager;
@@ -91,6 +92,7 @@ public class CloudLadderController : MonoBehaviour
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
     Transform _ladderParent;
     float _nextPairEvaluationTime;
+    float _nextExistingGeometryValidationTime;
 
     void Start()
     {
@@ -110,16 +112,23 @@ public class CloudLadderController : MonoBehaviour
         UpdateRetiringLadders(activeSet);
         PruneUnavailableLadders(activeSet);
 
-        // Creation/re-ranking may wait one topology interval. Existing ladders are
-        // still invalidated above every rendered frame, and forced creation remains
-        // immediate through TryBuildLadder.
-        if (Time.unscaledTime >= _nextPairEvaluationTime)
+        // Creation/re-ranking may wait one topology interval. Endpoint lifecycle and
+        // generation still invalidate above every rendered frame; exact geometry is
+        // checked halfway between topology passes. Forced creation remains immediate.
+        bool topologyDue = Time.unscaledTime >= _nextPairEvaluationTime;
+        if (topologyDue)
         {
             var platformList = GetActiveCloudPlatforms();
             var validPairs = ComputeValidPairs(platformList);
             RemoveInvalidLadders(validPairs, activeSet);
             CreateMissingLadders(validPairs);
             _nextPairEvaluationTime = Time.unscaledTime + PairEvaluationInterval;
+            _nextExistingGeometryValidationTime = Time.unscaledTime + ExistingGeometryValidationInterval;
+        }
+        else if (Time.unscaledTime >= _nextExistingGeometryValidationTime)
+        {
+            PruneInvalidLadderGeometry(activeSet);
+            _nextExistingGeometryValidationTime = Time.unscaledTime + ExistingGeometryValidationInterval;
         }
         UpdateAllLadderPositions();
     }
@@ -274,14 +283,31 @@ public class CloudLadderController : MonoBehaviour
 
     void PruneUnavailableLadders(HashSet<GameObject> activeSet)
     {
+        // Keep lifecycle/generation invalidation immediate so a pooled endpoint can
+        // never leave a stale ladder behind. The full geometry and obstruction test
+        // runs in ComputeValidPairs at PairEvaluationInterval; repeating its
+        // Physics2D.OverlapBox for every ladder on every rendered frame is redundant.
         _toRemoveScratch.Clear();
         foreach (var kvp in _ladders)
         {
             var pair = kvp.Key;
             if (pair.Item1 == null || pair.Item2 == null ||
                 !activeSet.Contains(pair.Item1.gameObject) || !activeSet.Contains(pair.Item2.gameObject) ||
-                pair.Item1.IsDespawning || pair.Item2.IsDespawning || !IsCurrentBinding(pair) ||
-                !TryGetLadderGeometry(pair.Item1, pair.Item2, out _, out _))
+                pair.Item1.IsDespawning || pair.Item2.IsDespawning || !IsCurrentBinding(pair))
+                _toRemoveScratch.Add(pair);
+        }
+        for (int i = 0; i < _toRemoveScratch.Count; i++)
+            RemoveOrRetireLadder(_toRemoveScratch[i], activeSet);
+    }
+
+    void PruneInvalidLadderGeometry(HashSet<GameObject> activeSet)
+    {
+        _toRemoveScratch.Clear();
+        GetActiveCloudPlatforms();
+        foreach (var kvp in _ladders)
+        {
+            var pair = kvp.Key;
+            if (!TryGetLadderGeometry(pair.Item1, pair.Item2, out _, out _))
                 _toRemoveScratch.Add(pair);
         }
         for (int i = 0; i < _toRemoveScratch.Count; i++)
