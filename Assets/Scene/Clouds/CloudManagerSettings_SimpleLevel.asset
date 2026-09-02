@@ -19,8 +19,8 @@ MonoBehaviour:
   viewportMargin: 5
   fallbackViewportHalfWidth: 5
   fallbackViewportHalfHeight: 5
-  minCloudSpacing: 0.485
-  maxCloudSpacing: 2.51
+  minCloudSpacing: 0.97
+  maxCloudSpacing: 5.02
   minCloudMainBoundsWidth: 1.52
   maxCloudMainBoundsWidth: 5.33
   minCloudMainBoundsHeight: 0.55
