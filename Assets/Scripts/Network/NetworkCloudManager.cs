@@ -23,6 +23,8 @@ using UnityEngine;
 /// </summary>
 public class NetworkCloudManager : NetworkBehaviour
 {
+    const float PoolWarningCheckInterval = 1f;
+
     CloudManager _cloudManager;
 
     // Prevents OnStartClient from re-disabling CloudManager after offline fallback
@@ -33,6 +35,7 @@ public class NetworkCloudManager : NetworkBehaviour
     bool _serverRunning;
     bool _loggedFirstServerCloud;
     int _nextServerPoolWarning = 50;
+    float _nextPoolWarningCheckTime;
     readonly HashSet<(ushort collectionId, int prefabId)> _cloudPoolKeys = new();
 
     void Awake()
@@ -112,6 +115,8 @@ public class NetworkCloudManager : NetworkBehaviour
     void Update()
     {
         if (!_serverRunning) return;
+        if (Time.unscaledTime < _nextPoolWarningCheckTime) return;
+        _nextPoolWarningCheckTime = Time.unscaledTime + PoolWarningCheckInterval;
 
         var networkManager = InstanceFinder.NetworkManager;
         var defaultPool = networkManager != null ? networkManager.ObjectPool as DefaultObjectPool : null;
@@ -145,6 +150,7 @@ public class NetworkCloudManager : NetworkBehaviour
         base.OnStartServer();
         _serverRunning = true;
         _loggedFirstServerCloud = false;
+        _nextPoolWarningCheckTime = 0f;
         if (_cloudManager != null)
         {
             SetServerDelegates();

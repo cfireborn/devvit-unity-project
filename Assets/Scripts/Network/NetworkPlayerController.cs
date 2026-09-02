@@ -9,6 +9,12 @@ using UnityEngine;
 /// </summary>
 public class NetworkPlayerController : NetworkBehaviour
 {
+    const float MinViewportOrthoSize = 1f;
+    const float MaxViewportOrthoSize = 8f;
+    const float MinViewportAspect = 0.35f;
+    const float MaxViewportAspect = 3f;
+    const float ViewportRefreshRequestInterval = 0.1f;
+
     PlayerControllerM _controller;
     Rigidbody2D _rb;
     SpriteRenderer _spriteRenderer;
@@ -20,6 +26,7 @@ public class NetworkPlayerController : NetworkBehaviour
     int _lastScreenH;
     float _lastSentOrtho;
     float _lastSentAspect;
+    float _nextServerViewportRefreshRequestTime;
 
     // Visual sync state (owner writes, remotes read)
     float _syncedMoveDir;
@@ -157,8 +164,29 @@ public class NetworkPlayerController : NetworkBehaviour
     [ServerRpc(RequireOwnership = true)]
     void CmdSyncViewport(float orthographicSize, float aspect)
     {
-        _serverOrthoSize = orthographicSize;
-        _serverAspect = Mathf.Max(0.1f, aspect);
+        // Viewports select the server-side world region where dynamic clouds are
+        // allowed to exist. Reject non-finite input and clamp modified clients so
+        // one RPC cannot activate the entire level's lanes/slots.
+        if (float.IsNaN(orthographicSize) || float.IsInfinity(orthographicSize) ||
+            float.IsNaN(aspect) || float.IsInfinity(aspect))
+            return;
+
+        float nextOrtho = Mathf.Clamp(orthographicSize, MinViewportOrthoSize, MaxViewportOrthoSize);
+        float nextAspect = Mathf.Clamp(aspect, MinViewportAspect, MaxViewportAspect);
+        if (Mathf.Approximately(_serverOrthoSize, nextOrtho) &&
+            Mathf.Approximately(_serverAspect, nextAspect))
+            return;
+
+        _serverOrthoSize = nextOrtho;
+        _serverAspect = nextAspect;
+        // CloudManager already refreshes at 10 Hz. Match that cadence so even an
+        // owner alternating two valid values cannot force the expensive lifecycle
+        // pass on every received RPC.
+        if (Time.unscaledTime >= _nextServerViewportRefreshRequestTime)
+        {
+            _nextServerViewportRefreshRequestTime = Time.unscaledTime + ViewportRefreshRequestInterval;
+            _serverCloudManager?.RequestViewportFill();
+        }
     }
 
     /// <summary>Server-only: orthographic half-height and half-width in world units (for CloudManager).</summary>

@@ -91,7 +91,6 @@ public class CloudLadderController : MonoBehaviour
     readonly Queue<GameObject> _pool = new Queue<GameObject>();
     Transform _ladderParent;
     float _nextPairEvaluationTime;
-    int _lastActiveCloudCount = -1;
 
     void Start()
     {
@@ -111,14 +110,15 @@ public class CloudLadderController : MonoBehaviour
         UpdateRetiringLadders(activeSet);
         PruneUnavailableLadders(activeSet);
 
-        bool activeCloudCountChanged = activeSet.Count != _lastActiveCloudCount;
-        if (activeCloudCountChanged || Time.unscaledTime >= _nextPairEvaluationTime)
+        // Creation/re-ranking may wait one topology interval. Existing ladders are
+        // still invalidated above every rendered frame, and forced creation remains
+        // immediate through TryBuildLadder.
+        if (Time.unscaledTime >= _nextPairEvaluationTime)
         {
             var platformList = GetActiveCloudPlatforms();
             var validPairs = ComputeValidPairs(platformList);
             RemoveInvalidLadders(validPairs, activeSet);
             CreateMissingLadders(validPairs);
-            _lastActiveCloudCount = activeSet.Count;
             _nextPairEvaluationTime = Time.unscaledTime + PairEvaluationInterval;
         }
         UpdateAllLadderPositions();
@@ -138,7 +138,9 @@ public class CloudLadderController : MonoBehaviour
         }
         _cachedPlatformList.Sort((a, b) =>
         {
-            int byHeight = _platformBoundsScratch[a].center.y.CompareTo(_platformBoundsScratch[b].center.y);
+            // Sorting by lower surface makes the vertical early-out in
+            // ComputeValidPairs mathematically safe for every later candidate.
+            int byHeight = _platformBoundsScratch[a].min.y.CompareTo(_platformBoundsScratch[b].min.y);
             return byHeight != 0 ? byHeight : a.GetInstanceID().CompareTo(b.GetInstanceID());
         });
         return _cachedPlatformList;
@@ -165,6 +167,10 @@ public class CloudLadderController : MonoBehaviour
                 var b = platformList[j];
                 Bounds boundsA = _platformBoundsScratch[a];
                 Bounds boundsB = _platformBoundsScratch[b];
+                // The list is sorted by min.y. Once this lower cloud is more than
+                // maxVerticalGap below a candidate, every later candidate is too.
+                if (boundsB.min.y - boundsA.max.y > maxVerticalGap)
+                    break;
                 if (Mathf.Abs(boundsA.center.x - boundsB.center.x) > maxDistance)
                     continue;
                 if (boundsA.max.x <= boundsB.min.x || boundsB.max.x <= boundsA.min.x)
@@ -674,6 +680,19 @@ public class CloudLadderController : MonoBehaviour
         MovingPlatformLadder presentation = EnsureMovingPlatformLadder(ladder);
         if (presentation == null) return;
         presentation.SetRootPose(x, y);
+
+#if UNITY_SERVER && !UNITY_EDITOR
+        // Pure clients rebuild ladder presentation from NetworkLadder endpoints.
+        // The dedicated server only needs the authoritative trigger collider; do
+        // not create or maintain cap/middle SpriteRenderer children here.
+        var serverCollider = presentation.RootCollider;
+        if (serverCollider != null)
+        {
+            serverCollider.size = new Vector2(ladderWidth, height);
+            serverCollider.offset = Vector2.zero;
+        }
+        return;
+#else
         if (!presentation.NeedsGeometryRebuild(height, ladderWidth, middleOverlap,
             ladderBottomSprite, ladderMiddleSprite, ladderTopSprite))
             return;
@@ -737,6 +756,7 @@ public class CloudLadderController : MonoBehaviour
         }
         presentation.MarkGeometryRebuilt(height, ladderWidth, middleOverlap,
             ladderBottomSprite, ladderMiddleSprite, ladderTopSprite);
+#endif
     }
 
     void GetLadderPlacement(CloudPlatform lower, CloudPlatform upper, out float x, out float y, out float height)

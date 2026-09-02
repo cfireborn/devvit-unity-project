@@ -25,6 +25,7 @@ public class CloudManager : MonoBehaviour
 
     const int FallbackLaneCount = 50;
     const float ExitBoundaryEpsilon = 0.05f;
+    const float LifecycleUpdateInterval = 0.1f;
 
 #if UNITY_EDITOR
     [Header("Editor")]
@@ -118,6 +119,9 @@ public class CloudManager : MonoBehaviour
     int _dynamicCloudCount;
     int _nextLocalPoolWarning = 50;
     TimeManager _subscribedTimeManager;
+    float _nextLifecycleUpdateTime;
+    bool _lifecycleRefreshRequested = true;
+    bool _spawnPassRequested = true;
 
     #endregion
 
@@ -125,6 +129,8 @@ public class CloudManager : MonoBehaviour
 
     void OnEnable()
     {
+        _lifecycleRefreshRequested = true;
+        _spawnPassRequested = true;
         SubscribeToNetworkPhysicsClock();
     }
 
@@ -221,11 +227,18 @@ public class CloudManager : MonoBehaviour
     {
         if (settings == null || cloudPrefabs == null || cloudPrefabs.Length == 0) return;
         if (_lanes == null) return;
+        if (!_lifecycleRefreshRequested && Time.unscaledTime < _nextLifecycleUpdateTime) return;
+
+        _lifecycleRefreshRequested = false;
+        _nextLifecycleUpdateTime = Time.unscaledTime + LifecycleUpdateInterval;
 
         BuildPlayerViewRects(_viewportCullRects);
         BuildMergedHorizontalViewportIntervals(_viewportCullRects, _mergedViewportIntervals);
         UpdateLaneActivation(_viewportCullRects);
         ViewportCullPooledClouds();
+        // Empty slots only need visibility/no-spawn checks at lifecycle cadence.
+        // Moving occupied clouds still advance on every physics tick below.
+        _spawnPassRequested = true;
     }
 
     void FixedUpdate()
@@ -244,6 +257,8 @@ public class CloudManager : MonoBehaviour
     {
         if (settings == null || _lanes == null) return;
         GetLaneHorizontalSpan(out float left, out float right);
+        bool attemptEmptySlotSpawns = _spawnPassRequested;
+        _spawnPassRequested = false;
 
         foreach (var lane in _lanes)
         {
@@ -262,7 +277,8 @@ public class CloudManager : MonoBehaviour
                 GameObject cloud = lane.clouds[i];
                 if (cloud == null)
                 {
-                    TrySpawnSlot(lane, left, right, i, targetX);
+                    if (attemptEmptySlotSpawns)
+                        TrySpawnSlot(lane, left, right, i, targetX);
                     continue;
                 }
 
@@ -363,12 +379,14 @@ public class CloudManager : MonoBehaviour
     {
         if (playerTransform == null || _players.Contains(playerTransform)) return;
         _players.Add(playerTransform);
+        _lifecycleRefreshRequested = true;
     }
 
     public void UnregisterPlayer(Transform playerTransform)
     {
         if (playerTransform == null) return;
-        _players.Remove(playerTransform);
+        if (_players.Remove(playerTransform))
+            _lifecycleRefreshRequested = true;
     }
 
     public int RegisteredPlayerCount
@@ -392,9 +410,11 @@ public class CloudManager : MonoBehaviour
         }
     }
 
-    /// <summary>Called by GameManager when the scene or player context changes; lane fill is continuous so this is a no-op hook.</summary>
+    /// <summary>Called by GameManager when the scene or player context changes.</summary>
     public void RequestViewportFill()
     {
+        _lifecycleRefreshRequested = true;
+        _spawnPassRequested = true;
     }
 
     /// <summary>Removes destroyed player transforms (e.g. if an object was destroyed without going through UnregisterPlayer).</summary>
@@ -1031,6 +1051,10 @@ public class CloudManager : MonoBehaviour
         if (_active.Remove(cloud))
             _dynamicCloudCount = Mathf.Max(0, _dynamicCloudCount - 1);
 
+        // Schedule one replacement attempt. The slot will not be retried on every
+        // physics tick if its wrapped position is still outside all viewports.
+        _spawnPassRequested = true;
+
         var platform = GetCloudPlatform(cloud);
         if (_lanes != null && platform != null && platform.laneIndex >= 0 && platform.laneIndex < _lanes.Length)
         {
@@ -1112,13 +1136,19 @@ public class CloudManager : MonoBehaviour
     public void RegisterNoSpawnZone(CloudNoSpawnZone zone)
     {
         if (zone != null && !_noSpawnZones.Contains(zone))
+        {
             _noSpawnZones.Add(zone);
+            _lifecycleRefreshRequested = true;
+        }
     }
 
     public void UnregisterNoSpawnZone(CloudNoSpawnZone zone)
     {
         if (zone != null)
-            _noSpawnZones.Remove(zone);
+        {
+            if (_noSpawnZones.Remove(zone))
+                _lifecycleRefreshRequested = true;
+        }
     }
 
     public void RegisterBlockSpawnZone(CloudNoSpawnZone zone) => RegisterNoSpawnZone(zone);

@@ -1,6 +1,6 @@
 # Cloud and Ladder Incident Analysis
 
-**Updated:** 2026-09-01
+**Updated:** 2026-09-02
 **Scope:** `SimpleLevel`, cloud pooling/generation, FishNet cloud prefabs, ladders, and riding/ground detection
 
 ## Reported symptoms
@@ -116,11 +116,22 @@ The first production smoke on Edgegap showed approximately 59-64% of the allocat
 
 `SimpleLevel` had both FishNet frame-rate fields set to their maximum value of 500. In a dedicated-server build, FishNet deliberately converts that sentinel to `TickRate + 15`, so this scene ran 75 Update/LateUpdate frames around a 60 Hz network/physics clock. The server-only setting is now explicitly 60. FishNet accepts a cap equal to `TickRate` without coercion, preserving all 60 simulation/network ticks while removing up to 15 non-tick server frame passes per second. The client setting remains unchanged; an Editor host still chooses the higher client rate.
 
-Production measurement of the matching `d5ae2cb` client/server release showed that the frame cap was helpful but insufficient: idle CPU improved from about 59-64% to 52-55%, while two connected WebGL clients still sustained roughly 95-110%. Closing only the second client immediately returned CPU to about 52-58% with the first client still connected and rendering. Memory remained around 29%. This isolates the regression to per-observer work rather than an always-on simulation or memory leak.
+Production measurement of the matching `d5ae2cb` client/server release showed that the frame cap was helpful but insufficient: idle CPU improved from about 59-64% to 52-55%, while two connected WebGL clients still sustained roughly 95-110%. The first apparent one-client result near 52-58% was invalid because the remaining client no longer had dynamic clouds after its peer disconnected. A later valid one-client run on the matching density-rollback release rendered active clouds and still sustained about 95-100%, with memory near 25%. The load therefore follows an active cloud viewport/world workload; it has not been proven to scale primarily per observer.
 
 The horizontal density increase in `d209f0f` halved SimpleLevel's positive rendered-edge gaps from `0.97-5.02` to `0.485-2.51`. Every additional visible cloud is another spawned FishNet `NetworkObject` whose transform and lifecycle must be observed by every client; it also expands the ladder candidate set quadratically. SimpleLevel therefore restores the previously playable `0.97-5.02` gaps while retaining `2.8` lane spacing, the non-overlap guarantees, viewport coverage, authoritative movement, and all ladder correctness fixes. This is intentionally an isolated rollback before structural optimizations or an arbitrary global cloud cap. A first-come global cap could starve a separated player's viewport and currently causes capped empty slots to retry at physics frequency.
 
-The explicit 60 server FPS cap remains because it preserves every 60 Hz FishNet simulation tick and showed a repeatable idle improvement. The density rollback still requires a matching two-client production soak; acceptance is sustained CPU headroom without missing traversal clouds, orphan ladders, intermediate-cloud bypass, or visible cloud/rider jitter.
+The explicit 60 server FPS cap remains because it preserves every 60 Hz FishNet simulation tick and showed a repeatable idle improvement. Reducing FishNet to 30 Hz was considered and rejected for the first structural measurement: it would halve physics opportunities, double worst-case input latency, change per-tick air-control and side-contact behavior, reduce remote-player updates, and change the documented tick-dropping floor. It remains a separate last-resort experiment only after its platformer and multiplayer effects are tested explicitly.
+
+The next structural patch keeps all occupied-cloud `Rigidbody2D.MovePosition` calls on the 60 Hz pre-physics clock while removing administrative work from the hot path:
+
+- player viewport rebuild, lane activation, pooled-cloud culling, and empty-slot visibility/no-spawn retries run at 10 Hz, with immediate dirty requests after player, viewport, no-spawn-zone, and return-to-pool lifecycle changes;
+- automatic ladder creation/re-ranking runs strictly at 10 Hz instead of also rescanning on every active-cloud count change, while existing endpoint/generation/geometry/obstruction invalidation still fails closed every rendered frame and forced creation remains immediate;
+- ladder candidates are sorted by cached lower bound, allowing a mathematically safe vertical break once every later candidate is beyond `maxVerticalGap`;
+- server pool-warning diagnostics inspect FishNet caches once per second instead of every frame;
+- viewport RPCs reject non-finite values, clamp camera half-height/aspect to supported ranges, and rate-limit dirty refresh requests to the same 10 Hz cadence, preventing a modified client from activating the full level or forcing the lifecycle pass every frame;
+- Linux dedicated servers disable steady-state cloud Animator evaluation and build only authoritative ladder root poses/trigger colliders. They re-enable a cloud Animator synchronously before the existing server-owned despawn coroutine triggers it, preserving the client fade and pool-return interval. Hosts, pure clients, offline play, and Editor Server-subtarget tests retain full presentation.
+
+This patch intentionally does not claim that ladder selection is no longer quadratic in dense adjacent bands, and it does not yet cache every active slot's component references. Those are follow-ups if the attributable 60 Hz production measurement remains saturated. Acceptance still requires the matching Linux build to prove repeated cloud despawn/pool/reuse and a real WebGL client to prove cloud population, ladder binding, fade, ride/jump behavior, and sustained CPU headroom.
 
 ## FishNet prefab gotchas
 

@@ -19,10 +19,13 @@ using UnityEngine;
 /// </summary>
 public class NetworkCloud : NetworkBehaviour
 {
-    const byte TransformSendInterval = 3;
+    const float TargetTransformSendRate = 20f;
     CloudPlatform _platform;
     Rigidbody2D _rb;
     NetworkTransform _networkTransform;
+#if UNITY_SERVER && !UNITY_EDITOR
+    Animator _serverDespawnAnimator;
+#endif
 
     // Whether CloudPlatform was enabled when the scene loaded, recorded before any
     // network lifecycle callback can change it. Used to distinguish:
@@ -42,12 +45,29 @@ public class NetworkCloud : NetworkBehaviour
     {
         base.OnStartServer();
 
-        // Clouds move continuously but do not need a 60 Hz global transform stream.
-        // FishNet interpolates the 20 Hz poses produced by a three-tick interval.
-        _networkTransform?.SetInterval(TransformSendInterval);
+        // Clouds move continuously but do not need a full-tick global transform
+        // stream. Preserve an approximately 15-20 Hz stream if a scene lowers its
+        // simulation tick rate; FishNet interpolates between those poses.
+        if (_networkTransform != null)
+        {
+            ushort tickRate = TimeManager != null ? TimeManager.TickRate : (ushort)60;
+            byte interval = (byte)Mathf.Clamp(
+                Mathf.CeilToInt(tickRate / TargetTransformSendRate), 1, byte.MaxValue);
+            _networkTransform.SetInterval(interval);
+        }
 
         if (_platform != null)
             _platform.DespawnStarted += OnServerDespawnStarted;
+
+#if UNITY_SERVER && !UNITY_EDITOR
+        // Dedicated servers need the animator only as the authoritative despawn
+        // timer. Disable its steady-state sprite/material evaluation while the
+        // cloud is moving; OnServerDespawnStarted re-enables it before the
+        // CloudPlatform coroutine fires the trigger and waits for completion.
+        _serverDespawnAnimator = _platform != null ? _platform.despawnAnimator : null;
+        if (_serverDespawnAnimator != null)
+            _serverDespawnAnimator.enabled = false;
+#endif
 
         // Re-enable CloudPlatform for scene clouds that were active at load.
         // Pool-spawned clouds are already enabled; this specifically covers scene
@@ -70,11 +90,20 @@ public class NetworkCloud : NetworkBehaviour
     {
         if (_platform != null)
             _platform.DespawnStarted -= OnServerDespawnStarted;
+#if UNITY_SERVER && !UNITY_EDITOR
+        if (_serverDespawnAnimator != null)
+            _serverDespawnAnimator.enabled = true;
+        _serverDespawnAnimator = null;
+#endif
         base.OnStopServer();
     }
 
     void OnServerDespawnStarted()
     {
+#if UNITY_SERVER && !UNITY_EDITOR
+        if (_serverDespawnAnimator != null)
+            _serverDespawnAnimator.enabled = true;
+#endif
         SyncDespawnVisual();
     }
 
