@@ -52,6 +52,7 @@ public class CRTRenderFeature : ScriptableRendererFeature
         {
             this.material = mat;
             this.settings = settings;
+            requiresIntermediateTexture = true;
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)

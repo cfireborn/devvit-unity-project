@@ -1760,7 +1760,7 @@ MonoBehaviour:
   inventoryMenu: {fileID: 7669228712079186591}
   completedGoalsCountText: {fileID: 1980644672910171626}
   inventoryOpenButton: {fileID: 6648832136993975267}
-  compersionTitleCardPrefab: {fileID: 1047, guid: c8f4e2a19b3d4f5e8a7c6d5e4f3a2b1c, type: 3}
+  compersionTitleCardPrefab: {fileID: 7606973553709337770, guid: a70f2447559114fbfb5b034b48567c0a, type: 3}
   endOfDemoPanel: {fileID: 0}
   narrativeScriptUrl: https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr
   mailingListUrl: https://forms.gle/hxLfkX4au94oon1B8
