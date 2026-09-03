@@ -198,6 +198,8 @@ Final head-carry verification on the September 1 exact disk state:
 
 The publish/deployment record and live WebGL smoke results should be appended to the release handoff after the matching client and Edgegap server are online.
 
+The first two fresh-checkout WebGL attempts for the 40/40 release failed closed after Unity's initial linker, IL2CPP, and WebAssembly work completed: a timestamp-triggered Bee follow-up pass reran UnityLinker and intermittently lost resolution of the already-present Newtonsoft assembly, so Unity never emitted the final template or `index.html`. The publisher now settles package resolution and asset import in a separate batch invocation before starting the Build Profile invocation. Its existing profile, metadata, complete-artifact, and push gates remain authoritative; a successful Unity process exit alone is still not treated as a publication.
+
 ## Release and rollback checklist
 
 1. Run `git diff --check` and compile after the final file refresh.

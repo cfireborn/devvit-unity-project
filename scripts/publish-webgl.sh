@@ -359,7 +359,31 @@ fi
 build_output="$temp_root/$build_name"
 log_dir="$repo_root/Logs/WebGLPublish"
 mkdir -p "$log_dir"
-log_path="$log_dir/${build_name}-${source_short_sha}.log"
+attempt_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+prepare_log_path="$log_dir/${build_name}-${source_short_sha}-${attempt_id}.prepare.log"
+log_path="$log_dir/${build_name}-${source_short_sha}-${attempt_id}.log"
+
+echo "Preparing the isolated Unity project. Full Unity log: $prepare_log_path"
+"$unity_bin" \
+  -batchmode \
+  -nographics \
+  -quit \
+  -accept-apiupdate \
+  -projectPath "$project_checkout" \
+  -activeBuildProfile "$build_profile" \
+  -logFile "$prepare_log_path"
+
+grep -Fq "[Package Manager] Done registering packages" "$prepare_log_path" \
+  || fail "Unity did not finish package registration; inspect $prepare_log_path"
+grep -Fq "Exiting batchmode successfully now!" "$prepare_log_path" \
+  || fail "Unity did not finish the isolated project preparation cleanly; inspect $prepare_log_path"
+newtonsoft_aot_dlls=( "$project_checkout"/Library/PackageCache/com.unity.nuget.newtonsoft-json@*/Runtime/AOT/Newtonsoft.Json.dll )
+if (( ${#newtonsoft_aot_dlls[@]} != 1 )) || [[ ! -s "${newtonsoft_aot_dlls[0]}" ]]; then
+  fail "expected exactly one nonempty Newtonsoft AOT assembly after package preparation; inspect $prepare_log_path"
+fi
+newtonsoft_package_root="${newtonsoft_aot_dlls[0]%/Runtime/AOT/Newtonsoft.Json.dll}"
+grep -Eq '"version"[[:space:]]*:[[:space:]]*"3\.2\.1"' "$newtonsoft_package_root/package.json" \
+  || fail "the prepared Newtonsoft package is not version 3.2.1; inspect $prepare_log_path"
 
 echo "Building WebGL locally. Full Unity log: $log_path"
 "$unity_bin" \
@@ -372,6 +396,11 @@ echo "Building WebGL locally. Full Unity log: $log_path"
   -build "$build_output" \
   -logFile "$log_path"
 
+if grep -Fq "Build Finished, Result: Failure." "$log_path"; then
+  fail "Unity reported a failed WebGL build; inspect $log_path"
+fi
+grep -Fq "Build Finished, Result: Success." "$log_path" \
+  || fail "Unity did not report a successful WebGL build; inspect $log_path"
 grep -Fq "Build profile assigned via command line, path \`$build_profile\`" "$log_path" \
   || fail "Unity did not confirm the custom release Build Profile; inspect $log_path"
 grep -Fq "UnityEditor.Build.Profile.BuildProfileCLI:BuildActiveProfileWithPath" "$log_path" \
