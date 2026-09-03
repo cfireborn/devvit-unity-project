@@ -24,11 +24,12 @@ using UnityEngine;
 ///   8. Player registration activates at least one lane.
 ///   9. CloudManager spawns at least one cloud within timeout.
 ///  10. Active cloud count stays at or below maxDynamicClouds cap.
-///  11. All active clouds have valid Rigidbody2D and are Kinematic.
-///  12. Clouds are moving (position delta observed over the active physics clock).
-///  13. Networked clouds use FishNet's physics tick rather than Unity FixedUpdate.
-///  14. The owner player keeps visuals off the physics root and enables interpolation.
-///  15. CloudManager disables on a pure client (offline mode bypass test).
+///  11. Distinct dynamic clouds do not overlap by their complete rendered bounds.
+///  12. All active clouds have valid Rigidbody2D and are Kinematic.
+///  13. Clouds are moving (position delta observed over the active physics clock).
+///  14. Networked clouds use FishNet's physics tick rather than Unity FixedUpdate.
+///  15. The owner player keeps visuals off the physics root and enables interpolation.
+///  16. CloudManager disables on a pure client (offline mode bypass test).
 /// </summary>
 public class CloudManagerTestRunner : MonoBehaviour
 {
@@ -126,6 +127,7 @@ public class CloudManagerTestRunner : MonoBehaviour
         yield return StartCoroutine(CheckPlayerActivatedLanes());
         yield return StartCoroutine(CheckCloudSpawnsWithinTimeout());
         CheckMaxCloudCapRespected();
+        yield return StartCoroutine(CheckDynamicCloudRenderBoundsDoNotOverlap());
         CheckActiveCloudsAreKinematic();
         CheckNetworkPhysicsClock();
         CheckCloudPerformanceConfiguration();
@@ -442,6 +444,104 @@ public class CloudManagerTestRunner : MonoBehaviour
         for (int i = 0; i < clouds.Count; i++)
             if (cloudManager.IsDynamicCloud(clouds[i])) count++;
         return count;
+    }
+
+    IEnumerator CheckDynamicCloudRenderBoundsDoNotOverlap()
+    {
+        if (cloudManager == null) yield break;
+
+        const int sampleCount = 5;
+        const float tolerance = 0.001f;
+        var violations = new List<string>();
+        int minimumRenderedCloudCount = int.MaxValue;
+        int maximumRenderedCloudCount = 0;
+
+        // Sample across several end-of-frame cycles. This stays independent
+        // of CloudManager's cached geometry so it can catch prefab-child or scale drift.
+        for (int sample = 0; sample < sampleCount; sample++)
+        {
+            yield return new WaitForEndOfFrame();
+
+            var renderedClouds = new List<(CloudPlatform platform, Bounds bounds)>();
+            var seenPlatforms = new HashSet<CloudPlatform>();
+            var clouds = cloudManager.GetActiveClouds();
+            for (int i = 0; i < clouds.Count; i++)
+            {
+                GameObject cloud = clouds[i];
+                if (cloud == null || !cloudManager.IsDynamicCloud(cloud)) continue;
+
+                CloudPlatform platform = cloud.GetComponent<CloudPlatform>();
+                if (platform == null || !seenPlatforms.Add(platform)) continue;
+                if (TryGetRenderedBounds(platform, out Bounds bounds))
+                    renderedClouds.Add((platform, bounds));
+            }
+
+            minimumRenderedCloudCount = Mathf.Min(minimumRenderedCloudCount, renderedClouds.Count);
+            maximumRenderedCloudCount = Mathf.Max(maximumRenderedCloudCount, renderedClouds.Count);
+
+            for (int i = 0; i < renderedClouds.Count; i++)
+            {
+                for (int j = i + 1; j < renderedClouds.Count; j++)
+                {
+                    var a = renderedClouds[i];
+                    var b = renderedClouds[j];
+                    float overlapX = Mathf.Min(a.bounds.max.x, b.bounds.max.x) - Mathf.Max(a.bounds.min.x, b.bounds.min.x);
+                    float overlapY = Mathf.Min(a.bounds.max.y, b.bounds.max.y) - Mathf.Max(a.bounds.min.y, b.bounds.min.y);
+                    if (overlapX > tolerance && overlapY > tolerance)
+                    {
+                        violations.Add(
+                            $"sample={sample + 1}/{sampleCount} time={Time.time:F3}s; " +
+                            $"{DescribeRenderedCloud(a.platform, a.bounds)} vs {DescribeRenderedCloud(b.platform, b.bounds)}; " +
+                            $"overlap={overlapX:F3}x{overlapY:F3}");
+                    }
+                }
+            }
+        }
+
+        if (minimumRenderedCloudCount < 2)
+        {
+            Fail("Dynamic cloud sprite overlap check had insufficient coverage.",
+                $"Only {minimumRenderedCloudCount}-{maximumRenderedCloudCount} rendered dynamic cloud(s) were available across {sampleCount} consecutive end-of-frame samples; at least 2 are required.");
+        }
+        else if (violations.Count > 0)
+        {
+            foreach (string violation in violations)
+                Fail("Dynamic cloud sprite overlap detected.", violation);
+        }
+        else
+        {
+            Pass($"{minimumRenderedCloudCount}-{maximumRenderedCloudCount} dynamic cloud rendered AABBs stayed mutually non-overlapping across {sampleCount} consecutive end-of-frame samples.");
+        }
+    }
+
+    static bool TryGetRenderedBounds(CloudPlatform platform, out Bounds bounds)
+    {
+        bounds = default;
+        bool found = false;
+        SpriteRenderer[] renderers = platform.GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            SpriteRenderer renderer = renderers[i];
+            if (renderer == null || !renderer.enabled || renderer.sprite == null || !renderer.gameObject.activeInHierarchy)
+                continue;
+            if (renderer.GetComponentInParent<CloudPlatform>() != platform)
+                continue;
+
+            if (!found)
+            {
+                bounds = renderer.bounds;
+                found = true;
+            }
+            else
+                bounds.Encapsulate(renderer.bounds);
+        }
+        return found;
+    }
+
+    static string DescribeRenderedCloud(CloudPlatform platform, Bounds bounds)
+    {
+        return $"'{platform.name}' lane={platform.laneIndex} slot={platform.slotIndex} " +
+            $"activation={platform.ActivationVersion} scale={platform.transform.lossyScale} bounds={bounds}";
     }
 
     void CheckActiveCloudsAreKinematic()

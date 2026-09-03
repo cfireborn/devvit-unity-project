@@ -74,12 +74,12 @@ public class NetworkBootstrapper : MonoBehaviour
     {
         TextAsset versionAsset = Resources.Load<TextAsset>("BuildVersion");
         string version = versionAsset != null ? versionAsset.text.Trim() : Application.version;
-#if UNITY_SERVER
+#if UNITY_EDITOR
+        const string buildType = "UNITY EDITOR PLAY MODE";
+#elif UNITY_SERVER
         const string buildType = "LINUX SERVER BUILD";
 #elif UNITY_WEBGL
         const string buildType = "WEBGL COMPERSION TEMPLATE BUILD";
-#elif UNITY_EDITOR
-        const string buildType = "UNITY EDITOR PLAY MODE";
 #else
         const string buildType = "STANDALONE CLIENT BUILD";
 #endif
@@ -125,11 +125,7 @@ public class NetworkBootstrapper : MonoBehaviour
 
         nm.ClientManager.OnClientConnectionState += OnClientConnectionState;
 
-#if UNITY_SERVER
-        Debug.Log("NetworkBootstrapper: Starting as dedicated server.");
-        TryStartServer(nm);
-
-#elif UNITY_EDITOR
+#if UNITY_EDITOR
         bool isHost = useLocal && editorStartAsHost && CurrentPlayer.IsMainEditor;
         if (isHost)
         {
@@ -142,6 +138,10 @@ public class NetworkBootstrapper : MonoBehaviour
             Debug.Log($"NetworkBootstrapper: Editor (Client) — connecting to {_tugboatAddress}:{_tugboatPort}.");
             TryConnectClient(nm, _tugboatAddress, _tugboatPort);
         }
+
+#elif UNITY_SERVER
+        Debug.Log("NetworkBootstrapper: Starting as dedicated server.");
+        TryStartServer(nm);
 
 #elif UNITY_WEBGL
         if (!AdminMenuPrefs.AttemptConnection)

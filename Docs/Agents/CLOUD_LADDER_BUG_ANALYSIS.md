@@ -175,7 +175,7 @@ The August 19 state was inspected as a reference, not restored wholesale. It pre
 ## Verification performed
 
 - `LadderManagerTest`: **17 passed, 0 failed** on the current combined tree. The harness uses three isolated kinematic clouds and checks exact pairs, including cached presentation/stale-trigger cleanup, movement/removal, truthful forced creation, both adjacent bindings around an obstructing middle cloud, rapid endpoint-generation reuse, and current-Transform bounds before physics synchronization. Range and intermediate-obstruction checks wait through one throttled 10 Hz topology scan; endpoint inactivity, despawn, and generation reuse still fail closed in the first `LateUpdate`.
-- `CloudManagerTest`: **16 passed, 0 failed**. All seven dynamic prefabs passed rendered-scale, physical-collider, FishNet behaviour-order, and unique server/client spawn-table round-trip invariants; 14 dynamic clouds spawned during the run. The test scene now deliberately starts its isolated host because the runner requires server lifecycle coverage. `CloudManagerTest` is not in `EditorBuildSettings`, so this fixture change does not alter the production scene list.
+- `CloudManagerTest`: **17 passed, 0 failed**. All seven dynamic prefabs passed rendered-scale, physical-collider, FishNet behaviour-order, and unique server/client spawn-table round-trip invariants. The added independent rendered-bounds check unions each active dynamic platform's enabled sprite renderers and rejects greater-than-`0.001`-world-unit overlap on both axes without reusing `CloudManager`'s geometry cache. The final Linux Server-target Editor run sampled 13 dynamic clouds across five consecutive end-of-frame samples. This is an active-layout regression, not proof of a full pool/reuse cycle. The test scene deliberately starts its isolated host because the runner requires server lifecycle coverage. `CloudManagerTest` is not in `EditorBuildSettings`, so this fixture change does not alter the production scene list.
 - `SimpleLevel` host run on the 40 Hz candidate: the server logged the first authoritative cloud spawn, pooled clouds and ladders appeared, movement and a jump were accepted, and the Console remained at **0 warnings / 0 errors**. This exercises gameplay under the candidate tick rate, but an Editor host uses the client frame cap and is not evidence for the dedicated 55 FPS path.
 - Unity Multiplayer Play Mode on the current combined tree: a matching pure client joined the host and replicated clouds/ladders without prefab-ID or behaviour-index faults. Before the bounds repair, the client diagnostic measured the `0.005-0.014` world-unit bounds lag described above; after the repair, before/after-`Physics2D.SyncTransforms` ladder geometry was identical. A separate final local host run did not retain a second connected clone, so remote-head standing/jump/drop remains a required exact WebGL multiplayer smoke rather than a claimed final pass.
 
@@ -196,7 +196,30 @@ Final head-carry verification on the September 1 exact disk state:
 - The exact `942e0e5` 40 Hz / 55 FPS release (`2026.09.02.38-942e0e57` WebGL, `2026.09.02.39-942e0e57` Linux server) populated clouds and ladders immediately. One WebGL client sustained about 58-67% CPU and two sustained about 65-70% on the 0.25-vCPU profile, with memory near 25%; both remained responsive during cloud riding, movement, jumping, and a two-client head-platform smoke. This is materially better than the prior 77-100% one-client and 98-110% two-client measurements, but it does not meet the requested 20% CPU target.
 - The 40 FPS server-cap follow-up removes the configured 15-FPS headroom without changing the verified 40 Hz physics/network clock. It still requires a matching Linux build and fresh sustained one-client and two-client measurements; it must not be described as meeting the requested target until that evidence exists.
 
-The publish/deployment record and live WebGL smoke results should be appended to the release handoff after the matching client and Edgegap server are online.
+### September 2 live release verification
+
+The final matched release inspected in production was:
+
+- source commit `3372348d1e857a237da872deab6b10230794c37f` (`Stabilize isolated WebGL publishing [publish]`);
+- GitHub Pages build `2026.09.02_build6_compersion2d`, reporting client version `2026.09.02.42-3372348d`;
+- Edgegap Linux server version `2026.09.02.43-3372348d`, immutable image tag `26.09.03-00.34.32-UTC`, deployment request `b7a382e0e678` in Fremont;
+- the public WSS endpoint completed an HTTP 101 upgrade, and the exact server version appeared in deployment logs.
+
+Firefox was used because the Chrome-control extension was unavailable in this session. The following are bounded smoke results, not exhaustive acceptance claims:
+
+- One WebGL client loaded the populated moving-cloud world and accepted a jump.
+- Two WebGL clients joined the same session. A local squirrel jumped away and landed back on the remote squirrel's detached head platform; the resulting stack stayed visually stable over a three-second sample.
+- A live middle-cloud routing case showed two adjacent ladders sharing the middle cloud rather than one high-to-low ladder passing through it. Over approximately 20 seconds, the observed ladder endpoints continued following their cloud surfaces without a visible floating/stale ladder.
+- A 24-frame capture over approximately 5.2 seconds found zero integer-pixel relative movement in the sampled rider/cloud crop. This is evidence against large pixel-step jitter in that sample; it does not measure subpixel motion, browser frame pacing, or sustained FPS.
+- After the clients disconnected, server network traffic returned near zero and CPU returned toward its prior range after about 50 seconds. This argues against a gross disconnect lifecycle leak, but it is not a long-duration soak.
+
+Observed Edgegap utilization on the 0.25-vCPU deployment remained approximately 27-38% CPU with no clients and approximately 45-60% with one or two short-lived clients; memory stayed around 28-29%. This is a large improvement over the earlier saturation, but it does **not** meet the requested 20% CPU target. The client-count samples were roughly 30-45 seconds rather than the two-minute acceptance windows, and the deployment graph does not separate Unity from the `cloudflared` sidecar. No further production timing or density change is justified until server-side timing/counters isolate the remaining cost.
+
+A local Unity pure-client profile against the live server showed steady Editor frames around 5-8 ms (one inspected frame was 5.28 ms) and about 0.05 ms in `CloudLadderController.LateUpdate`; cloud-manager/network-cloud callbacks were near zero in the sampled frame. A 13.66 ms cloud-manager frame was consistent with cold spawn/JIT work, not proven as a steady-state cause. Editor profiling does not establish WebGL CPU, GPU, or frame-pacing behavior.
+
+The public homepage watchdog remained circuit-open and displayed `Startup needs attention` even while the separately tested Edgegap deployment was ready and the WSS handshake succeeded. Treat watchdog recovery as a separate operational blocker; do not reset its admin state without authenticated inspection.
+
+The Edgegap build left the Editor with the Linux Server subtarget active, which caused Editor Play Mode to follow the dedicated-server branch and made the cloud harness fail before spawning a local player. `NetworkBootstrapper` now gives `UNITY_EDITOR` precedence when both `UNITY_EDITOR` and `UNITY_SERVER` are defined. Actual dedicated-server builds still use the server branch because `UNITY_EDITOR` is absent. After restoring the Linux Server target, the Editor logged `UNITY EDITOR PLAY MODE`, spawned the local player and 13 clouds, and completed `CloudManagerTest` with **17 passed, 0 failed**, 0 warnings, and 0 errors.
 
 The first two fresh-checkout WebGL attempts for the 40/40 release failed closed after Unity's initial linker, IL2CPP, and WebAssembly work completed: a timestamp-triggered Bee follow-up pass reran UnityLinker and intermittently lost resolution of the already-present Newtonsoft assembly, so Unity never emitted the final template or `index.html`. The publisher now settles package resolution and asset import in a separate batch invocation before starting the Build Profile invocation. Its existing profile, metadata, complete-artifact, and push gates remain authoritative; a successful Unity process exit alone is still not treated as a publication.
 
@@ -222,7 +245,8 @@ The first two fresh-checkout WebGL attempts for the 40/40 release failed closed 
 | `Assets/Scripts/Player/PlayerControllerM.cs` | Single-writer platform carry and physics/manual platform classification |
 | `Assets/Scripts/Player/PlayerHeadPlatform.cs` | Detached one-way head surface driven on FishNet pre/post physics clocks |
 | `Assets/Scripts/Environment/CloudBehaviorSettings.cs` | Clarified tuning semantics |
-| `Assets/Scripts/Testing/CloudManagerTestRunner.cs` | Seven-prefab render/physics/FishNet invariants |
+| `Assets/Scripts/Network/NetworkBootstrapper.cs` | Keep Editor Play Mode on the host/client path after a Linux Server-target build |
+| `Assets/Scripts/Testing/CloudManagerTestRunner.cs` | Seven-prefab render/physics/FishNet invariants and independent active-renderer overlap regression |
 | `Assets/Scripts/Testing/LadderManagerTestRunner.cs` | Deterministic exact-pair and intermediate-obstruction tests |
 | `Assets/Scene/Clouds/Cloud_Base.prefab` | Server-authenticated position-only transform configuration |
 | `Assets/Scene/Clouds/Cloud_2.prefab` | Repaired FishNet behaviour schema |
