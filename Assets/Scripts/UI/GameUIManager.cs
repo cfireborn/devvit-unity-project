@@ -23,12 +23,7 @@ public sealed class GameUIManager : MonoBehaviour
     [SerializeField] TMP_Text completedGoalsCountText;
     [SerializeField] Button inventoryOpenButton;
     [Header("COMPERSION Title Card")]
-    [SerializeField] Sprite compersionTitleSprite;
-    [SerializeField] Sprite compersionPronunciationSprite;
-    [SerializeField] Sprite compersionPartOfSpeechSprite;
-    [SerializeField] Sprite compersionDefinitionLeadSprite;
-    [SerializeField] Sprite compersionDefinitionBodySprite;
-    [SerializeField] CompersionTitleCardUI.Skin compersionTitleSkin = new();
+    [SerializeField] CompersionTitleCardUI compersionTitleCardPrefab;
     [Header("End of Demo")]
     [SerializeField] GameObject endOfDemoPanel;
     [SerializeField] string narrativeScriptUrl = "https://docs.google.com/document/d/106QIZJeDZGRbEJ3huw_ZdnunQI2Nq3jT-q7ZVcbd3fE/edit?tab=t.0#heading=h.emwin8ig3aqr";
@@ -415,32 +410,20 @@ public sealed class GameUIManager : MonoBehaviour
     bool EnsureCompersionTitleCard()
     {
         if (_compersionTitleCard != null) return true;
-        if (compersionTitleSprite == null
-            || compersionPronunciationSprite == null
-            || compersionPartOfSpeechSprite == null
-            || compersionDefinitionLeadSprite == null
-            || compersionDefinitionBodySprite == null)
-            return false;
+        if (compersionTitleCardPrefab == null) return false;
 
         Canvas canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
             canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null) return false;
 
-        var overlay = new GameObject("CompersionTitleCard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(CompersionTitleCardUI));
-        overlay.transform.SetParent(canvas.transform, false);
-        StretchFull(overlay.GetComponent<RectTransform>());
-        _compersionTitleCard = overlay.GetComponent<CompersionTitleCardUI>();
-        _compersionTitleCard.Initialize(
-            compersionTitleSprite,
-            compersionPronunciationSprite,
-            compersionPartOfSpeechSprite,
-            compersionDefinitionLeadSprite,
-            compersionDefinitionBodySprite,
-            compersionTitleSkin,
+        _compersionTitleCard = Instantiate(compersionTitleCardPrefab, canvas.transform);
+        _compersionTitleCard.name = "CompersionTitleCard";
+        StretchFull(_compersionTitleCard.GetComponent<RectTransform>());
+        _compersionTitleCard.Configure(
             adminMenu,
             mobileInputManager != null ? mobileInputManager : MobileInputManager.Instance);
-        overlay.SetActive(false);
+        _compersionTitleCard.gameObject.SetActive(false);
         return true;
     }
 
