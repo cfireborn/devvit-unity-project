@@ -24,6 +24,7 @@ public class CRTRenderFeature : ScriptableRendererFeature
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         if (material == null) return;
+        if (renderingData.cameraData.isPreviewCamera) return;
 
         var settings = VolumeManager.instance.stack.GetComponent<CRTEffectSettings>();
         if (settings == null || !settings.IsActive()) return;
