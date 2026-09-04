@@ -60,6 +60,8 @@ public class CRTRenderFeature : ScriptableRendererFeature
             var resourceData = frameData.Get<UniversalResourceData>();
             var cameraData = frameData.Get<UniversalCameraData>();
 
+            if (resourceData.isActiveTargetBackBuffer) return;
+
             TextureHandle source = resourceData.activeColorTexture;
             if (!source.IsValid()) return;
 

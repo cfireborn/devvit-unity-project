@@ -1668,6 +1668,35 @@ MonoBehaviour:
   onLadderBuilt:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &1164523281 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 676823417587804489, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
+  m_PrefabInstance: {fileID: 1576647155}
+  m_PrefabAsset: {fileID: 0}
+--- !u!167 &1164523287
+AudioReverbZone:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1164523281}
+  m_Enabled: 1
+  m_MinDistance: 10
+  m_MaxDistance: 15
+  m_ReverbPreset: 1
+  m_Room: -1000
+  m_RoomHF: -100
+  m_DecayTime: 1.49
+  m_DecayHFRatio: 0.83
+  m_Reflections: -2602
+  m_ReflectionsDelay: 0.007
+  m_Reverb: 200
+  m_ReverbDelay: 0.011
+  m_HFReference: 5000
+  m_Diffusion: 100
+  m_Density: 100
+  m_LFReference: 250
+  m_RoomLF: 0
 --- !u!1 &1190467174 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2371992020512352407, guid: f571c2e167292c143a5e23e35d3dd94e, type: 3}
@@ -2725,7 +2754,10 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3123032441705413085, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1995255495}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 676823417587804489, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1164523287}
   m_SourcePrefab: {fileID: 100100000, guid: 7a9a64b73f490b240a0ca4db7b83024c, type: 3}
 --- !u!4 &1596400181 stripped
 Transform:
