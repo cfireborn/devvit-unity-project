@@ -20,7 +20,7 @@ The stable-version rule is important: the hidden tunnel secret belongs to the Ed
 
 Keeping this version preserves its hidden `CF_TUNNEL_TOKEN`, ports, runtime policy, and the Worker's configured target. A future migration to a timeless name such as `watchdog-secure` should be treated as a coordinated configuration migration: disable automatic deployments, verify zero live deployments, create and configure the new version, transfer the secret through the dashboard, update `EDGEGAP_VERSION`, test one controlled launch, and retire the old version. Do not rename merely to match a new image date.
 
-> **Current operational state (2026-08-12):** the tunnel-management mismatch from the 2026-08-11 incident is resolved. Production DNS points to remotely managed tunnel `compersion-edgegap-prod` (ID `6fd08db4-935d-4c7b-b2e0-6424f17bd771`), whose published application maps `compersion.charliefeuerborn.com` to `http://localhost:7771`. Controlled Edgegap deployment `77db03e3878e` reached Ready, its connector became Healthy, a public WebSocket upgrade returned HTTP 101, and the operator confirmed the real game-client test worked. The retired locally managed tunnel was deleted. After returning Edgegap to zero application-wide live deployments, Worker version `1fec72e5-a4e1-4b36-9b3f-2592bd8e1c37` was deployed with `ENABLE_DEPLOYMENTS=true`. The next homepage visitor wake clears the deliberately parked state and begins the normal three-check startup flow.
+> **Current operational state (2026-09-04):** production deployment creation is enabled. A homepage visitor triggers one public multiplayer handshake; failure immediately reconciles every live Edgegap deployment. Zero live deployments permits one create, while one or more permits no create and no automatic stop. New creates use Los Angeles coordinates to prefer West Coast placement. `CONFIG_GENERATION=2026-09-04-immediate-west-coast` clears the prior parked state on the next visitor wake.
 
 ## One-time credential setup
 
@@ -28,7 +28,7 @@ Two different credentials exist and must never be put in Git, a Docker image, a 
 
 | Credential | Stored in | Used by |
 |---|---|---|
-| Edgegap API token | Cloudflare Worker secret `EDGEGAP_TOKEN` | The watchdog when listing, stopping, and creating Edgegap deployments |
+| Edgegap API token | Cloudflare Worker secret `EDGEGAP_TOKEN` | The watchdog when listing and creating Edgegap deployments |
 | Cloudflare Tunnel token | Hidden environment variable `CF_TUNNEL_TOKEN` on Edgegap version `26.08.11-watchdog-secure` | `Server/start.sh` inside the running container |
 
 The Worker also has an `ADMIN_TOKEN` secret for protected diagnostic endpoints. It is not used by the homepage.
@@ -106,9 +106,9 @@ The homepage at `https://ramborngames.github.io/` does three things when loaded:
 
 The public wake and status routes accept only the configured homepage origin in browser CORS requests. No API or admin credential is sent to the browser.
 
-The Worker and its Durable Object serialize all visitor wakes. A check is accepted at most once per configured minimum interval (currently five seconds), so many simultaneous visitors do not create many deployments. After the first failed public health check, Durable Object alarms continue the incident even if the visitor leaves.
+The Worker and its Durable Object serialize all visitor wakes. A check is accepted at most once per configured minimum interval (currently five seconds), so many simultaneous visitors do not create many deployments. After a create is accepted, Durable Object alarms continue startup observation even if the visitor leaves.
 
-With the current configuration, three failed health checks are required before deployment recovery. The watchdog then reconciles all live deployments for the Edgegap application:
+With the current configuration, one failed public handshake immediately triggers reconciliation of all live deployments for the Edgegap application:
 
 - no live deployment: create one server;
 - exactly one unhealthy live deployment: leave it untouched, open the circuit, and require manual review; the watchdog never automatically stops or restarts it;
