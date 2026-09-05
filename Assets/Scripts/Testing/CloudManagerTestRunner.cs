@@ -28,7 +28,8 @@ using UnityEngine;
 ///  12. All active clouds have valid Rigidbody2D and are Kinematic.
 ///  13. Clouds are moving (position delta observed over the active physics clock).
 ///  14. Networked clouds use FishNet's physics tick rather than Unity FixedUpdate.
-///  15. The owner player keeps visuals off the physics root and enables interpolation.
+///  15. The player keeps a closed body for platform contacts, ignores other player bodies,
+///      preserves its one-way head surface, keeps visuals off the physics root, and enables interpolation.
 ///  16. CloudManager disables on a pure client (offline mode bypass test).
 /// </summary>
 public class CloudManagerTestRunner : MonoBehaviour
@@ -363,7 +364,23 @@ public class CloudManagerTestRunner : MonoBehaviour
 
         PlayerControllerM controller = prefab.GetComponent<PlayerControllerM>();
         Rigidbody2D playerRb = prefab.GetComponent<Rigidbody2D>();
+        Collider2D playerBodyCollider = prefab.GetComponent<Collider2D>();
+        PlayerHeadPlatform headPlatform = prefab.GetComponent<PlayerHeadPlatform>();
+        EdgeCollider2D headCollider = headPlatform != null ? headPlatform.SurfaceCollider : null;
         NetworkTransform networkTransform = prefab.GetComponent<NetworkTransform>();
+        int playerLayer = LayerMask.NameToLayer("Player");
+        int platformLayer = LayerMask.NameToLayer("Platform");
+        bool closedBody = playerBodyCollider is BoxCollider2D && playerBodyCollider.enabled &&
+            !playerBodyCollider.isTrigger;
+        bool nonBlockingPlayers = playerLayer >= 0 && prefab.layer == playerLayer &&
+            Physics2D.GetIgnoreLayerCollision(playerLayer, playerLayer);
+        bool oneWayHeadSurface = headCollider != null && headCollider.enabled && !headCollider.isTrigger &&
+            headCollider.usedByEffector && headCollider.gameObject.layer == platformLayer &&
+            headCollider.CompareTag("Platform") &&
+            headCollider.GetComponent<PlatformEffector2D>() is PlatformEffector2D headEffector &&
+            headEffector.useOneWay;
+        bool playerStillCollidesWithPlatforms = playerLayer >= 0 && platformLayer >= 0 &&
+            !Physics2D.GetIgnoreLayerCollision(playerLayer, platformLayer);
         bool dedicatedSprite = controller != null && controller.spriteRenderer != null &&
             controller.spriteTransform == controller.spriteRenderer.transform &&
             controller.spriteTransform != prefab.transform;
@@ -372,10 +389,14 @@ public class CloudManagerTestRunner : MonoBehaviour
         bool rotationSyncDisabled = networkTransform != null && syncRotationField != null &&
             syncRotationField.GetValue(networkTransform) is bool synchronizeRotation && !synchronizeRotation;
 
-        if (dedicatedSprite && interpolatedBody && rotationSyncDisabled)
-            Pass("Network player tilts only its Sprite child and interpolates the owner Rigidbody2D.");
+        if (closedBody && nonBlockingPlayers && oneWayHeadSurface && playerStillCollidesWithPlatforms &&
+            dedicatedSprite && interpolatedBody && rotationSyncDisabled)
+            Pass("Network player keeps reliable box-to-platform contacts, ignores other player bodies, preserves its one-way head edge, and isolates visual tilt from physics.");
         else
-            Fail("Network player motion configuration can reintroduce root jitter.", $"dedicatedSprite={dedicatedSprite}, interpolatedBody={interpolatedBody}, rotationSyncDisabled={rotationSyncDisabled}");
+            Fail("Network player collision or motion configuration is invalid.",
+                $"closedBody={closedBody}, nonBlockingPlayers={nonBlockingPlayers}, oneWayHeadSurface={oneWayHeadSurface}, " +
+                $"playerStillCollidesWithPlatforms={playerStillCollidesWithPlatforms}, dedicatedSprite={dedicatedSprite}, " +
+                $"interpolatedBody={interpolatedBody}, rotationSyncDisabled={rotationSyncDisabled}");
     }
 
     IEnumerator CheckCloudManagerEnabledOnServer()

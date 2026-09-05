@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1127958551550974686}
   - component: {fileID: 61679244968425195}
   - component: {fileID: 8920384819120733878}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: HeadPlatform
   m_TagString: Platform
   m_Icon: {fileID: 0}
@@ -139,7 +139,7 @@ GameObject:
   - component: {fileID: 8049512909918459245}
   - component: {fileID: 4173354977803686125}
   - component: {fileID: 7821567097883392430}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: NetworkPlayer
   m_TagString: Player
   m_Icon: {fileID: 0}
