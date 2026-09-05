@@ -17,6 +17,7 @@ public class CloudLadderController : MonoBehaviour
     const float HorizontalEdgeTolerance = 0.001f;
     const float PairEvaluationInterval = 0.1f;
     const float ExistingGeometryValidationInterval = 0.05f;
+    static readonly List<Vector2> EdgePointScratch = new List<Vector2>(16);
 
     [Header("References")]
     public CloudManager cloudManager;
@@ -676,9 +677,9 @@ public class CloudLadderController : MonoBehaviour
                 continue;
 
             float edgeY;
-            if (col is PolygonCollider2D poly && TryGetPolygonEdgeY(poly, worldX, top, out float polyY))
+            if (TryGetColliderEdgeY(col, worldX, top, out float sampledY))
             {
-                edgeY = polyY;
+                edgeY = sampledY;
             }
             else
             {
@@ -834,18 +835,42 @@ public class CloudLadderController : MonoBehaviour
         return false;
     }
 
-    static bool TryGetPolygonEdgeY(PolygonCollider2D poly, float worldX, bool top, out float edgeY)
+    static bool TryGetColliderEdgeY(Collider2D collider, float worldX, bool top, out float edgeY)
     {
         edgeY = top ? float.MinValue : float.MaxValue;
-        var path = poly.GetPath(0);
-        if (path != null && path.Length >= 2)
+        Vector2[] path = null;
+        bool closed;
+        Vector2 offset;
+        if (collider is PolygonCollider2D poly)
         {
-            var t = poly.transform;
-            for (int i = 0; i < path.Length; i++)
+            path = poly.GetPath(0);
+            closed = true;
+            offset = poly.offset;
+        }
+        else if (collider is EdgeCollider2D edge)
+        {
+            EdgePointScratch.Clear();
+            edge.GetPoints(EdgePointScratch);
+            closed = false;
+            offset = edge.offset;
+        }
+        else
+        {
+            return false;
+        }
+
+        int pathLength = path != null ? path.Length : EdgePointScratch.Count;
+        if (pathLength >= 2)
+        {
+            Transform t = collider.transform;
+            int segmentCount = closed ? pathLength : pathLength - 1;
+            for (int i = 0; i < segmentCount; i++)
             {
-                int j = (i + 1) % path.Length;
-                Vector2 p0 = t.TransformPoint(path[i]);
-                Vector2 p1 = t.TransformPoint(path[j]);
+                int j = (i + 1) % pathLength;
+                Vector2 local0 = closed ? path[i] : EdgePointScratch[i];
+                Vector2 local1 = closed ? path[j] : EdgePointScratch[j];
+                Vector2 p0 = t.TransformPoint(local0 + offset);
+                Vector2 p1 = t.TransformPoint(local1 + offset);
                 float x0 = p0.x;
                 float x1 = p1.x;
                 if (!((x0 <= worldX && worldX <= x1) || (x1 <= worldX && worldX <= x0)))

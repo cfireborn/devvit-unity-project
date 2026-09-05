@@ -20,6 +20,8 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public class CloudPlatform : MonoBehaviour, IMovingPlatform
 {
+    private static readonly List<Vector2> EdgePointScratch = new List<Vector2>(16);
+
     [HideInInspector]
     public float moveSpeed;
     [HideInInspector]
@@ -387,7 +389,7 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
     /// Returns bounds at the collider's current Transform pose. NetworkTransform updates
     /// remote cloud Transforms during render frames, while Physics2D.autoSyncTransforms is
     /// intentionally disabled; Collider2D.bounds can therefore lag the visible cloud until
-    /// the next simulation. Managed cloud collision shapes are boxes, so derive their AABB
+    /// the next simulation. Managed cloud collision shapes are boxes or edges, so derive their AABB
     /// directly without forcing a costly global Physics2D.SyncTransforms call.
     /// </summary>
     internal static Bounds GetCurrentColliderBounds(Collider2D collider)
@@ -397,6 +399,20 @@ public class CloudPlatform : MonoBehaviour, IMovingPlatform
         // ladder CPU is the limiting deployment resource. Keep their native fast path.
         return collider.bounds;
 #else
+        if (collider is EdgeCollider2D edge)
+        {
+            EdgePointScratch.Clear();
+            int pointCount = edge.GetPoints(EdgePointScratch);
+            if (pointCount == 0)
+                return new Bounds(edge.transform.position, Vector3.zero);
+
+            Transform edgeTransform = edge.transform;
+            Bounds edgeBounds = new Bounds(edgeTransform.TransformPoint(EdgePointScratch[0] + edge.offset), Vector3.zero);
+            for (int i = 1; i < pointCount; i++)
+                edgeBounds.Encapsulate(edgeTransform.TransformPoint(EdgePointScratch[i] + edge.offset));
+            return edgeBounds;
+        }
+
         if (collider is not BoxCollider2D box)
             return collider.bounds;
 

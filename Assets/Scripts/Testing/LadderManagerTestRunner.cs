@@ -184,12 +184,12 @@ public class LadderManagerTestRunner : MonoBehaviour
     void CheckBoundsTrackCurrentTransform(List<CloudPlatform> clouds)
     {
         CloudPlatform cloud = clouds.Find(candidate =>
-            candidate != null && candidate.GetComponent<BoxCollider2D>() != null);
+            candidate != null && candidate.GetComponent<EdgeCollider2D>() != null);
         if (cloud == null)
         {
             Fail(
                 "Render-pose bounds fixture is missing.",
-                "The ladder regression scene requires a CloudPlatform with a root BoxCollider2D.");
+                "The ladder regression scene requires a CloudPlatform with a root EdgeCollider2D.");
             return;
         }
 
@@ -345,8 +345,8 @@ public class LadderManagerTestRunner : MonoBehaviour
             go.transform.position = new Vector3(100f, -2f + index * 2f, 0f);
             Rigidbody2D rb = go.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;
-            BoxCollider2D collider = go.AddComponent<BoxCollider2D>();
-            collider.size = new Vector2(2f, 0.2f);
+            EdgeCollider2D collider = go.AddComponent<EdgeCollider2D>();
+            collider.points = new[] { new Vector2(-1f, 0f), new Vector2(1f, 0f) };
             CloudPlatform platform = go.AddComponent<CloudPlatform>();
             platform.isPooled = false;
             platform.isMoving = false;

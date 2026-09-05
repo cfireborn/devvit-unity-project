@@ -800,28 +800,43 @@ public class CloudManager : MonoBehaviour
     {
         if (_prefabNativeMainSize.TryGetValue(prefab, out Vector2 sz)) return sz;
         var platform = prefab.GetComponent<CloudPlatform>();
-        var mainBox = platform != null ? platform.mainCollider as BoxCollider2D : null;
-        BoxCollider2D[] boxes = mainBox != null
-            ? new[] { mainBox }
-            : prefab.GetComponentsInChildren<BoxCollider2D>(true);
+        Collider2D[] colliders = platform != null && platform.mainCollider != null
+            ? new[] { platform.mainCollider }
+            : prefab.GetComponentsInChildren<Collider2D>(true);
 
         Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
         Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-        for (int i = 0; i < boxes.Length; i++)
+        void IncludePoint(Transform colliderTransform, Vector2 localPoint)
         {
-            BoxCollider2D box = boxes[i];
-            if (box == null || !box.enabled) continue;
-            Vector2 center = prefab.transform.InverseTransformPoint(box.transform.TransformPoint(box.offset));
-            Vector2 right = prefab.transform.InverseTransformVector(box.transform.TransformVector(Vector2.right * box.size.x * 0.5f));
-            Vector2 up = prefab.transform.InverseTransformVector(box.transform.TransformVector(Vector2.up * box.size.y * 0.5f));
-            Vector2 extents = new Vector2(Mathf.Abs(right.x) + Mathf.Abs(up.x), Mathf.Abs(right.y) + Mathf.Abs(up.y));
-            min = Vector2.Min(min, center - extents);
-            max = Vector2.Max(max, center + extents);
+            Vector2 rootPoint = prefab.transform.InverseTransformPoint(colliderTransform.TransformPoint(localPoint));
+            min = Vector2.Min(min, rootPoint);
+            max = Vector2.Max(max, rootPoint);
+        }
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D collider = colliders[i];
+            if (collider == null || !collider.enabled || collider.isTrigger) continue;
+
+            if (collider is EdgeCollider2D edge)
+            {
+                Vector2[] points = edge.points;
+                for (int p = 0; p < points.Length; p++)
+                    IncludePoint(edge.transform, points[p] + edge.offset);
+            }
+            else if (collider is BoxCollider2D box)
+            {
+                Vector2 half = box.size * 0.5f + Vector2.one * box.edgeRadius;
+                IncludePoint(box.transform, box.offset + new Vector2(-half.x, -half.y));
+                IncludePoint(box.transform, box.offset + new Vector2(-half.x, half.y));
+                IncludePoint(box.transform, box.offset + new Vector2(half.x, -half.y));
+                IncludePoint(box.transform, box.offset + new Vector2(half.x, half.y));
+            }
         }
 
         if (float.IsInfinity(min.x))
         {
-            Debug.LogError($"CloudManager: cloud prefab '{prefab.name}' needs an enabled BoxCollider2D for lane sizing.");
+            Debug.LogError($"CloudManager: cloud prefab '{prefab.name}' needs an enabled supported non-trigger collider for lane sizing.");
             min = Vector2.one * -0.5f;
             max = Vector2.one * 0.5f;
         }

@@ -83,9 +83,9 @@ public class PlayerControllerM : MonoBehaviour
     private bool _isGroundedFixed;
     private float _coyoteTimeRemaining;
     private float _jumpBufferRemaining;
-    private PlatformEffector2D _dropThroughEffector;
-    private float _dropThroughOriginalOffset;
+    private readonly List<Collider2D> _dropThroughColliders = new List<Collider2D>();
     private Coroutine _dropThroughCoroutine;
+    private bool _dropThroughInputHeld;
 
     // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
     private bool _gameplayInputSuspended;
@@ -175,12 +175,14 @@ public class PlayerControllerM : MonoBehaviour
             jumpPressedFlag = false;
             _jumpBufferRemaining = 0f;
             isGliding = false;
+            _dropThroughInputHeld = false;
         }
     }
 
     void OnDisable()
     {
         RestoreDropThroughPlatform();
+        _dropThroughInputHeld = false;
 
         if (InstanceFinder.NetworkManager != null)
             InstanceFinder.TimeManager.OnTick -= OnTick;
@@ -342,11 +344,13 @@ public class PlayerControllerM : MonoBehaviour
         }
 
         bool isInsideLadder = groundChecker != null && groundChecker.IsOnLadder;
-        bool dropThroughPressed = verticalInput < -0.5f;
+        bool dropThroughHeld = verticalInput < -0.5f;
+        bool dropThroughPressed = dropThroughHeld && !_dropThroughInputHeld;
+        _dropThroughInputHeld = dropThroughHeld;
         bool droppedThrough = _isGroundedFixed && dropThroughPressed && TryDropThroughCurrentPlatform();
         bool isOnLadder = isInsideLadder && !jumpPressed && !droppedThrough &&
             (_wasOnLadder || Mathf.Abs(verticalInput) > 0.5f);
-        if (droppedThrough || (isOnLadder && dropThroughPressed))
+        if (droppedThrough || (isOnLadder && dropThroughHeld))
         {
             jumpPressed = false;
             _jumpBufferRemaining = 0f;
@@ -430,21 +434,64 @@ public class PlayerControllerM : MonoBehaviour
         if (ground == null) return false;
 
         PlatformEffector2D effector = ground.GetComponent<PlatformEffector2D>() ?? ground.GetComponentInParent<PlatformEffector2D>();
-        if (effector == null) return false;
-        if (_dropThroughEffector == effector) return true;
-        if (_dropThroughEffector != null)
-            RestoreDropThroughPlatform();
+        if (effector == null || !effector.useOneWay || !ground.usedByEffector || playerCollider == null) return false;
+        bool alreadyDropping = _dropThroughCoroutine != null;
 
-        _dropThroughEffector = effector;
-        _dropThroughOriginalOffset = effector.rotationalOffset;
-        effector.rotationalOffset = 180f;
-        _dropThroughCoroutine = StartCoroutine(RestoreDropThroughPlatformAfterDelay());
+        Bounds playerBounds = playerCollider.bounds;
+        Bounds groundBounds = ground.bounds;
+        float seamTolerance = Physics2D.defaultContactOffset * 2f;
+        Collider2D[] candidates = effector.GetComponents<Collider2D>();
+        int addedCount = 0;
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            Collider2D candidate = candidates[i];
+            if (candidate == null || !candidate.enabled || candidate.isTrigger || !candidate.usedByEffector) continue;
+
+            bool touching = candidate == ground || playerCollider.IsTouching(candidate);
+            bool sameSupportSeam = Mathf.Abs(candidate.bounds.max.y - groundBounds.max.y) <= seamTolerance &&
+                candidate.bounds.max.x >= playerBounds.min.x - seamTolerance &&
+                candidate.bounds.min.x <= playerBounds.max.x + seamTolerance;
+            if (!touching && !sameSupportSeam) continue;
+            if (_dropThroughColliders.Contains(candidate)) continue;
+
+            Physics2D.IgnoreCollision(playerCollider, candidate, true);
+            _dropThroughColliders.Add(candidate);
+            addedCount++;
+        }
+
+        if (addedCount == 0) return false;
+        if (alreadyDropping)
+            StopCoroutine(_dropThroughCoroutine);
+        _dropThroughCoroutine = StartCoroutine(RestoreDropThroughPlatformAfterClearance());
         return true;
     }
 
-    IEnumerator RestoreDropThroughPlatformAfterDelay()
+    IEnumerator RestoreDropThroughPlatformAfterClearance()
     {
-        yield return new WaitForSeconds(settings.dropThroughDuration);
+        float minimumDuration = settings != null ? settings.dropThroughDuration : 0.25f;
+        float safetyTimeout = Mathf.Max(1.25f, minimumDuration + 1f);
+        float elapsed = 0f;
+        while (elapsed < safetyTimeout)
+        {
+            yield return null;
+            elapsed += Time.deltaTime;
+            if (elapsed < minimumDuration || playerCollider == null) continue;
+
+            float playerTop = playerCollider.bounds.max.y;
+            bool cleared = true;
+            for (int i = 0; i < _dropThroughColliders.Count; i++)
+            {
+                Collider2D platform = _dropThroughColliders[i];
+                if (platform != null && platform.enabled &&
+                    playerTop >= platform.bounds.min.y - Physics2D.defaultContactOffset)
+                {
+                    cleared = false;
+                    break;
+                }
+            }
+            if (cleared) break;
+        }
+
         _dropThroughCoroutine = null;
         RestoreDropThroughPlatform();
     }
@@ -453,10 +500,14 @@ public class PlayerControllerM : MonoBehaviour
     {
         if (_dropThroughCoroutine != null)
             StopCoroutine(_dropThroughCoroutine);
-        if (_dropThroughEffector != null)
-            _dropThroughEffector.rotationalOffset = _dropThroughOriginalOffset;
+        for (int i = 0; i < _dropThroughColliders.Count; i++)
+        {
+            Collider2D platform = _dropThroughColliders[i];
+            if (playerCollider != null && platform != null)
+                Physics2D.IgnoreCollision(playerCollider, platform, false);
+        }
+        _dropThroughColliders.Clear();
         _dropThroughCoroutine = null;
-        _dropThroughEffector = null;
     }
 
     private void UpdateSprite()
@@ -628,6 +679,7 @@ public class PlayerControllerM : MonoBehaviour
         _isGroundedFixed = false;
         _coyoteTimeRemaining = 0f;
         _jumpBufferRemaining = 0f;
+        _dropThroughInputHeld = false;
         groundChecker?.ClearGroundState();
         groundChecker?.ClearLadderState();
     }

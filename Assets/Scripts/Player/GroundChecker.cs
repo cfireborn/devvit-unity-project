@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Performs ground detection using a list of colliders (e.g. feet). The object is considered grounded
-/// if any of those colliders overlap something tagged with <see cref="platformTag"/>.
+/// when a check overlaps a tagged platform and the owning body has an upward-supporting contact with it.
 /// Also tracks ladder trigger entry/exit and exposes <see cref="CurrentPlatform"/> and
 /// <see cref="CurrentLadder"/> (IMovingPlatform) for the player to apply movement delta.
 /// Assign <see cref="groundCheckColliders"/> in the inspector; if empty, uses a single point at
@@ -27,7 +27,7 @@ public class GroundChecker : MonoBehaviour
     [Tooltip("Used only when groundCheckColliders is empty: overlap center = transform.position + this offset.")]
     public Vector2 groundCheckOffset = new Vector2(0f, -0.6f);
 
-    /// <summary>True when any check collider (or the fallback point) is overlapping something tagged with platformTag.</summary>
+    /// <summary>True when a check overlaps a tagged platform that is physically supporting the owning collider.</summary>
     public bool isGrounded { get; private set; }
 
     /// <summary>Platform we are standing on (if any and it implements IMovingPlatform). Null when not grounded or platform is static.</summary>
@@ -60,6 +60,8 @@ public class GroundChecker : MonoBehaviour
     private ContactFilter2D _overlapFilter;
     private Collider2D[] _ourColliders;
     private Collider2D _ownerCollider;
+    private readonly ContactPoint2D[] _groundContactBuffer = new ContactPoint2D[16];
+    private ContactFilter2D _groundContactFilter;
     private const int InitialOverlapBufferSize = 32;
     private const int MaxOverlapBufferSize = 256;
     private readonly List<Collider2D> _ladderTriggers = new List<Collider2D>();
@@ -69,6 +71,7 @@ public class GroundChecker : MonoBehaviour
     {
         _overlapBuffer = new Collider2D[InitialOverlapBufferSize];
         _overlapFilter = ContactFilter2D.noFilter;
+        _groundContactFilter = new ContactFilter2D { useTriggers = false };
         _ourColliders = GetComponentsInChildren<Collider2D>();
 
         Rigidbody2D ownerBody = GetComponentInParent<Rigidbody2D>();
@@ -93,6 +96,9 @@ public class GroundChecker : MonoBehaviour
         isGrounded = false;
         CurrentPlatform = null;
         CurrentGroundCollider = null;
+        int ownerContactCount = _ownerCollider != null
+            ? _ownerCollider.GetContacts(_groundContactFilter, _groundContactBuffer)
+            : 0;
 
         void ConsiderGroundAt(Vector2 origin)
         {
@@ -108,9 +114,8 @@ public class GroundChecker : MonoBehaviour
             for (int i = 0; i < hitCount; i++)
             {
                 Collider2D other = _overlapBuffer[i];
-                if (other == null || IsOurCollider(other) || !other.CompareTag(platformTag)) continue;
-                if (other.GetComponent<PlayerHeadPlatformSurface>() != null &&
-                    (_ownerCollider == null || !_ownerCollider.IsTouching(other))) continue;
+                if (other == null || other.isTrigger || IsOurCollider(other) || !other.CompareTag(platformTag)) continue;
+                if (!HasSupportingContact(other, ownerContactCount)) continue;
 
                 Vector2 closestPoint = other.ClosestPoint(origin);
                 float distance = (closestPoint - origin).sqrMagnitude;
@@ -131,7 +136,7 @@ public class GroundChecker : MonoBehaviour
             foreach (var c in groundCheckColliders)
             {
                 if (c == null) continue;
-                Vector2 origin = new Vector2(c.bounds.center.x, c.bounds.min.y);
+                Vector2 origin = c.bounds.center;
                 ConsiderGroundAt(origin);
             }
         }
@@ -228,6 +233,17 @@ public class GroundChecker : MonoBehaviour
         return false;
     }
 
+    private bool HasSupportingContact(Collider2D other, int contactCount)
+    {
+        for (int i = 0; i < contactCount; i++)
+        {
+            ContactPoint2D contact = _groundContactBuffer[i];
+            if (contact.enabled && contact.collider == other && contact.normal.y > 0.3f)
+                return true;
+        }
+        return false;
+    }
+
     void OnDrawGizmosSelected()
     {
         if (groundCheckColliders != null && groundCheckColliders.Length > 0)
@@ -236,7 +252,7 @@ public class GroundChecker : MonoBehaviour
             foreach (var c in groundCheckColliders)
             {
                 if (c == null) continue;
-                Vector2 origin = new Vector2(c.bounds.center.x, c.bounds.min.y);
+                Vector2 origin = c.bounds.center;
                 Gizmos.DrawWireSphere(origin, groundCheckRadius);
             }
         }
