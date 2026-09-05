@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 /// <summary>
@@ -20,11 +21,16 @@ using UnityEngine;
 ///  10.  Built ladder repositions as clouds move (dynamic tracking).
 ///  11.  Ladder is removed when clouds are moved out of range.
 ///  12.  A middle cloud prevents a ladder from spanning past it.
-///  13.  TryBuildLadder gives a valid pair forced priority.
+///  13.  TryBuildLadder remains available when a player already occupies the new trigger volume.
 ///  14.  Rapid endpoint reactivation replaces stale generation bindings.
 ///  15.  Network ladder presentation fails closed without live endpoints.
 ///  16.  maxLadders cap is respected — extra ladder creation is rejected.
 ///  17.  Cloud bounds track render-time Transform motion without a global physics sync.
+///  18.  GroundChecker uses an enabled upward body contact even when a foot probe misses an edge endpoint.
+///  19.  Overlapping upper/lower ladder triggers are selected in the requested travel direction.
+///  20.  Shared Up/Jump input jumps from ground, then enters an airborne ladder without buffer delay.
+///  21.  Offline ladder pooling cannot reactivate a retired trigger before a physics step clears overlap state.
+///  22.  A buffered Down request drops through an EdgeCollider2D without also applying jump velocity.
 /// </summary>
 public class LadderManagerTestRunner : MonoBehaviour
 {
@@ -128,6 +134,11 @@ public class LadderManagerTestRunner : MonoBehaviour
         AutoSelectControlledPair(allClouds);
         CheckNetworkLadderPresentationFailsClosed();
         CheckLadderPresentationCacheAndStaleTriggerCleanup();
+        CheckDirectionAwareLadderSelection();
+        yield return StartCoroutine(CheckGroundContactSurvivesFootProbeMiss());
+        yield return StartCoroutine(CheckSharedUpJumpAndLadderPriority());
+        yield return StartCoroutine(CheckOfflineLadderReuseIsQuarantined());
+        yield return StartCoroutine(CheckBufferedDropThroughEdge());
 
         yield return StartCoroutine(CheckAutoLadderBuilds());
         CheckLadderColliderAndTag();
@@ -306,6 +317,372 @@ public class LadderManagerTestRunner : MonoBehaviour
         else
             Fail("Ladder cache or stale-trigger cleanup failed.",
                 $"cache={cache != null}, stableChildCount={stableChildCount}, registered={registered}, pruned={pruned}");
+    }
+
+    void CheckDirectionAwareLadderSelection()
+    {
+        GameObject checkerObject = new GameObject("GroundCheckerDirectionProbe");
+        checkerObject.transform.position = new Vector3(300f, -300f, 0f);
+        checkerObject.AddComponent<BoxCollider2D>();
+        GroundChecker checker = checkerObject.AddComponent<GroundChecker>();
+
+        GameObject lower = new GameObject("LowerLadderDirectionProbe");
+        lower.tag = GroundChecker.LadderTag;
+        lower.transform.position = checkerObject.transform.position + Vector3.down;
+        BoxCollider2D lowerCollider = lower.AddComponent<BoxCollider2D>();
+        lowerCollider.isTrigger = true;
+        MovingPlatformLadder lowerMoving = lower.AddComponent<MovingPlatformLadder>();
+
+        GameObject upper = new GameObject("UpperLadderDirectionProbe");
+        upper.tag = GroundChecker.LadderTag;
+        upper.transform.position = checkerObject.transform.position + Vector3.up;
+        BoxCollider2D upperCollider = upper.AddComponent<BoxCollider2D>();
+        upperCollider.isTrigger = true;
+        MovingPlatformLadder upperMoving = upper.AddComponent<MovingPlatformLadder>();
+
+        checkerObject.SendMessage("OnTriggerEnter2D", lowerCollider);
+        checkerObject.SendMessage("OnTriggerEnter2D", upperCollider);
+        checker.SelectLadder(1f);
+        bool selectedUpper = ReferenceEquals(checker.CurrentLadder, upperMoving);
+        checker.SelectLadder(-1f);
+        bool selectedLower = ReferenceEquals(checker.CurrentLadder, lowerMoving);
+
+        Destroy(upper);
+        Destroy(lower);
+        Destroy(checkerObject);
+
+        if (selectedUpper && selectedLower)
+            Pass("GroundChecker selects the overlapping ladder in the requested vertical direction.");
+        else
+            Fail("GroundChecker selected an arbitrary overlapping ladder.",
+                $"selectedUpper={selectedUpper}, selectedLower={selectedLower}");
+    }
+
+    IEnumerator CheckGroundContactSurvivesFootProbeMiss()
+    {
+        Vector2 fixtureOrigin = new Vector2(400f, -400f);
+        GameObject platform = new GameObject("GroundContactEdgeProbe");
+        platform.tag = "Platform";
+        int platformLayer = LayerMask.NameToLayer("Platform");
+        if (platformLayer >= 0) platform.layer = platformLayer;
+        platform.transform.position = fixtureOrigin;
+        PlatformEffector2D effector = platform.AddComponent<PlatformEffector2D>();
+        effector.useOneWay = true;
+        effector.useOneWayGrouping = false;
+        effector.surfaceArc = 178f;
+        effector.sideArc = 0f;
+        EdgeCollider2D edge = platform.AddComponent<EdgeCollider2D>();
+        edge.points = new[] { new Vector2(-1f, 0f), new Vector2(1f, 0f) };
+        edge.usedByEffector = true;
+
+        GameObject player = new GameObject("GroundContactPlayerProbe");
+        player.transform.position = fixtureOrigin + new Vector2(0.82f, 0.2f);
+        Rigidbody2D body = player.AddComponent<Rigidbody2D>();
+        body.gravityScale = 0f;
+        body.freezeRotation = true;
+        body.linearVelocity = Vector2.down;
+        BoxCollider2D bodyCollider = player.AddComponent<BoxCollider2D>();
+        bodyCollider.size = new Vector2(0.24f, 0.32f);
+
+        GameObject footObject = new GameObject("DeliberatelyOffsetFootProbe");
+        footObject.transform.SetParent(player.transform, false);
+        footObject.transform.localPosition = new Vector3(0.22f, -0.16f, 0f);
+        CircleCollider2D foot = footObject.AddComponent<CircleCollider2D>();
+        foot.isTrigger = true;
+        foot.radius = 0.005f;
+
+        GroundChecker checker = player.AddComponent<GroundChecker>();
+        checker.platformTag = "Platform";
+        checker.groundCheckColliders = new Collider2D[] { foot };
+        checker.groundCheckRadius = 0.005f;
+
+        Physics2D.SyncTransforms();
+        yield return new WaitForSecondsRealtime(0.2f);
+        checker.RefreshCheck();
+
+        bool probeMissesEdge = foot.Distance(edge).distance > checker.groundCheckRadius;
+        bool contactGrounded = checker.isGrounded && checker.CurrentGroundCollider == edge;
+        ContactPoint2D[] contacts = new ContactPoint2D[8];
+        int contactCount = bodyCollider.GetContacts(contacts);
+        string contactDiagnostic = "";
+        for (int i = 0; i < contactCount; i++)
+        {
+            ContactPoint2D contact = contacts[i];
+            contactDiagnostic += $" [{i}: collider={contact.collider?.name}, other={contact.otherCollider?.name}, normal={contact.normal}, enabled={contact.enabled}]";
+        }
+        string failureDiagnostic = $"probeMissesEdge={probeMissesEdge}, contactGrounded={contactGrounded}, " +
+            $"bodyPosition={body.position}, bodyVelocity={body.linearVelocity}, contacts={contactCount}{contactDiagnostic}";
+
+        Destroy(player);
+        Destroy(platform);
+
+        if (probeMissesEdge && contactGrounded)
+            Pass("An enabled upward EdgeCollider2D contact grounds the player even when its foot probe misses the endpoint.");
+        else
+            Fail("GroundChecker still depends on its redundant foot overlap at an edge endpoint.",
+                failureDiagnostic);
+    }
+
+    IEnumerator CheckSharedUpJumpAndLadderPriority()
+    {
+        Vector2 fixtureOrigin = new Vector2(450f, -450f);
+
+        GameObject platform = new GameObject("SharedUpPlatformProbe");
+        platform.tag = "Platform";
+        int platformLayer = LayerMask.NameToLayer("Platform");
+        if (platformLayer >= 0) platform.layer = platformLayer;
+        platform.transform.position = fixtureOrigin;
+        PlatformEffector2D effector = platform.AddComponent<PlatformEffector2D>();
+        effector.useOneWay = true;
+        effector.surfaceArc = 178f;
+        EdgeCollider2D edge = platform.AddComponent<EdgeCollider2D>();
+        edge.points = new[] { new Vector2(-1f, 0f), new Vector2(1f, 0f) };
+        edge.usedByEffector = true;
+
+        GameObject ladder = new GameObject("SharedUpLadderProbe");
+        ladder.tag = GroundChecker.LadderTag;
+        ladder.transform.position = fixtureOrigin + Vector2.up * 0.6f;
+        BoxCollider2D ladderCollider = ladder.AddComponent<BoxCollider2D>();
+        ladderCollider.isTrigger = true;
+        ladderCollider.size = new Vector2(0.4f, 2f);
+        ladder.AddComponent<MovingPlatformLadder>();
+
+        PlayerSettingsM testSettings = ScriptableObject.CreateInstance<PlayerSettingsM>();
+        testSettings.jumpForce = 7f;
+        testSettings.ladderClimbSpeed = 3f;
+        testSettings.normalGravityScale = 3f;
+        testSettings.jumpBufferTime = 0.12f;
+
+        GameObject player = new GameObject("SharedUpPlayerProbe");
+        player.SetActive(false);
+        player.tag = "Player";
+        player.transform.position = fixtureOrigin + Vector2.up * 0.16f;
+        Rigidbody2D body = player.AddComponent<Rigidbody2D>();
+        body.freezeRotation = true;
+        BoxCollider2D bodyCollider = player.AddComponent<BoxCollider2D>();
+        bodyCollider.size = new Vector2(0.24f, 0.32f);
+        GroundChecker checker = player.AddComponent<GroundChecker>();
+        checker.platformTag = "Platform";
+        PlayerControllerM controller = player.AddComponent<PlayerControllerM>();
+        controller.settings = testSettings;
+        controller.groundChecker = checker;
+        player.SetActive(true);
+
+        body.linearVelocity = Vector2.down;
+        Physics2D.SyncTransforms();
+        yield return new WaitForSecondsRealtime(0.2f);
+        checker.SendMessage("OnTriggerEnter2D", ladderCollider);
+        checker.RefreshCheck();
+
+        BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+        FieldInfo verticalField = typeof(PlayerControllerM).GetField("verticalInput", privateInstance);
+        FieldInfo jumpPressedField = typeof(PlayerControllerM).GetField("jumpPressed", privateInstance);
+        FieldInfo jumpBufferField = typeof(PlayerControllerM).GetField("_jumpBufferRemaining", privateInstance);
+        FieldInfo wasOnLadderField = typeof(PlayerControllerM).GetField("_wasOnLadder", privateInstance);
+        MethodInfo applyMovement = typeof(PlayerControllerM).GetMethod("ApplyMovement", privateInstance);
+
+        bool reflectionReady = verticalField != null && jumpPressedField != null && jumpBufferField != null &&
+            wasOnLadderField != null && applyMovement != null;
+        bool groundedUpJumps = false;
+        bool airborneUpClimbsImmediately = false;
+        bool sharedJumpWasConsumed = false;
+
+        if (reflectionReady)
+        {
+            verticalField.SetValue(controller, 1f);
+            jumpPressedField.SetValue(controller, true);
+            jumpBufferField.SetValue(controller, testSettings.jumpBufferTime);
+            applyMovement.Invoke(controller, null);
+            groundedUpJumps = body.linearVelocity.y >= testSettings.jumpForce - 0.01f;
+
+            GameObject airbornePlayer = new GameObject("SharedUpAirbornePlayerProbe");
+            airbornePlayer.SetActive(false);
+            airbornePlayer.tag = "Player";
+            airbornePlayer.transform.position = fixtureOrigin + Vector2.up * 0.55f;
+            Rigidbody2D airborneBody = airbornePlayer.AddComponent<Rigidbody2D>();
+            airborneBody.gravityScale = 0f;
+            airborneBody.freezeRotation = true;
+            airbornePlayer.AddComponent<BoxCollider2D>().size = new Vector2(0.24f, 0.32f);
+            GroundChecker airborneChecker = airbornePlayer.AddComponent<GroundChecker>();
+            airborneChecker.platformTag = "Platform";
+            PlayerControllerM airborneController = airbornePlayer.AddComponent<PlayerControllerM>();
+            airborneController.settings = testSettings;
+            airborneController.groundChecker = airborneChecker;
+            airbornePlayer.SetActive(true);
+            airborneChecker.SendMessage("OnTriggerEnter2D", ladderCollider);
+
+            verticalField.SetValue(airborneController, 1f);
+            jumpPressedField.SetValue(airborneController, true);
+            jumpBufferField.SetValue(airborneController, 0.001f);
+            wasOnLadderField.SetValue(airborneController, false);
+            applyMovement.Invoke(airborneController, null);
+            airborneUpClimbsImmediately = Mathf.Abs(airborneBody.linearVelocity.y - testSettings.ladderClimbSpeed) < 0.01f;
+            sharedJumpWasConsumed = !(bool)jumpPressedField.GetValue(airborneController) &&
+                (float)jumpBufferField.GetValue(airborneController) <= 0f;
+            Destroy(airbornePlayer);
+        }
+
+        Destroy(player);
+        Destroy(ladder);
+        Destroy(platform);
+        Destroy(testSettings);
+
+        if (reflectionReady && groundedUpJumps && airborneUpClimbsImmediately && sharedJumpWasConsumed)
+            Pass("Shared Up/Jump input jumps from a grounded edge, then enters an airborne ladder immediately without a stale jump buffer.");
+        else
+            Fail("Shared Up/Jump input still conflicts with ladder entry.",
+                $"reflectionReady={reflectionReady}, groundedUpJumps={groundedUpJumps}, " +
+                $"airborneUpClimbsImmediately={airborneUpClimbsImmediately}, sharedJumpWasConsumed={sharedJumpWasConsumed}");
+    }
+
+    IEnumerator CheckOfflineLadderReuseIsQuarantined()
+    {
+        GameObject isolatedObject = new GameObject("LadderPoolQuarantineProbe");
+        CloudLadderController isolated = isolatedObject.AddComponent<CloudLadderController>();
+        isolated.ladderPrefab = ladderController != null ? ladderController.ladderPrefab : null;
+        yield return null; // allow Start to create the private ladder pool parent
+
+        BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+        MethodInfo returnToPool = typeof(CloudLadderController).GetMethod("ReturnLadderToPool", privateInstance);
+        MethodInfo getFromPool = typeof(CloudLadderController).GetMethod("GetLadderFromPool", privateInstance);
+        bool reflectionReady = isolated.ladderPrefab != null && returnToPool != null && getFromPool != null;
+        bool immediateReuseBlocked = false;
+        bool reusableAfterPhysicsStep = false;
+        bool staleRegistrationCleared = false;
+
+        if (reflectionReady)
+        {
+            Vector2 fixtureOrigin = new Vector2(470f, -470f);
+            GameObject checkerObject = new GameObject("RetiredLadderGroundCheckerProbe");
+            checkerObject.transform.position = fixtureOrigin;
+            checkerObject.AddComponent<BoxCollider2D>();
+            GroundChecker checker = checkerObject.AddComponent<GroundChecker>();
+
+            GameObject retired = new GameObject("RetiredLadderTriggerProbe");
+            retired.tag = GroundChecker.LadderTag;
+            retired.transform.position = fixtureOrigin;
+            BoxCollider2D retiredCollider = retired.AddComponent<BoxCollider2D>();
+            retiredCollider.isTrigger = true;
+            retired.AddComponent<MovingPlatformLadder>();
+            checker.SendMessage("OnTriggerEnter2D", retiredCollider);
+
+            returnToPool.Invoke(isolated, new object[] { retired });
+            GameObject immediate = (GameObject)getFromPool.Invoke(isolated, null);
+            immediate.transform.position = new Vector3(480f, -480f, 0f);
+            immediateReuseBlocked = immediate != retired && !retired.activeSelf;
+
+            yield return new WaitForFixedUpdate();
+            yield return null;
+            yield return null;
+
+            staleRegistrationCleared = !checker.IsOnLadder;
+            GameObject afterPhysics = (GameObject)getFromPool.Invoke(isolated, null);
+            afterPhysics.transform.position = new Vector3(490f, -490f, 0f);
+            reusableAfterPhysicsStep = afterPhysics == retired && retired.activeSelf;
+            Destroy(checkerObject);
+        }
+
+        Destroy(isolatedObject);
+
+        if (reflectionReady && immediateReuseBlocked && staleRegistrationCleared && reusableAfterPhysicsStep)
+            Pass("Offline ladder pooling clears a registered player trigger across a physics step before reuse.");
+        else
+            Fail("Offline ladder pooling can reuse a stale trigger before player overlap state clears.",
+                $"reflectionReady={reflectionReady}, immediateReuseBlocked={immediateReuseBlocked}, " +
+                $"staleRegistrationCleared={staleRegistrationCleared}, reusableAfterPhysicsStep={reusableAfterPhysicsStep}");
+    }
+
+    IEnumerator CheckBufferedDropThroughEdge()
+    {
+        Vector2 fixtureOrigin = new Vector2(500f, -500f);
+        GameObject platform = new GameObject("BufferedDropPlatformProbe");
+        platform.tag = "Platform";
+        int platformLayer = LayerMask.NameToLayer("Platform");
+        if (platformLayer >= 0) platform.layer = platformLayer;
+        platform.transform.position = fixtureOrigin;
+        PlatformEffector2D effector = platform.AddComponent<PlatformEffector2D>();
+        effector.useOneWay = true;
+        effector.surfaceArc = 178f;
+        EdgeCollider2D edge = platform.AddComponent<EdgeCollider2D>();
+        edge.points = new[] { new Vector2(-1f, 0f), new Vector2(1f, 0f) };
+        edge.usedByEffector = true;
+
+        PlayerSettingsM testSettings = ScriptableObject.CreateInstance<PlayerSettingsM>();
+        testSettings.jumpForce = 7f;
+        testSettings.normalGravityScale = 3f;
+        testSettings.jumpBufferTime = 0.12f;
+        testSettings.dropThroughDuration = 0.05f;
+
+        GameObject player = new GameObject("BufferedDropPlayerProbe");
+        player.SetActive(false);
+        player.tag = "Player";
+        player.transform.position = fixtureOrigin + Vector2.up * 0.16f;
+        Rigidbody2D body = player.AddComponent<Rigidbody2D>();
+        body.freezeRotation = true;
+        BoxCollider2D bodyCollider = player.AddComponent<BoxCollider2D>();
+        bodyCollider.size = new Vector2(0.24f, 0.32f);
+        GroundChecker checker = player.AddComponent<GroundChecker>();
+        checker.platformTag = "Platform";
+        PlayerControllerM controller = player.AddComponent<PlayerControllerM>();
+        controller.settings = testSettings;
+        controller.groundChecker = checker;
+        player.SetActive(true);
+
+        body.linearVelocity = Vector2.down;
+        Physics2D.SyncTransforms();
+        yield return new WaitForSecondsRealtime(0.2f);
+        checker.RefreshCheck();
+
+        BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+        FieldInfo verticalField = typeof(PlayerControllerM).GetField("verticalInput", privateInstance);
+        FieldInfo jumpPressedField = typeof(PlayerControllerM).GetField("jumpPressed", privateInstance);
+        FieldInfo jumpBufferField = typeof(PlayerControllerM).GetField("_jumpBufferRemaining", privateInstance);
+        FieldInfo dropBufferField = typeof(PlayerControllerM).GetField("_dropThroughBufferRemaining", privateInstance);
+        MethodInfo applyMovement = typeof(PlayerControllerM).GetMethod("ApplyMovement", privateInstance);
+        bool reflectionReady = verticalField != null && jumpPressedField != null && jumpBufferField != null &&
+            dropBufferField != null && applyMovement != null;
+        bool wasGrounded = checker.isGrounded && checker.CurrentGroundCollider == edge;
+        bool ignoredEdge = false;
+        bool didNotJump = false;
+        bool stayedIgnoredWhileCrossing = false;
+        bool restoredAfterClearance = false;
+        Vector2 velocityAfterDrop = Vector2.zero;
+
+        if (reflectionReady)
+        {
+            verticalField.SetValue(controller, -1f);
+            dropBufferField.SetValue(controller, 0.001f);
+            // Exercise the cancellation invariant too: a simultaneous buffered Jump
+            // must not reverse a successful downward platform pass-through.
+            jumpPressedField.SetValue(controller, true);
+            jumpBufferField.SetValue(controller, 0.001f);
+            applyMovement.Invoke(controller, null);
+            ignoredEdge = Physics2D.GetIgnoreCollision(bodyCollider, edge);
+            didNotJump = body.linearVelocity.y < testSettings.jumpForce * 0.5f;
+            velocityAfterDrop = body.linearVelocity;
+
+            yield return new WaitForSecondsRealtime(0.07f);
+            bool stillCrossingEdge = bodyCollider.bounds.min.y < edge.bounds.max.y &&
+                bodyCollider.bounds.max.y > edge.bounds.min.y;
+            stayedIgnoredWhileCrossing = stillCrossingEdge && Physics2D.GetIgnoreCollision(bodyCollider, edge);
+
+            yield return new WaitForSecondsRealtime(0.35f);
+            bool clearedBelowEdge = bodyCollider.bounds.max.y <= edge.bounds.min.y;
+            restoredAfterClearance = clearedBelowEdge && !Physics2D.GetIgnoreCollision(bodyCollider, edge);
+        }
+
+        Destroy(player);
+        Destroy(platform);
+        Destroy(testSettings);
+
+        if (reflectionReady && wasGrounded && ignoredEdge && didNotJump && stayedIgnoredWhileCrossing && restoredAfterClearance)
+            Pass("Buffered Down ignores the supporting edge through clearance, restores it afterward, and cancels any same-step jump.");
+        else
+            Fail("Buffered Down did not produce a clean EdgeCollider2D drop-through.",
+                $"reflectionReady={reflectionReady}, wasGrounded={wasGrounded}, " +
+                $"ignoredEdge={ignoredEdge}, didNotJump={didNotJump}, " +
+                $"stayedIgnoredWhileCrossing={stayedIgnoredWhileCrossing}, restoredAfterClearance={restoredAfterClearance}, " +
+                $"velocityAfterDrop={velocityAfterDrop}");
     }
 
     void CheckLadderSpritesAssigned()
@@ -581,7 +958,7 @@ public class LadderManagerTestRunner : MonoBehaviour
         Vector3 ladderPosB = ladder.transform.position;
         float delta = Vector3.Distance(ladderPosA, ladderPosB);
         if (rb != null)
-            rb.position = originalPosition;
+            SetCloudPositionImmediate(controlledCloudLower, originalPosition);
 
         if (delta > 0.0001f)
             Pass($"Ladder '{ladder.name}' repositioned by {delta:F4} world units after cloud moved — UpdateLadderPosition is being called each LateUpdate.");
@@ -607,17 +984,15 @@ public class LadderManagerTestRunner : MonoBehaviour
         // Move lower cloud far away (beyond maxDistance horizontally)
         float pushDistance = ladderController.maxDistance * 2f + 5f;
         var rb = controlledCloudLower.GetComponent<Rigidbody2D>();
-        if (rb != null)
-            rb.MovePosition(rb.position + new Vector2(pushDistance, 0f));
+        Vector2 originalPosition = rb != null ? rb.position : (Vector2)controlledCloudLower.transform.position;
+        SetCloudPositionImmediate(controlledCloudLower, originalPosition + new Vector2(pushDistance, 0f));
 
         yield return new WaitForSeconds(0.2f); // LateUpdate needs a frame to react
 
         bool existsAfter = ladderController.HasLadderBetween(controlledCloudLower, controlledCloudUpper);
 
         // Restore position
-        if (rb != null)
-            rb.MovePosition(rb.position - new Vector2(pushDistance, 0f));
-        yield return new WaitForFixedUpdate();
+        SetCloudPositionImmediate(controlledCloudLower, originalPosition);
         yield return null;
 
         if (!existsAfter)
@@ -661,10 +1036,11 @@ public class LadderManagerTestRunner : MonoBehaviour
         bool longPairExisted = ladderController.TryBuildLadder(controlledCloudLower, controlledCloudUpper);
         if (!longPairExisted)
         {
-            Fail("Cannot time intermediate-cloud invalidation because the outer pair has no ladder.");
-            lowerRb.position = lowerOriginal;
-            middleRb.position = middleOriginal;
-            upperRb.position = upperOriginal;
+            Fail("Cannot time intermediate-cloud invalidation because the outer pair has no ladder.",
+                ladderController.GetLadderGeometryDiagnostic(controlledCloudLower, controlledCloudUpper));
+            SetCloudPositionImmediate(controlledCloudLower, lowerOriginal);
+            SetCloudPositionImmediate(middle, middleOriginal);
+            SetCloudPositionImmediate(controlledCloudUpper, upperOriginal);
             yield break;
         }
 
@@ -693,9 +1069,9 @@ public class LadderManagerTestRunner : MonoBehaviour
         bool middleUpperGeometry = ladderController.IsLadderGeometryValid(middle, controlledCloudUpper);
         string middleUpperDiagnostic = ladderController.GetLadderGeometryDiagnostic(middle, controlledCloudUpper);
 
-        lowerRb.position = lowerOriginal;
-        middleRb.position = middleOriginal;
-        upperRb.position = upperOriginal;
+        SetCloudPositionImmediate(controlledCloudLower, lowerOriginal);
+        SetCloudPositionImmediate(middle, middleOriginal);
+        SetCloudPositionImmediate(controlledCloudUpper, upperOriginal);
         // Let the normal 10 Hz topology pass remove the temporary adjacent ladders
         // before the forced-pair check reuses the controlled endpoints.
         yield return new WaitForSecondsRealtime(0.15f);
@@ -716,16 +1092,45 @@ public class LadderManagerTestRunner : MonoBehaviour
             yield break;
         }
 
-        // Ensure they're in range first
+        Rigidbody2D lowerBody = controlledCloudLower.GetComponent<Rigidbody2D>();
+        Rigidbody2D upperBody = controlledCloudUpper.GetComponent<Rigidbody2D>();
+        Vector2 lowerOriginal = lowerBody != null ? lowerBody.position : (Vector2)controlledCloudLower.transform.position;
+        Vector2 upperOriginal = upperBody != null ? upperBody.position : (Vector2)controlledCloudUpper.transform.position;
+
+        // Isolate both endpoints so an existing binding is removed before testing creation.
+        float isolationDistance = ladderController.maxDistance * 3f + 10f;
+        SetCloudPositionImmediate(controlledCloudLower, lowerOriginal + Vector2.right * isolationDistance);
+        SetCloudPositionImmediate(controlledCloudUpper, upperOriginal + Vector2.left * isolationDistance);
+        yield return new WaitForSecondsRealtime(0.15f);
+
         PositionCloudPairInRange(controlledCloudLower, controlledCloudUpper);
+        Bounds lowerBounds = controlledCloudLower.GetBounds();
+        Bounds upperBounds = controlledCloudUpper.GetBounds();
+        float overlapMinX = Mathf.Max(lowerBounds.min.x, upperBounds.min.x);
+        float overlapMaxX = Mathf.Min(lowerBounds.max.x, upperBounds.max.x);
+        float probeX = overlapMinX <= overlapMaxX
+            ? (overlapMinX + overlapMaxX) * 0.5f
+            : (lowerBounds.center.x + upperBounds.center.x) * 0.5f;
+        float probeY = (lowerBounds.max.y + upperBounds.min.y) * 0.5f;
+        GameObject playerProbe = new GameObject("PlayerInsideProspectiveLadderProbe");
+        playerProbe.tag = "Player";
+        playerProbe.transform.position = new Vector3(probeX, probeY, 0f);
+        CircleCollider2D playerProbeCollider = playerProbe.AddComponent<CircleCollider2D>();
+        playerProbeCollider.isTrigger = true;
+        playerProbeCollider.radius = 0.05f;
+        Physics2D.SyncTransforms();
         yield return new WaitForFixedUpdate();
         yield return null;
 
         bool result = ladderController.TryBuildLadder(controlledCloudLower, controlledCloudUpper);
+        Destroy(playerProbe);
+        SetCloudPositionImmediate(controlledCloudLower, lowerOriginal);
+        SetCloudPositionImmediate(controlledCloudUpper, upperOriginal);
         if (result)
-            Pass($"TryBuildLadder returned true for '{controlledCloudLower.name}' / '{controlledCloudUpper.name}' — forced ladder API working.");
+            Pass($"TryBuildLadder built '{controlledCloudLower.name}' / '{controlledCloudUpper.name}' while a player occupied the trigger-only ladder volume.");
         else
-            Fail("TryBuildLadder returned false for a valid in-range pair.", "Check: pair is not null, not same cloud, within maxDistance, gap in range, and neither cloud already has a ladder in that direction.");
+            Fail("TryBuildLadder rejected a valid trigger-only ladder around an overlapping player.",
+                ladderController.GetLadderGeometryDiagnostic(controlledCloudLower, controlledCloudUpper));
     }
 
     IEnumerator CheckRapidEndpointReactivation()
@@ -802,7 +1207,23 @@ public class LadderManagerTestRunner : MonoBehaviour
             Vector2 correction = new Vector2(
                 lowerBounds.center.x - upperBounds.center.x,
                 lowerBounds.max.y + targetGap - upperBounds.min.y);
-            upperRb.MovePosition(upperRb.position + correction);
+            SetCloudPositionImmediate(upper, upperRb.position + correction);
         }
+    }
+
+    /// <summary>
+    /// Keeps the physics pose and the interpolated render Transform in lockstep when
+    /// resetting a test fixture. Production clouds use MovePosition; test cleanup is
+    /// an instantaneous teleport and must not leak a one-frame stale pose into the
+    /// next independent check.
+    /// </summary>
+    static void SetCloudPositionImmediate(CloudPlatform cloud, Vector2 position)
+    {
+        if (cloud == null) return;
+
+        Rigidbody2D rb = cloud.GetComponent<Rigidbody2D>();
+        if (rb != null)
+            rb.position = position;
+        cloud.transform.position = new Vector3(position.x, position.y, cloud.transform.position.z);
     }
 }

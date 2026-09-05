@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Performs ground detection using a list of colliders (e.g. feet). The object is considered grounded
-/// when a check overlaps a tagged platform and the owning body has an upward-supporting contact with it.
+/// Performs ground detection using the owning body's enabled upward contacts. Optional foot colliders
+/// provide deterministic ranking when more than one tagged platform is supporting the body.
 /// Also tracks ladder trigger entry/exit and exposes <see cref="CurrentPlatform"/> and
 /// <see cref="CurrentLadder"/> (IMovingPlatform) for the player to apply movement delta.
 /// Assign <see cref="groundCheckColliders"/> in the inspector; if empty, uses a single point at
@@ -27,7 +27,7 @@ public class GroundChecker : MonoBehaviour
     [Tooltip("Used only when groundCheckColliders is empty: overlap center = transform.position + this offset.")]
     public Vector2 groundCheckOffset = new Vector2(0f, -0.6f);
 
-    /// <summary>True when a check overlaps a tagged platform that is physically supporting the owning collider.</summary>
+    /// <summary>True when a tagged platform has an enabled upward contact supporting the owning collider.</summary>
     public bool isGrounded { get; private set; }
 
     /// <summary>Platform we are standing on (if any and it implements IMovingPlatform). Null when not grounded or platform is static.</summary>
@@ -54,6 +54,12 @@ public class GroundChecker : MonoBehaviour
             PruneInvalidLadderTriggers();
             return _currentLadder;
         }
+    }
+
+    public void SelectLadder(float verticalInput)
+    {
+        PruneInvalidLadderTriggers();
+        RebuildCurrentLadder(verticalInput);
     }
 
     private Collider2D[] _overlapBuffer;
@@ -100,6 +106,23 @@ public class GroundChecker : MonoBehaviour
             ? _ownerCollider.GetContacts(_groundContactFilter, _groundContactBuffer)
             : 0;
 
+        void ConsiderGroundCandidate(Collider2D other, Vector2 origin)
+        {
+            if (other == null || other.isTrigger || IsOurCollider(other) || !other.CompareTag(platformTag)) return;
+
+            Vector2 closestPoint = other.ClosestPoint(origin);
+            float distance = (closestPoint - origin).sqrMagnitude;
+            bool tied = Mathf.Abs(distance - bestDistance) <= 0.000001f;
+            bool preferPrevious = tied && other == previousGround && bestGround != previousGround;
+            bool stableTieBreak = tied && other != previousGround && bestGround != previousGround &&
+                (bestGround == null || other.GetInstanceID() < bestGround.GetInstanceID());
+            if (distance < bestDistance - 0.000001f || preferPrevious || stableTieBreak)
+            {
+                bestGround = other;
+                bestDistance = distance;
+            }
+        }
+
         void ConsiderGroundAt(Vector2 origin)
         {
             int hitCount;
@@ -114,22 +137,16 @@ public class GroundChecker : MonoBehaviour
             for (int i = 0; i < hitCount; i++)
             {
                 Collider2D other = _overlapBuffer[i];
-                if (other == null || other.isTrigger || IsOurCollider(other) || !other.CompareTag(platformTag)) continue;
                 if (!HasSupportingContact(other, ownerContactCount)) continue;
-
-                Vector2 closestPoint = other.ClosestPoint(origin);
-                float distance = (closestPoint - origin).sqrMagnitude;
-                bool tied = Mathf.Abs(distance - bestDistance) <= 0.000001f;
-                bool preferPrevious = tied && other == previousGround && bestGround != previousGround;
-                bool stableTieBreak = tied && other != previousGround && bestGround != previousGround &&
-                    (bestGround == null || other.GetInstanceID() < bestGround.GetInstanceID());
-                if (distance < bestDistance - 0.000001f || preferPrevious || stableTieBreak)
-                {
-                    bestGround = other;
-                    bestDistance = distance;
-                }
+                ConsiderGroundCandidate(other, origin);
             }
         }
+
+        Vector2 primaryOrigin = groundCheckColliders != null && groundCheckColliders.Length > 0 && groundCheckColliders[0] != null
+            ? (Vector2)groundCheckColliders[0].bounds.center
+            : (Vector2)transform.position + groundCheckOffset;
+        for (int i = 0; i < ownerContactCount; i++)
+            ConsiderGroundCandidate(GetSupportingCollider(_groundContactBuffer[i]), primaryOrigin);
 
         if (groundCheckColliders != null && groundCheckColliders.Length > 0)
         {
@@ -174,7 +191,7 @@ public class GroundChecker : MonoBehaviour
     void UpdateCurrentLadder()
     {
         PruneInvalidLadderTriggers();
-        RebuildCurrentLadder();
+        RebuildCurrentLadder(0f);
     }
 
     void PruneInvalidLadderTriggers()
@@ -189,21 +206,31 @@ public class GroundChecker : MonoBehaviour
             removed = true;
         }
         if (removed)
-            RebuildCurrentLadder();
+            RebuildCurrentLadder(0f);
     }
 
-    void RebuildCurrentLadder()
+    void RebuildCurrentLadder(float verticalInput)
     {
         _currentLadder = null;
+        float bestScore = float.PositiveInfinity;
+        int bestId = int.MaxValue;
         for (int i = 0; i < _ladderTriggers.Count; i++)
         {
             var c = _ladderTriggers[i];
             if (c == null || !c.enabled || !c.gameObject.activeInHierarchy) continue;
             var moving = c.GetComponent<IMovingPlatform>() ?? c.GetComponentInParent<IMovingPlatform>();
-            if (moving != null)
+            if (moving == null) continue;
+
+            float deltaY = moving.GetPosition().y - transform.position.y;
+            bool wrongDirection = (verticalInput > 0.1f && deltaY < 0f) ||
+                (verticalInput < -0.1f && deltaY > 0f);
+            float score = Mathf.Abs(deltaY) + (wrongDirection ? 10000f : 0f);
+            int id = c.GetInstanceID();
+            if (score < bestScore || (Mathf.Approximately(score, bestScore) && id < bestId))
             {
                 _currentLadder = moving;
-                return;
+                bestScore = score;
+                bestId = id;
             }
         }
     }
@@ -235,13 +262,21 @@ public class GroundChecker : MonoBehaviour
 
     private bool HasSupportingContact(Collider2D other, int contactCount)
     {
+        if (other == null) return false;
         for (int i = 0; i < contactCount; i++)
-        {
-            ContactPoint2D contact = _groundContactBuffer[i];
-            if (contact.enabled && contact.collider == other && contact.normal.y > 0.3f)
+            if (GetSupportingCollider(_groundContactBuffer[i]) == other)
                 return true;
-        }
         return false;
+    }
+
+    private Collider2D GetSupportingCollider(ContactPoint2D contact)
+    {
+        if (!contact.enabled || _ownerCollider == null) return null;
+        if (contact.collider == _ownerCollider && contact.normal.y < -0.3f)
+            return contact.otherCollider;
+        if (contact.otherCollider == _ownerCollider && contact.normal.y > 0.3f)
+            return contact.collider;
+        return null;
     }
 
     void OnDrawGizmosSelected()

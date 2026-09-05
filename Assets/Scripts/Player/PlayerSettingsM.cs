@@ -31,6 +31,6 @@ public class PlayerSettingsM : ScriptableObject
 	public float coyoteTime = 0.12f;
 	[Tooltip("Time after pressing jump that a jump will still trigger when landing (jump buffer).")]
 	public float jumpBufferTime = 0.12f;
-	[Tooltip("Seconds a one-way platform stays reversed after pressing Down + Jump.")]
+	[Tooltip("Minimum seconds to ignore a supporting one-way platform after pressing Down.")]
 	public float dropThroughDuration = 0.25f;
 }

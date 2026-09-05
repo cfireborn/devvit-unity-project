@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using FishNet;
 using FishNet.Component.Transforming;
+using FishNet.Managing.Timing;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -83,9 +84,11 @@ public class PlayerControllerM : MonoBehaviour
     private bool _isGroundedFixed;
     private float _coyoteTimeRemaining;
     private float _jumpBufferRemaining;
+    private float _dropThroughBufferRemaining;
     private readonly List<Collider2D> _dropThroughColliders = new List<Collider2D>();
     private Coroutine _dropThroughCoroutine;
     private bool _dropThroughInputHeld;
+    private TimeManager _subscribedTimeManager;
 
     // when true, Player action map is disabled and input is zeroed (e.g. during dialogue)
     private bool _gameplayInputSuspended;
@@ -96,8 +99,6 @@ public class PlayerControllerM : MonoBehaviour
     private Vector2 _currentPlatformVelocity;
     private Vector2 _pendingPlatformVelocity;
     private bool _platformDeltaAppliedManually;
-    private readonly ContactPoint2D[] _contactBuffer = new ContactPoint2D[8];
-    private ContactFilter2D _contactFilter;
 
     // Read-only access for network visual sync
     public float MoveInputX => moveInput;
@@ -126,9 +127,6 @@ public class PlayerControllerM : MonoBehaviour
         }
         if (rb != null)
             rb.constraints |= RigidbodyConstraints2D.FreezeRotation;
-        _contactFilter.useTriggers = false;
-        _contactFilter.useLayerMask = true;
-        _contactFilter.SetLayerMask(Physics2D.GetLayerCollisionMask(gameObject.layer));
     }
 
     void OnEnable()
@@ -136,8 +134,7 @@ public class PlayerControllerM : MonoBehaviour
         // When FishNet PhysicsMode is set to TimeManager, physics is stepped during the
         // network tick rather than Unity's FixedUpdate. Subscribe here so physics-based
         // movement stays in sync with NetworkTransform updates.
-        if (InstanceFinder.NetworkManager != null)
-            InstanceFinder.TimeManager.OnTick += OnTick;
+        SubscribeToNetworkPhysicsClock();
 
         if (inputActionAsset != null)
         {
@@ -174,6 +171,7 @@ public class PlayerControllerM : MonoBehaviour
             verticalInput = 0f;
             jumpPressedFlag = false;
             _jumpBufferRemaining = 0f;
+            _dropThroughBufferRemaining = 0f;
             isGliding = false;
             _dropThroughInputHeld = false;
         }
@@ -184,8 +182,7 @@ public class PlayerControllerM : MonoBehaviour
         RestoreDropThroughPlatform();
         _dropThroughInputHeld = false;
 
-        if (InstanceFinder.NetworkManager != null)
-            InstanceFinder.TimeManager.OnTick -= OnTick;
+        UnsubscribeFromNetworkPhysicsClock();
 
         if (jumpAction != null) jumpAction.performed -= OnJumpPerformed;
         if (activeMap != null)
@@ -206,6 +203,8 @@ public class PlayerControllerM : MonoBehaviour
 
     void Start()
     {
+        SubscribeToNetworkPhysicsClock();
+
         var gameServices = FindFirstObjectByType<GameServices>();
         if (gameServices != null)
             gameServices.RegisterPlayer(this);
@@ -242,8 +241,8 @@ public class PlayerControllerM : MonoBehaviour
 
     void FixedUpdate()
     {
-        // Used when there is no NetworkManager (offline / single-player builds).
-        if (InstanceFinder.NetworkManager == null)
+        SubscribeToNetworkPhysicsClock();
+        if (_subscribedTimeManager == null)
             ApplyMovement();
     }
 
@@ -316,12 +315,18 @@ public class PlayerControllerM : MonoBehaviour
         if (jumpPressedFlag && settings != null)
             _jumpBufferRemaining = settings.jumpBufferTime;
         jumpPressedFlag = false;
+
+        bool dropThroughHeld = verticalInput < -0.5f;
+        if (dropThroughHeld && !_dropThroughInputHeld && settings != null)
+            _dropThroughBufferRemaining = settings.jumpBufferTime;
+        _dropThroughInputHeld = dropThroughHeld;
     }
 
     void ApplyMovement()
     {
         if (settings == null || goalReached) return;
 
+        groundChecker?.SelectLadder(verticalInput);
         ApplyMovingPlatformDelta();
 
         // Refresh before the ladder branch so Down can pass through a platform at a ladder opening.
@@ -345,15 +350,30 @@ public class PlayerControllerM : MonoBehaviour
 
         bool isInsideLadder = groundChecker != null && groundChecker.IsOnLadder;
         bool dropThroughHeld = verticalInput < -0.5f;
-        bool dropThroughPressed = dropThroughHeld && !_dropThroughInputHeld;
-        _dropThroughInputHeld = dropThroughHeld;
-        bool droppedThrough = _isGroundedFixed && dropThroughPressed && TryDropThroughCurrentPlatform();
-        bool isOnLadder = isInsideLadder && !jumpPressed && !droppedThrough &&
+        bool dropThroughRequested = _dropThroughBufferRemaining > 0f || (isInsideLadder && dropThroughHeld);
+        bool droppedThrough = _isGroundedFixed && dropThroughRequested && TryDropThroughCurrentPlatform();
+        if (droppedThrough)
+            _dropThroughBufferRemaining = 0f;
+        bool jumpRequested = jumpPressed || _jumpBufferRemaining > 0f;
+        // Up/W/mobile-up is deliberately bound to both Jump and vertical movement. From a
+        // grounded cloud, keep the expected jump. Once airborne (or already climbing), the
+        // ladder must win immediately instead of waiting for the shared jump buffer to expire.
+        bool upwardLadderPriority = isInsideLadder && verticalInput > 0.5f &&
+            (_wasOnLadder || !_isGroundedFixed);
+        if (upwardLadderPriority)
+        {
+            jumpPressed = false;
+            _jumpBufferRemaining = 0f;
+            jumpRequested = false;
+        }
+        bool isOnLadder = isInsideLadder && !jumpRequested && !droppedThrough &&
             (_wasOnLadder || Mathf.Abs(verticalInput) > 0.5f);
         if (droppedThrough || (isOnLadder && dropThroughHeld))
         {
             jumpPressed = false;
             _jumpBufferRemaining = 0f;
+            jumpRequested = false;
+            _dropThroughBufferRemaining = 0f;
             _coyoteTimeRemaining = 0f;
         }
 
@@ -373,6 +393,10 @@ public class PlayerControllerM : MonoBehaviour
         }
         _wasOnLadder = false;
 
+        // Capture support before its timer advances so a press on the last positive
+        // coyote-time tick is still honored during this movement step.
+        bool hasJumpSupport = _isGroundedFixed || _coyoteTimeRemaining > 0f;
+
         // Coyote time: extend "can jump" briefly after leaving ground
         if (_isGroundedFixed)
             _coyoteTimeRemaining = settings.coyoteTime;
@@ -381,8 +405,9 @@ public class PlayerControllerM : MonoBehaviour
 
         // Jump buffer: decay so we only trigger if we land within the window
         _jumpBufferRemaining = Mathf.Max(0f, _jumpBufferRemaining - TickOrFixedDelta());
+        _dropThroughBufferRemaining = Mathf.Max(0f, _dropThroughBufferRemaining - TickOrFixedDelta());
 
-        bool canJump = (_isGroundedFixed || _coyoteTimeRemaining > 0f) && (jumpPressed || _jumpBufferRemaining > 0f);
+        bool canJump = hasJumpSupport && jumpRequested;
 
         // Horizontal movement (interpolate if in air); jump is independent of L/R input
         float carryVx = _isGroundedFixed
@@ -399,6 +424,7 @@ public class PlayerControllerM : MonoBehaviour
             float carryVy = _isGroundedFixed ? _currentPlatformVelocity.y : _pendingPlatformVelocity.y;
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, settings.jumpForce + carryVy);
             isGliding = false;
+            jumpPressed = false;
             _jumpBufferRemaining = 0f;
             _coyoteTimeRemaining = 0f;
         }
@@ -414,8 +440,6 @@ public class PlayerControllerM : MonoBehaviour
         {
             rb.gravityScale = settings.normalGravityScale;
         }
-
-        ResolveSideContacts();
 
         if (_isGroundedFixed)
         {
@@ -469,24 +493,30 @@ public class PlayerControllerM : MonoBehaviour
     IEnumerator RestoreDropThroughPlatformAfterClearance()
     {
         float minimumDuration = settings != null ? settings.dropThroughDuration : 0.25f;
-        float safetyTimeout = Mathf.Max(1.25f, minimumDuration + 1f);
         float elapsed = 0f;
-        while (elapsed < safetyTimeout)
+        while (true)
         {
             yield return null;
             elapsed += Time.deltaTime;
             if (elapsed < minimumDuration || playerCollider == null) continue;
 
-            float playerTop = playerCollider.bounds.max.y;
+            Bounds playerBounds = playerCollider.bounds;
             bool cleared = true;
             for (int i = 0; i < _dropThroughColliders.Count; i++)
             {
                 Collider2D platform = _dropThroughColliders[i];
-                if (platform != null && platform.enabled &&
-                    playerTop >= platform.bounds.min.y - Physics2D.defaultContactOffset)
+                if (platform != null && platform.enabled)
                 {
-                    cleared = false;
-                    break;
+                    Bounds platformBounds = platform.bounds;
+                    bool separated = playerBounds.max.y <= platformBounds.min.y ||
+                        playerBounds.min.y >= platformBounds.max.y ||
+                        playerBounds.max.x <= platformBounds.min.x ||
+                        playerBounds.min.x >= platformBounds.max.x;
+                    if (!separated)
+                    {
+                        cleared = false;
+                        break;
+                    }
                 }
             }
             if (cleared) break;
@@ -679,6 +709,7 @@ public class PlayerControllerM : MonoBehaviour
         _isGroundedFixed = false;
         _coyoteTimeRemaining = 0f;
         _jumpBufferRemaining = 0f;
+        _dropThroughBufferRemaining = 0f;
         _dropThroughInputHeld = false;
         groundChecker?.ClearGroundState();
         groundChecker?.ClearLadderState();
@@ -741,41 +772,28 @@ public class PlayerControllerM : MonoBehaviour
             : delta / dt;
     }
 
-    void ResolveSideContacts()
-    {
-        if (rb == null || playerCollider == null) return;
-
-        string platformTag = settings != null ? settings.groundTag :
-            (groundChecker != null ? groundChecker.platformTag : "Platform");
-
-        int contacts = rb.GetContacts(_contactFilter, _contactBuffer);
-        if (contacts == 0) return;
-
-        for (int i = 0; i < contacts; i++)
-        {
-            var contact = _contactBuffer[i];
-            var other = contact.collider;
-            if (other == null || !other.CompareTag(platformTag)) continue;
-            var effector = other.GetComponent<PlatformEffector2D>() ?? other.GetComponentInParent<PlatformEffector2D>();
-            if (other.usedByEffector && effector != null && effector.useOneWay) continue;
-
-            Vector2 normal = contact.normal;
-            if (Mathf.Abs(normal.x) < 0.6f || normal.y > 0.3f) continue;
-
-            float lift = Mathf.Max(0.02f, -contact.separation + 0.01f);
-            rb.position += Vector2.up * lift;
-            if (rb.linearVelocity.y < 0f)
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
-            break;
-        }
-    }
-
     // Returns the correct timestep whether we're running in OnTick (networked) or FixedUpdate (offline).
     float TickOrFixedDelta()
     {
-        if (InstanceFinder.NetworkManager != null)
-            return (float)InstanceFinder.TimeManager.TickDelta;
+        if (_subscribedTimeManager != null)
+            return (float)_subscribedTimeManager.TickDelta;
         return Time.fixedDeltaTime;
+    }
+
+    void SubscribeToNetworkPhysicsClock()
+    {
+        if (_subscribedTimeManager != null) return;
+        TimeManager timeManager = InstanceFinder.TimeManager;
+        if (timeManager == null || timeManager.PhysicsMode != PhysicsMode.TimeManager) return;
+        _subscribedTimeManager = timeManager;
+        _subscribedTimeManager.OnTick += OnTick;
+    }
+
+    void UnsubscribeFromNetworkPhysicsClock()
+    {
+        if (_subscribedTimeManager == null) return;
+        _subscribedTimeManager.OnTick -= OnTick;
+        _subscribedTimeManager = null;
     }
 
 }

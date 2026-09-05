@@ -17,9 +17,9 @@ GameObject:
   - component: {fileID: 3865330841086821826}
   - component: {fileID: 5577449698591813495}
   - component: {fileID: 6039746049763875621}
-  - component: {fileID: 1065751000533457610}
-  - component: {fileID: 3498135747016034716}
-  - component: {fileID: 5196485153279132195}
+  - component: {fileID: 7204083722797739910}
+  - component: {fileID: 7084977432278727093}
+  - component: {fileID: 7437585936065309247}
   m_Layer: 3
   m_Name: DeliveryCloud_Base
   m_TagString: Platform
@@ -63,6 +63,7 @@ MonoBehaviour:
   ignoreNoSpawnZones: 0
   canBuildLadder: 1
   mainCollider: {fileID: 0}
+  isPersistent: 0
   despawnAnimator: {fileID: 4036905594190477535}
   despawnTrigger: Despawn
   networkPrefabIndex: 0
@@ -172,11 +173,11 @@ PlatformEffector2D:
     m_Bits: 4294967295
   m_RotationalOffset: 0
   m_UseOneWay: 1
-  m_UseOneWayGrouping: 1
+  m_UseOneWayGrouping: 0
   m_SurfaceArc: 178
   m_UseSideFriction: 0
   m_UseSideBounce: 0
-  m_SideArc: 1
+  m_SideArc: 0
 --- !u!114 &7292156111701471011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -310,8 +311,8 @@ MonoBehaviour:
   _addedNetworkObject: {fileID: 3865330841086821826}
   _networkObjectCache: {fileID: 3865330841086821826}
   _platformWasEnabledAtStart: 1
---- !u!61 &1065751000533457610
-BoxCollider2D:
+--- !u!68 &7204083722797739910
+EdgeCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -344,20 +345,17 @@ BoxCollider2D:
   m_UsedByEffector: 1
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0.23866028, y: -0.11512278}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 3.13, y: 1.69}
-    newSize: {x: 3.13, y: 1.69}
-    adaptiveTilingThreshold: 0.5
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
-  m_Size: {x: 2.3374476, y: 0.07925627}
+  m_Offset: {x: 0, y: 0}
   m_EdgeRadius: 0
---- !u!61 &3498135747016034716
-BoxCollider2D:
+  m_Points:
+  - {x: -0.93006355, y: -0.07549465}
+  - {x: 1.4073842, y: -0.07549465}
+  m_AdjacentStartPoint: {x: -3.2675111, y: -0.07549465}
+  m_AdjacentEndPoint: {x: 3.7448318, y: -0.07549465}
+  m_UseAdjacentStartPoint: 1
+  m_UseAdjacentEndPoint: 1
+--- !u!68 &7084977432278727093
+EdgeCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -390,20 +388,17 @@ BoxCollider2D:
   m_UsedByEffector: 1
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -0.39403975, y: -0.43752018}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 3.13, y: 1.69}
-    newSize: {x: 3.13, y: 1.69}
-    adaptiveTilingThreshold: 0.5
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
-  m_Size: {x: 1.9832084, y: 0.06492525}
+  m_Offset: {x: 0, y: 0}
   m_EdgeRadius: 0
---- !u!61 &5196485153279132195
-BoxCollider2D:
+  m_Points:
+  - {x: -1.385644, y: -0.40505755}
+  - {x: 0.59756446, y: -0.40505755}
+  m_AdjacentStartPoint: {x: -3.3688524, y: -0.40505755}
+  m_AdjacentEndPoint: {x: 2.5807729, y: -0.40505755}
+  m_UseAdjacentStartPoint: 1
+  m_UseAdjacentEndPoint: 1
+--- !u!68 &7437585936065309247
+EdgeCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -436,18 +431,15 @@ BoxCollider2D:
   m_UsedByEffector: 1
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0.3261019, y: 0.33425453}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 3.13, y: 1.69}
-    newSize: {x: 3.13, y: 1.69}
-    adaptiveTilingThreshold: 0.5
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
-  m_Size: {x: 1.3473094, y: 0.08666557}
+  m_Offset: {x: 0, y: 0}
   m_EdgeRadius: 0
+  m_Points:
+  - {x: -0.34755278, y: 0.37758732}
+  - {x: 0.9997566, y: 0.37758732}
+  m_AdjacentStartPoint: {x: -1.6948621, y: 0.37758732}
+  m_AdjacentEndPoint: {x: 2.347066, y: 0.37758732}
+  m_UseAdjacentStartPoint: 1
+  m_UseAdjacentEndPoint: 1
 --- !u!1 &5757320834834563353
 GameObject:
   m_ObjectHideFlags: 0

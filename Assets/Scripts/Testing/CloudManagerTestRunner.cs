@@ -17,8 +17,8 @@ using UnityEngine;
 ///   2. NetworkBootstrapper is present and references NetworkManager.
 ///   3. NetworkBootstrapper starts server in editor (InstanceFinder.IsServerStarted).
 ///   4. NetworkCloudManager exists and has CloudManager sibling.
-///   5. Every cloud prefab has a valid rendered scale interval, physical collider, FishNet
-///      component order, and unique server/client spawn-table round trip.
+///   5. Every cloud prefab has one open top-only EdgeCollider2D on its root, a valid rendered
+///      scale interval, FishNet component order, and unique server/client spawn-table round trip.
 ///   6. CloudManager enables after OnStartServer (checked via polling).
 ///   7. A FishNet player registers directly with the server CloudManager.
 ///   8. Player registration activates at least one lane.
@@ -206,11 +206,47 @@ public class CloudManagerTestRunner : MonoBehaviour
             }
 
             CloudPlatform platform = prefab.GetComponent<CloudPlatform>();
-            int physicalColliderCount = 0;
+            var physicalColliders = new List<Collider2D>();
             foreach (Collider2D collider in prefab.GetComponentsInChildren<Collider2D>(includeInactive: true))
-                if (collider != null && collider.enabled && !collider.isTrigger) physicalColliderCount++;
-            if (platform == null || physicalColliderCount == 0)
-                violations.Add($"{prefab.name}: expected CloudPlatform and at least one enabled non-trigger collider; found platform={platform != null}, colliders={physicalColliderCount}");
+                if (collider != null && collider.enabled && !collider.isTrigger)
+                    physicalColliders.Add(collider);
+
+            EdgeCollider2D edge = physicalColliders.Count == 1
+                ? physicalColliders[0] as EdgeCollider2D
+                : null;
+            PlatformEffector2D effector = prefab.GetComponent<PlatformEffector2D>();
+            int platformLayer = LayerMask.NameToLayer("Platform");
+            if (platform == null || edge == null || edge.gameObject != prefab)
+            {
+                string types = physicalColliders.Count == 0
+                    ? "none"
+                    : string.Join(", ", physicalColliders.ConvertAll(collider => collider.GetType().Name));
+                violations.Add($"{prefab.name}: expected exactly one root EdgeCollider2D support; found {physicalColliders.Count} ({types})");
+            }
+            else
+            {
+                Vector2[] points = edge.points;
+                bool openHorizontalLine = points.Length == 2 &&
+                    Mathf.Abs(points[0].y - points[1].y) <= 0.0001f &&
+                    Mathf.Abs(points[0].x - points[1].x) > 0.0001f;
+                Vector2 expectedAdjacentStart = openHorizontalLine ? points[0] + (points[0] - points[1]) : Vector2.zero;
+                Vector2 expectedAdjacentEnd = openHorizontalLine ? points[1] + (points[1] - points[0]) : Vector2.zero;
+                bool stableEndpointNormals = edge.useAdjacentStartPoint && edge.useAdjacentEndPoint &&
+                    (edge.adjacentStartPoint - expectedAdjacentStart).sqrMagnitude <= 0.00000001f &&
+                    (edge.adjacentEndPoint - expectedAdjacentEnd).sqrMagnitude <= 0.00000001f;
+                bool edgeIsTopOnly = edge.usedByEffector && stableEndpointNormals &&
+                    Mathf.Approximately(edge.edgeRadius, 0f);
+                bool effectorIsTopOnly = effector != null && effector.enabled && effector.useOneWay &&
+                    !effector.useOneWayGrouping && !effector.useSideFriction && !effector.useSideBounce &&
+                    Mathf.Abs(effector.surfaceArc - 178f) <= 0.01f && Mathf.Abs(effector.sideArc) <= 0.01f;
+                if (!openHorizontalLine || !edgeIsTopOnly || !effectorIsTopOnly)
+                    violations.Add($"{prefab.name}: EdgeCollider2D/PlatformEffector2D must be one open horizontal top surface with tangent virtual endpoint normals and no side arc, grouping, friction, or bounce");
+                if (platform.mainCollider != edge)
+                    violations.Add($"{prefab.name}: CloudPlatform.mainCollider must reference its sole EdgeCollider2D");
+            }
+
+            if (!prefab.CompareTag("Platform") || (platformLayer >= 0 && prefab.layer != platformLayer))
+                violations.Add($"{prefab.name}: root must use the Platform tag and layer");
 
             NetworkObject[] networkObjects = prefab.GetComponents<NetworkObject>();
             NetworkTransform[] networkTransforms = prefab.GetComponents<NetworkTransform>();
@@ -246,7 +282,7 @@ public class CloudManagerTestRunner : MonoBehaviour
         }
 
         if (violations.Count == 0)
-            Pass($"All {cloudManager.cloudPrefabs.Length} cloud prefabs have valid rendered scale ranges, physical colliders, FishNet behaviour order, and unique server/client spawn-table IDs.");
+            Pass($"All {cloudManager.cloudPrefabs.Length} cloud prefabs have one valid top-only edge, rendered scale ranges, FishNet behaviour order, and unique server/client spawn-table IDs.");
         else
             foreach (string violation in violations)
                 Fail("Cloud prefab configuration violation.", violation);

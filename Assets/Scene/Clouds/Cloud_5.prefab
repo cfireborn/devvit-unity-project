@@ -8,26 +8,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 1065751000533457610, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_Size.x
-      value: 2.91
-      objectReference: {fileID: 0}
-    - target: {fileID: 1065751000533457610, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_Offset.x
-      value: -0.02
-      objectReference: {fileID: 0}
-    - target: {fileID: 1065751000533457610, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_Offset.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1065751000533457610, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.x
-      value: 3.15
-      objectReference: {fileID: 0}
-    - target: {fileID: 1065751000533457610, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.y
-      value: 0.79
-      objectReference: {fileID: 0}
     - target: {fileID: 3457101476483602973, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: m_Sprite
       value: 
@@ -35,14 +15,6 @@ PrefabInstance:
     - target: {fileID: 3457101476483602973, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: m_Enabled
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3498135747016034716, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.x
-      value: 3.15
-      objectReference: {fileID: 0}
-    - target: {fileID: 3498135747016034716, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.y
-      value: 0.79
       objectReference: {fileID: 0}
     - target: {fileID: 3865330841086821826, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: WasActiveDuringEdit
@@ -100,14 +72,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Cloud_5
       objectReference: {fileID: 0}
-    - target: {fileID: 5196485153279132195, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.x
-      value: 3.15
-      objectReference: {fileID: 0}
-    - target: {fileID: 5196485153279132195, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
-      propertyPath: m_SpriteTilingProperty.oldSize.y
-      value: 0.79
-      objectReference: {fileID: 0}
     - target: {fileID: 5488670360206764498, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: m_Sprite
       value: 
@@ -119,6 +83,38 @@ PrefabInstance:
     - target: {fileID: 7752643059819267481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
       propertyPath: m_LocalPosition.y
       value: 0.04
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_AdjacentEndPoint.x
+      value: 4.345
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_AdjacentEndPoint.y
+      value: 0.03
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_AdjacentStartPoint.x
+      value: -4.3849998
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_AdjacentStartPoint.y
+      value: 0.03
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_Points.Array.data[0].x
+      value: -1.475
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_Points.Array.data[0].y
+      value: 0.03
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_Points.Array.data[1].x
+      value: 1.435
+      objectReference: {fileID: 0}
+    - target: {fileID: 8003287375234636481, guid: 212e2eb896f5cd94e9fb7e130a831938, type: 3}
+      propertyPath: m_Points.Array.data[1].y
+      value: 0.03
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

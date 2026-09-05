@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -214,9 +215,6 @@ public class CloudLadderController : MonoBehaviour
             var (lower, upper) = candidate.pair;
             if (_hasLadderAboveScratch.Contains(lower) || _hasLadderBelowScratch.Contains(upper))
                 continue;
-            if (!IsCurrentBinding(candidate.pair) && WouldNewLadderOverlapPlayer(lower, upper))
-                continue;
-
             _validPairsScratch.Add(candidate.pair);
             _hasLadderAboveScratch.Add(lower);
             _hasLadderBelowScratch.Add(upper);
@@ -572,8 +570,6 @@ public class CloudLadderController : MonoBehaviour
         if (a.IsDespawning || b.IsDespawning) return false;
         GetActiveCloudPlatforms();
         if (!TryGetLadderGeometry(a, b, out _, out _)) return false;
-        if (WouldNewLadderOverlapPlayer(pair.Item1, pair.Item2)) return false;
-
         bool lowerHasAbove = false, upperHasBelow = false;
         foreach (var kvp in _ladders)
         {
@@ -635,9 +631,20 @@ public class CloudLadderController : MonoBehaviour
 
     void ReturnLadderToPool(GameObject ladder)
     {
+        if (ladder == null) return;
         ladder.SetActive(false);
         ladder.transform.SetParent(_ladderParent);
-        _pool.Enqueue(ladder);
+        StartCoroutine(ReleaseLadderToPoolAfterPhysicsStep(ladder));
+    }
+
+    IEnumerator ReleaseLadderToPoolAfterPhysicsStep(GameObject ladder)
+    {
+        // Keep the trigger inactive across a physics step so every overlapping player's
+        // GroundChecker receives its exit before this object can reappear elsewhere.
+        yield return new WaitForFixedUpdate();
+        yield return null;
+        if (ladder != null && !ladder.activeSelf)
+            _pool.Enqueue(ladder);
     }
 
     void DespawnLadder(GameObject ladder)
@@ -810,29 +817,6 @@ public class CloudLadderController : MonoBehaviour
         }
         height = Mathf.Max(0.1f, yMax - yMin);
         y = (yMin + yMax) * 0.5f;
-    }
-
-    bool WouldNewLadderOverlapPlayer(CloudPlatform lower, CloudPlatform upper)
-    {
-        GetLadderPlacement(lower, upper, out float x, out float y, out float height);
-        _ladderOverlapScratch.Clear();
-        int overlapCount = Physics2D.OverlapBox(
-            new Vector2(x, y),
-            new Vector2(ladderWidth, height),
-            0f,
-            ContactFilter2D.noFilter,
-            _ladderOverlapScratch);
-        for (int i = 0; i < overlapCount; i++)
-        {
-            Collider2D overlap = _ladderOverlapScratch[i];
-            if (overlap == null) continue;
-            if (overlap.gameObject.CompareTag("Player")) return true;
-            if (overlap.attachedRigidbody != null && overlap.attachedRigidbody.gameObject.CompareTag("Player"))
-                return true;
-            if (overlap.GetComponentInParent<PlayerControllerM>() != null)
-                return true;
-        }
-        return false;
     }
 
     static bool TryGetColliderEdgeY(Collider2D collider, float worldX, bool top, out float edgeY)
